@@ -2,7 +2,8 @@
 
 - Task: 0.2 - Baseline Build & Test Audit
 - Source snapshot: `master` at `efc15e138cb0bc4f3420e8b2caedb29fdfb36299`
-- Status: **BLOCKED - tests not executed in this session**
+- Execution evidence: user-provided terminal output, 2026-11-19.
+- Status: **CONDITIONAL - test task invocations succeeded; actual test counts not established.**
 
 ## Test source inventory
 
@@ -10,33 +11,45 @@ The inspected recursive repository tree contains no tracked files under:
 - `app/src/test/`
 - `app/src/androidTest/`
 
-No test classes or test-result artifacts were found in this source snapshot. This does not prove that Gradle has no test tasks; it means no tracked test source was present at the inspected commit.
+No test classes or test-result artifacts were part of the source snapshot inspected from GitHub. The local build may contain generated or uncommitted test files not visible in that snapshot.
 
-## User-reported build statement
+## User-provided task output
 
-The user previously stated that `gradlew` ran successfully, but did not identify the exact command or provide output. That statement does not establish that any unit or instrumentation tests ran. No test count is inferred from it.
+The command mapping follows the order of the command sequence previously requested.
 
-## Execution results
+| Suite | Command | Exit code | Gradle result | Test total | Passed | Failed | Skipped |
+|---|---|---:|---|---:|---:|---:|---:|
+| Unit tests | `./gradlew testDebugUnitTest` | 0 | BUILD SUCCESSFUL; 24 tasks up-to-date | Unknown | Unknown | Unknown | Unknown |
+| Instrumentation tests | `./gradlew connectedDebugAndroidTest` | 0 | BUILD SUCCESSFUL; 70 tasks, 26 executed, 5 from cache, 39 up-to-date | Unknown | Unknown | Unknown | Unknown |
 
-| Suite | Command | This session | Exit code | Total | Passed | Failed |
-|---|---|---|---:|---:|---:|---:|
-| Unit tests | `./gradlew testDebugUnitTest` | NOT RUN | N/A | N/A | N/A | N/A |
-| Instrumentation tests | `./gradlew connectedDebugAndroidTest` | NOT RUN | N/A | N/A | N/A | N/A |
-| Lint | `./gradlew lintDebug` | NOT RUN | N/A | N/A | N/A | N/A |
+**Important:** Gradle task success is not equivalent to a non-zero number of tests passing. The supplied output does not include test-result summaries, XML reports, device connection details, or test case names. No test counts are inferred.
 
-No failure logs were produced because no test runner was executed. No test pass/fail count is fabricated.
+## Failure logs
 
-## Testing gaps visible from source
+No test failure log was present in the supplied output. This means no failure log was provided, not that a verified suite ran and had zero failures.
 
-- No tracked unit tests.
-- No tracked instrumentation tests.
+The separate `./gradlew tasks --all` invocation failed while Gradle attempted to create `:app:generateDebugComposePreviewRunfiles`. Its failure is documented in `baseline_build_report.md`; it is not a unit/instrumentation test failure.
+
+## Source-level testing gaps
+
+The inspected GitHub source snapshot contains:
+- No tracked unit test source.
+- No tracked instrumentation test source.
 - No ViewModel state-transition tests.
 - No repository/API error-handling tests.
 - No database tests because no local database exists.
 - No transaction, authentication, authorization, offline, currency or role-permission tests.
 
-## Required follow-up
+## Read-only follow-up to obtain counts
 
-Execute test tasks in the user's Android development environment. Capture command, exit code, Gradle task outcomes, test report XML/HTML and counts. If Gradle reports NO-SOURCE or zero tests, record that explicitly; it is not evidence of behavioral coverage.
+From the local repository root:
 
-**Task 0.2 remains BLOCKED until execution evidence is reviewed.**
+```bash
+find app/build/test-results -type f -name '*.xml' -print
+grep -R -h '<testsuite\|<testsuites' app/build/test-results 2>/dev/null
+find app/build/reports -maxdepth 4 -type f -name 'index.html' -print
+```
+
+Inspect the XML attributes for tests, failures, errors and skipped. Also confirm whether `connectedDebugAndroidTest` had a connected device and whether its test task was executed, skipped, or had no source.
+
+**Test conclusion:** Both requested Gradle test task invocations returned exit code 0 in the user-provided output, but actual test counts and pass/fail totals remain **UNVERIFIED**. Do not claim test coverage or zero failures until the test reports are inspected.
