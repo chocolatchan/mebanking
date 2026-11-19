@@ -1,42 +1,55 @@
 # Baseline Build Report
 
 - Task: 0.2 - Baseline Build & Test Audit
-- Repository ref inspected: `master`
-- Commit inspected: `efc15e138cb0bc4f3420e8b2caedb29fdfb36299`
-- Status: **BLOCKED - build not executed**
+- Source snapshot inspected: `master` at `efc15e138cb0bc4f3420e8b2caedb29fdfb36299`
+- Status: **BLOCKED / NOT VERIFIED**
 
 ## Execution environment
 
-The available GitHub repository interface supports reading repository metadata and UTF-8 source files. It does not provide a shell, Android SDK, Gradle runtime, emulator, or access to the user's local working directory `/home/chocolat/Documents/Project/m.ebanking`.
+The GitHub repository interface available in this session provides read access to repository files and metadata. It does not provide a shell, the Android SDK, a Gradle runtime, an emulator, or access to the user's local working directory:
 
-Therefore no Gradle command was executed. No exit code or build result is available. This report deliberately does not infer build success from the presence of Gradle files.
+`/home/chocolat/Documents/Project/m.ebanking`
 
-## Commands required for a real baseline
+Therefore this session did not execute Gradle. No exit code, compiler output, dependency-resolution result, APK artifact or build scan is available.
 
-Run from the repository root in the intended development environment:
+## User-reported information
 
-| Command | Purpose | Execution result |
-|---|---|---|
-| `./gradlew --version` | Confirm wrapper and JVM | NOT RUN |
-| `./gradlew tasks --all` | Enumerate available tasks | NOT RUN |
-| `./gradlew assembleDebug` | Baseline debug build | NOT RUN |
-| `./gradlew testDebugUnitTest` | Unit tests | NOT RUN |
-| `./gradlew connectedDebugAndroidTest` | Instrumentation tests, requires connected device/emulator | NOT RUN |
-| `./gradlew lintDebug` | Android lint, if task is available | NOT RUN |
+In the preceding conversation, the user stated that `gradlew` ran successfully. The exact command, working directory, exit code, terminal output and build variant were not provided. This is recorded as **user-reported, unverified evidence**, not as a command executed by this audit agent. It cannot establish whether the result was `assembleDebug`, `build`, tests, lint, or only wrapper startup.
 
-## Build result
+## Commands and evidence
 
-- Exit code: N/A (not executed).
-- Compilation errors: Unknown.
-- Warnings: Unknown.
-- Dependency resolution: Unknown.
-- APK artifact: Not verified.
-- Build status: **NOT VERIFIED**.
+| Command | Purpose | This session | Exit code / result |
+|---|---|---|---|
+| `./gradlew --version` | Wrapper/JVM version | NOT RUN | N/A |
+| `./gradlew tasks --all` | Enumerate available tasks | NOT RUN | N/A |
+| `./gradlew assembleDebug` | Build debug APK | NOT RUN | N/A |
+| `./gradlew build` | Full configured build lifecycle | NOT RUN | N/A |
+| `./gradlew testDebugUnitTest` | Local unit tests | NOT RUN | N/A |
+| `./gradlew connectedDebugAndroidTest` | Instrumentation tests | NOT RUN | N/A |
+| `./gradlew lintDebug` | Android lint | NOT RUN | N/A |
 
-## Known environment dependencies
+No compile output is available from this session. No compile error or warning count is claimed.
 
-The wrapper declares Gradle 9.6.0. The project declares AGP 9.5.1, compileSdk/targetSdk 37, minSdk 24, and Java compatibility 17. Whether the local JDK, Android SDK platforms/build tools, and plugin artifacts are installed and compatible has not been verified.
+## Static build configuration observations
 
-## Required follow-up
+- Gradle Wrapper distribution: 9.6.0.
+- Android Gradle Plugin: 9.5.1.
+- Kotlin Compose plugin: 2.4.21.
+- compileSdk/targetSdk: 37.
+- minSdk: 24.
+- Java compatibility: 17.
 
-Execute the commands above in the user's working copy without modifying source/configuration to repair failures. Capture full logs, exact exit codes, installed JDK/SDK versions, and artifact paths. Do not mark Task 0.2 PASS until execution evidence exists.
+These are declared values, not proof that the local JDK, Android SDK platform/build tools or dependency artifacts are installed and compatible.
+
+## Required evidence to close Task 0.2
+
+Run from the repository root in the actual working copy and preserve unmodified baseline behavior. Provide the exact commands and complete terminal output, including exit codes. At minimum, distinguish:
+- wrapper version/task discovery,
+- debug build result,
+- unit test task result and test counts,
+- instrumentation test availability/device requirement,
+- lint result if configured.
+
+If the user has already run a successful command, its exact command and output can be used as user-supplied evidence after review. Do not infer tests passed merely from a successful assemble task.
+
+**Task 0.2 remains BLOCKED.** No source or configuration was changed to make a build pass.
