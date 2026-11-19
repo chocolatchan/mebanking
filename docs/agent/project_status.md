@@ -7,9 +7,9 @@ This table tracks acceptance evidence, not the number of documents created.
 | Task | Status | Evidence | Blocker |
 |---|---|---|---|
 | 0.1 Repository Inventory | CONDITIONAL PASS | `phase_00/repository_inventory.md`, `project_structure.md`, `implementation_status.md`; C01-C07 catalogued | Local worktree status unavailable; exact assignment PDF not available in this session |
-| 0.2 Baseline Build & Test Audit | BLOCKED | `phase_00/baseline_build_report.md`, `baseline_test_report.md` | No local Gradle execution/logs in this session; prior user statement "gradlew ran successfully" lacks exact command and output |
-| 0.3 Dependency & Offline Audit | BLOCKED | `phase_00/offline_dependency_audit.md` static source audit | Formal dependency on Task 0.2 not met; runtime offline test and dependency report not run |
-| GATE 0 | BLOCKED | Phase 0 reports | Task 0.2 lacks verifiable build/test evidence; Task 0.1 remains conditional; Task 0.3 formal dependency is blocked |
+| 0.2 Baseline Build & Test Audit | CONDITIONAL PASS | User terminal output: Gradle 9.6.0; assembleDebug, testDebugUnitTest, connectedDebugAndroidTest and lintDebug exit successfully | `tasks --all` fails on Compose Preview runfiles task; test XML/HTML counts and device execution details not supplied |
+| 0.3 Dependency & Offline Audit | BLOCKED | `phase_00/offline_dependency_audit.md` static source audit | Formal dependency requires Task 0.2 fully accepted; runtime offline test and resolved dependency report not run |
+| GATE 0 | BLOCKED | Phase 0 reports | Task 0.1 remains conditional; Task 0.2 test counts remain unverified; Task 0.3 formal dependency/runtime checks incomplete |
 | 1.1 Requirement Extraction | BLOCKED | | Gate 0 |
 | 1.2 Requirement Traceability Matrix | BLOCKED | | Task 1.1 |
 | 1.3 Gap Analysis & Open Questions | BLOCKED | | Tasks 1.1-1.2 |
@@ -17,6 +17,16 @@ This table tracks acceptance evidence, not the number of documents created.
 | 3.1-3.10 Implementation | BLOCKED | | Gate 2 |
 | 4.1-4.5 QA & Verification | BLOCKED | | Gate 3 |
 | 5.1-5.3 Final Audit & Delivery | BLOCKED | | Gate 4 |
+
+## Latest Gradle baseline evidence (user-supplied, 2026-11-19)
+
+- `./gradlew --version`: Gradle 9.6.0, Linux x86_64, launcher/daemon Java 27.
+- `./gradlew tasks --all`: exit 1. Compose Preview task creation fails because Android resources are excluded from unit tests (`isIncludeAndroidResources = false`).
+- `./gradlew assembleDebug`: exit 0, BUILD SUCCESSFUL (38 tasks up-to-date).
+- `./gradlew testDebugUnitTest`: exit 0, BUILD SUCCESSFUL (24 tasks up-to-date); actual test count not supplied.
+- `./gradlew connectedDebugAndroidTest`: exit 0, BUILD SUCCESSFUL (70 tasks); actual device/test execution and test count not established.
+- `./gradlew lintDebug`: exit 0, BUILD SUCCESSFUL (29 tasks).
+- The successful build/test/lint lifecycle results are based on user-supplied output; this agent did not execute commands in the local working tree.
 
 ## Findings summary
 
@@ -39,7 +49,7 @@ The GitHub repository interface cannot inspect the developer's local uncommitted
 **BLOCKED. Do not start Phase 1.**
 
 To reconsider Gate 0:
-1. Provide exact local build/test commands and outputs, including exit codes and test counts.
-2. Verify `git status --porcelain app/` in the actual working directory.
+1. Provide local output for `git status --porcelain app/` from the actual working directory.
+2. Provide test XML/HTML summaries confirming test totals, passed, failed and skipped, and whether instrumentation tests actually ran on a device/emulator.
 3. Make the original `FinalProject_2026_2027.pdf` available for direct requirement cross-checking.
-4. Complete the Task 0.3 dependency/runtime checks when Task 0.2 prerequisites are satisfied.
+4. Complete Task 0.3 runtime offline checks and resolved dependency verification after prerequisites are accepted.
