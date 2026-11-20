@@ -5,18 +5,41 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.mebanking.app.ui.home.HomeScreen
+import com.mebanking.app.ui.navigation.BranchLocatorScreen
 
 /**
- * Root composable. Add app-level navigation (e.g. Navigation Compose) here as
- * the feature set grows.
+ * Root composable hosting top-level Compose navigation for the MEbanking application.
  */
 @Composable
 fun MEbankingApp() {
+    val navController = rememberNavController()
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        HomeScreen()
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+        ) {
+            composable("home") {
+                HomeScreen(
+                    onNavigateToBranchLocator = {
+                        navController.navigate("branch_locator")
+                    },
+                )
+            }
+            composable("branch_locator") {
+                BranchLocatorScreen(
+                    onBack = {
+                        navController.popBackStack()
+                    },
+                )
+            }
+        }
     }
 }

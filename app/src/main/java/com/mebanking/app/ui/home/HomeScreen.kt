@@ -28,27 +28,34 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.R
 import com.mebanking.app.data.model.Account
+import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.theme.MEbankingTheme
 import java.util.Locale
 
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel = viewModel(),
+    viewModel: HomeViewModel = viewModel(
+        factory = (LocalContext.current.applicationContext as? MEbankingApplication)?.container?.viewModelFactory,
+    ),
+    onNavigateToBranchLocator: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     HomeScreen(
         uiState = uiState,
         onRetry = viewModel::refresh,
+        onNavigateToBranchLocator = onNavigateToBranchLocator,
         modifier = modifier,
     )
 }
@@ -59,6 +66,7 @@ fun HomeScreen(
     uiState: HomeUiState,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onNavigateToBranchLocator: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -76,6 +84,7 @@ fun HomeScreen(
 
             else -> AccountsContent(
                 uiState = uiState,
+                onNavigateToBranchLocator = onNavigateToBranchLocator,
                 modifier = Modifier.padding(innerPadding),
             )
         }
@@ -125,6 +134,7 @@ private fun ErrorContent(
 @Composable
 private fun AccountsContent(
     uiState: HomeUiState,
+    onNavigateToBranchLocator: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -134,6 +144,45 @@ private fun AccountsContent(
     ) {
         item {
             BalanceCard(uiState = uiState)
+        }
+        item {
+            Card(
+                onClick = onNavigateToBranchLocator,
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "📍",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Chi nhánh & ATM",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "Tìm kiếm chi nhánh, ATM và chỉ đường đi bộ ngoại tuyến",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Text(
+                        text = "›",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Light,
+                    )
+                }
+            }
         }
         item {
             Text(
@@ -179,7 +228,7 @@ private fun BalanceCard(uiState: HomeUiState) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = formatAmount(uiState.totalBalance, uiState.currency),
+                text = CurrencyFormatter.formatVnd(uiState.totalBalance),
                 style = MaterialTheme.typography.headlineMedium,
             )
         }
@@ -208,7 +257,7 @@ private fun AccountRow(account: Account) {
             }
             Spacer(Modifier.width(12.dp))
             Text(
-                text = formatAmount(account.balance, account.currency),
+                text = CurrencyFormatter.formatVnd(account.balance),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -216,8 +265,12 @@ private fun AccountRow(account: Account) {
     }
 }
 
-private fun formatAmount(amount: Double, currency: String): String =
-    String.format(Locale.US, "%,.2f %s", amount, currency)
+private fun formatAmount(amount: Long, currency: String): String =
+    if (currency.equals("VND", ignoreCase = true)) {
+        CurrencyFormatter.formatVnd(amount)
+    } else {
+        String.format(Locale.US, "%,d %s", amount, currency)
+    }
 
 @Preview(showBackground = true)
 @Composable
@@ -231,15 +284,15 @@ private fun HomeScreenPreview() {
                         id = "1",
                         name = "Everyday account",
                         iban = "DE89 3704 0044 0532 0130 00",
-                        balance = 2450.75,
-                        currency = "EUR",
+                        balance = 2_450_000L,
+                        currency = "VND",
                     ),
                     Account(
                         id = "2",
                         name = "Savings",
                         iban = "DE89 3704 0044 0532 0130 01",
-                        balance = 12000.0,
-                        currency = "EUR",
+                        balance = 12_000_000L,
+                        currency = "VND",
                     ),
                 ),
             ),

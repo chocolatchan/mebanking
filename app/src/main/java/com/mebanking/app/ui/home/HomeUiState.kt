@@ -7,9 +7,9 @@ data class HomeUiState(
     val accounts: List<Account> = emptyList(),
     val errorMessage: String? = null,
 ) {
-    val totalBalance: Double
+    val totalBalance: Long
         get() = accounts.sumOf { it.balance }
 
     val currency: String
-        get() = accounts.firstOrNull()?.currency ?: "EUR"
+        get() = accounts.firstOrNull()?.currency ?: "VND"
 }
