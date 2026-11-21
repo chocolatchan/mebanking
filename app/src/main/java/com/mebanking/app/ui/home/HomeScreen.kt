@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,6 +50,12 @@ fun HomeScreen(
         factory = (LocalContext.current.applicationContext as? MEbankingApplication)?.container?.viewModelFactory,
     ),
     onNavigateToBranchLocator: () -> Unit = {},
+    onNavigateToTransfer: () -> Unit = {},
+    onNavigateToBills: () -> Unit = {},
+    onNavigateToChatbot: () -> Unit = {},
+    onNavigateToAccountDetail: (Long) -> Unit = {},
+    onLogout: () -> Unit = {},
+    isCustomer: Boolean = true,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -56,6 +63,12 @@ fun HomeScreen(
         uiState = uiState,
         onRetry = viewModel::refresh,
         onNavigateToBranchLocator = onNavigateToBranchLocator,
+        onNavigateToTransfer = onNavigateToTransfer,
+        onNavigateToBills = onNavigateToBills,
+        onNavigateToChatbot = onNavigateToChatbot,
+        onNavigateToAccountDetail = onNavigateToAccountDetail,
+        onLogout = onLogout,
+        isCustomer = isCustomer,
         modifier = modifier,
     )
 }
@@ -67,11 +80,24 @@ fun HomeScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     onNavigateToBranchLocator: () -> Unit = {},
+    onNavigateToTransfer: () -> Unit = {},
+    onNavigateToBills: () -> Unit = {},
+    onNavigateToChatbot: () -> Unit = {},
+    onNavigateToAccountDetail: (Long) -> Unit = {},
+    onLogout: () -> Unit = {},
+    isCustomer: Boolean = true,
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.home_title)) })
+            TopAppBar(
+                title = { Text(stringResource(R.string.home_title)) },
+                actions = {
+                    TextButton(onClick = onLogout) {
+                        Text("Đăng xuất")
+                    }
+                },
+            )
         },
     ) { innerPadding ->
         when {
@@ -85,6 +111,11 @@ fun HomeScreen(
             else -> AccountsContent(
                 uiState = uiState,
                 onNavigateToBranchLocator = onNavigateToBranchLocator,
+                onNavigateToTransfer = onNavigateToTransfer,
+                onNavigateToBills = onNavigateToBills,
+                onNavigateToChatbot = onNavigateToChatbot,
+                onNavigateToAccountDetail = onNavigateToAccountDetail,
+                isCustomer = isCustomer,
                 modifier = Modifier.padding(innerPadding),
             )
         }
@@ -135,6 +166,11 @@ private fun ErrorContent(
 private fun AccountsContent(
     uiState: HomeUiState,
     onNavigateToBranchLocator: () -> Unit,
+    onNavigateToTransfer: () -> Unit,
+    onNavigateToBills: () -> Unit,
+    onNavigateToChatbot: () -> Unit,
+    onNavigateToAccountDetail: (Long) -> Unit,
+    isCustomer: Boolean,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -146,43 +182,13 @@ private fun AccountsContent(
             BalanceCard(uiState = uiState)
         }
         item {
-            Card(
-                onClick = onNavigateToBranchLocator,
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                ),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "📍",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(end = 12.dp),
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Chi nhánh & ATM",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = "Tìm kiếm chi nhánh, ATM và chỉ đường đi bộ ngoại tuyến",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    Text(
-                        text = "›",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Light,
-                    )
-                }
-            }
+            QuickActions(
+                onNavigateToTransfer = onNavigateToTransfer,
+                onNavigateToBills = onNavigateToBills,
+                onNavigateToChatbot = onNavigateToChatbot,
+                onNavigateToBranchLocator = onNavigateToBranchLocator,
+                isCustomer = isCustomer,
+            )
         }
         item {
             Text(
@@ -201,8 +207,91 @@ private fun AccountsContent(
             }
         } else {
             items(uiState.accounts, key = { it.id }) { account ->
-                AccountRow(account = account)
+                AccountRow(
+                    account = account,
+                    onClick = {
+                        account.id.toLongOrNull()?.let(onNavigateToAccountDetail)
+                    },
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun QuickActions(
+    onNavigateToTransfer: () -> Unit,
+    onNavigateToBills: () -> Unit,
+    onNavigateToChatbot: () -> Unit,
+    onNavigateToBranchLocator: () -> Unit,
+    isCustomer: Boolean,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (isCustomer) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuickActionCard(
+                    emoji = "↗",
+                    title = "Chuyển tiền",
+                    subtitle = "Nội bộ MEbanking",
+                    onClick = onNavigateToTransfer,
+                    modifier = Modifier.weight(1f),
+                )
+                QuickActionCard(
+                    emoji = "🧾",
+                    title = "Hóa đơn",
+                    subtitle = "Điện, nước, internet",
+                    onClick = onNavigateToBills,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            QuickActionCard(
+                emoji = "💬",
+                title = "Trợ lý ảo",
+                subtitle = "Hỏi đáp ngoại tuyến",
+                onClick = onNavigateToChatbot,
+                modifier = Modifier.weight(1f),
+            )
+            QuickActionCard(
+                emoji = "📍",
+                title = "Chi nhánh & ATM",
+                subtitle = "Chỉ đường đi bộ",
+                onClick = onNavigateToBranchLocator,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickActionCard(
+    emoji: String,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text(text = emoji, style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }
@@ -236,8 +325,8 @@ private fun BalanceCard(uiState: HomeUiState) {
 }
 
 @Composable
-private fun AccountRow(account: Account) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun AccountRow(account: Account, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()

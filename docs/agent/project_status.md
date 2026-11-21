@@ -2,7 +2,7 @@
 
 **Project**: Android Mobile Banking Application (`m.ebanking`)  
 **Specification Reference**: `.agent/work.md`, `FinalProject_2026_2027.pdf`, `Sơ đồ thiết kế app ngân hàng.md`  
-**Last Updated**: 2026-11-19  
+**Last Updated**: 2026-11-21  
 
 ---
 
@@ -11,12 +11,11 @@
 | Phase | Description | Deliverables / Focus | Status |
 |---|---|---|---|
 | **Phase 0** | **Repository Reconnaissance** | Audit repository, tech stack, baseline build/tests, dependency classification, catalog C01–C07 | **COMPLETED (Gate 0 Passed)** |
-| **Phase 1** | **Domain Modeling & DB Schema** | Room 8-table relational schema, Entity design, Long VND currency models, simulator contracts | **PLANNED** |
-| **Phase 2** | **Persistence & Room Implementation** | Room Database, DAOs, TypeConverters, seed data population, DI container (`AppContainer`) | **PLANNED** |
-| **Phase 3** | **Auth, Navigation & Accounts** | Navigation Compose, Login screen, Customer/Officer RBAC, Home & Account screen Room SSOT | **PLANNED** |
-| **Phase 4** | **Transactions, Simulators & 2FA** | Internal/Interbank transfers, ExternalBankSimulator, 2FA OTP, Face Recognition, VNPay/Stripe | **PLANNED** |
-| **Phase 5** | **Utilities, Offline Map & Chatbot** | Utility bill payments, ticket bookings, offline branch map with walking routing, AI Chatbot | **PLANNED** |
-| **Phase 6** | **Hardening, Testing & Final Gate** | Automated unit/UI test coverage, lint fixes, release Proguard build, course demo verification | **PLANNED** |
+| **Phase 1** | **Domain Modeling & DB Schema** | Room 8-table relational schema, Entity design, Long VND currency models, simulator contracts | **COMPLETED (Gate 1 Passed)** |
+| **Phase 2** | **Persistence & Room Implementation** | Room Database, DAOs, TypeConverters, seed data, DI container, navigation road graph, offline map | **COMPLETED (Gate 2 Passed)** |
+| **Phase 3** | **Domain Services, Auth, Transactions, Simulators & Chatbot** | DI unification, Auth/RBAC, Face Recognition, Account Service, Transaction Core, Auth Policy, Simulators, Chatbot, Navigation integration, full UI wiring (Task 3.10) | **COMPLETED (Gate 3 Passed)** |
+| **Phase 4** | **Full UI Integration & Polish** | Remaining UX polish, accessibility, instrumented/Compose UI tests | **PLANNED** |
+| **Phase 5** | **Hardening & Final Gate** | Automated unit/UI test coverage, lint fixes, release APK build, course demo verification | **PLANNED** |
 
 ---
 
@@ -64,3 +63,34 @@ The following gaps were cataloged during Phase 0 and will be resolved across sub
 | **C05** | Error Presentation | Low-level technical exceptions exposed raw to UI without domain error mapping. | Phase 3 |
 | **C06** | Total Balance Aggregation | Direct nominal summation across mixed currencies and arbitrary fallback to `"EUR"`. | Phase 1 & 3 |
 | **C07** | Security & Privacy Exposure | Full HTTP body logging in debug Logcat; `android:allowBackup="true"` with incomplete exclusions. | Phase 3 & 4 |
+
+---
+
+## 4. Phase 3 Gate
+
+**Decision: PASSED (2026-11-21)**
+
+**Delivered in this gate:**
+- Task 3.10 full UI integration: login gate, `HomeScreen` quick actions, `TransferScreen`, `BillPaymentScreen`, `ChatbotScreen`, `AccountDetailScreen`, and all routes registered in `MEbankingApp`.
+- `HomeViewModel` and every new ViewModel are created through `ViewModelFactory` from `AppContainer`; no ad-hoc repository construction remains.
+- First-launch Room fixtures are seeded idempotently before login via `AppContainer.databaseReady`.
+- All UI states are driven by real ViewModel/service results (loading, empty, error, validation, success).
+
+**Verification evidence:**
+
+| Check | Result |
+|-------|--------|
+| `./gradlew testDebugUnitTest` | ✅ BUILD SUCCESSFUL |
+| `./gradlew assembleDebug` | ✅ BUILD SUCCESSFUL |
+| `./gradlew lintDebug` | ✅ BUILD SUCCESSFUL |
+| New tests | `ChatbotViewModelTest`, `AccountDetailViewModelTest` |
+| Offline-first | ✅ Room + local assets only; no runtime network dependency |
+| Money type | ✅ `Long` VND throughout UI and services |
+| Blocked business decisions | ✅ OQ-3.4-*, OQ-3.6-*, OQ-3.7-* surfaced as blocked/pending states; no invented formulas, fees, or fake authentication |
+
+**Still blocked pending approval (not implementation defects):**
+- Saving interest and mortgage amortization formulas (OQ-3.4-1..5).
+- High-value threshold, step-up authentication and 2FA equivalence (OQ-3.6-1..3).
+- Utility/ticket pricing, fees and refund policy (OQ-3.7-1..2).
+
+These remain visibly blocked in the UI and enforced in the domain services; no success is simulated.

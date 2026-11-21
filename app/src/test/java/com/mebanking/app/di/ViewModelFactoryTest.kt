@@ -2,8 +2,13 @@ package com.mebanking.app.di
 
 import androidx.lifecycle.ViewModel
 import androidx.test.core.app.ApplicationProvider
+import com.mebanking.app.ui.account.AccountDetailViewModel
+import com.mebanking.app.ui.auth.LoginViewModel
+import com.mebanking.app.ui.bills.BillPaymentViewModel
+import com.mebanking.app.ui.chatbot.ChatbotViewModel
 import com.mebanking.app.ui.home.HomeViewModel
 import com.mebanking.app.ui.navigation.BranchLocatorViewModel
+import com.mebanking.app.ui.transfer.TransferViewModel
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertThrows
@@ -38,6 +43,15 @@ class ViewModelFactoryTest {
     fun create_branchLocatorViewModel_succeeds() {
         val vm = factory.create(BranchLocatorViewModel::class.java)
         assertNotNull(vm)
+    }
+
+    @Test
+    fun create_allTask310ViewModels_succeeds() {
+        assertNotNull(factory.create(LoginViewModel::class.java))
+        assertNotNull(factory.create(TransferViewModel::class.java))
+        assertNotNull(factory.create(BillPaymentViewModel::class.java))
+        assertNotNull(factory.create(ChatbotViewModel::class.java))
+        assertNotNull(factory.create(AccountDetailViewModel::class.java))
     }
 
     @Test

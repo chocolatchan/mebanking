@@ -2,6 +2,7 @@ package com.mebanking.app.di
 
 import androidx.lifecycle.ViewModelProvider
 import com.mebanking.app.data.local.AppDatabase
+import kotlinx.coroutines.Deferred
 import com.mebanking.app.data.local.dao.AccountDao
 import com.mebanking.app.data.local.dao.BillDao
 import com.mebanking.app.data.local.dao.BranchDao
@@ -29,6 +30,8 @@ import com.mebanking.app.domain.service.TransactionService
 
 interface AppContainer {
     val database: AppDatabase
+    /** Completes once offline demo fixtures have been seeded idempotently. */
+    val databaseReady: Deferred<Unit>
     val accountDao: AccountDao
     val userDao: UserDao
     val transactionDao: TransactionDao

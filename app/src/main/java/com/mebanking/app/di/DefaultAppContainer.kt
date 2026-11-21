@@ -12,6 +12,7 @@ import com.mebanking.app.data.local.dao.OtpCodeDao
 import com.mebanking.app.data.local.dao.TransactionDao
 import com.mebanking.app.data.local.dao.UserDao
 import com.mebanking.app.data.local.security.PasswordHasher
+import com.mebanking.app.data.local.seed.DatabaseSeeder
 import com.mebanking.app.data.navigation.RoadGraphLoader
 import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.AuthRepository
@@ -42,13 +43,29 @@ import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.SimulatorService
 import com.mebanking.app.domain.service.TransactionAuthenticationPolicy
 import com.mebanking.app.domain.service.TransactionService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 
 class DefaultAppContainer(
     private val context: Context,
 ) : AppContainer {
 
+    private val initializationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override val database: AppDatabase by lazy {
         AppDatabase.buildDatabase(context)
+    }
+
+    /**
+     * Seeds the offline demo fixtures exactly like the E2E harness. The login
+     * screen awaits this before authenticating so a cold first launch cannot
+     * race the fixture insert on the IO dispatcher.
+     */
+    override val databaseReady: Deferred<Unit> = initializationScope.async {
+        DatabaseSeeder.seed(database)
     }
 
     override val accountDao: AccountDao by lazy { database.accountDao() }

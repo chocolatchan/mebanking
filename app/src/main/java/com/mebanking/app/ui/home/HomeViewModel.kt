@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.domain.model.toDomainError
+import com.mebanking.app.domain.service.SessionManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 
 class HomeViewModel(
     private val repository: AccountRepository,
+    private val sessionManager: SessionManager? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -30,7 +32,23 @@ class HomeViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
-                val accounts = repository.getAccounts()
+                val session = sessionManager?.currentSession
+                if (sessionManager != null && session == null) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            accounts = emptyList(),
+                            errorMessage = "Phiên đăng nhập đã hết hạn",
+                        )
+                    }
+                    return@launch
+                }
+                val accounts = if (session != null) {
+                    repository.getAccountsByUserIdSync(session.userId)
+                        .map { account -> account.toLegacyAccount() }
+                } else {
+                    repository.getAccounts()
+                }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
