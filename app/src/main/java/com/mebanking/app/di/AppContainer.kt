@@ -40,6 +40,7 @@ interface AppContainer {
     val branchDao: BranchDao
     val chatIntentDao: ChatIntentDao
     val otpCodeDao: OtpCodeDao
+    val flightDao: com.mebanking.app.data.local.dao.lifestyle.FlightDao
     val passwordHasher: PasswordHasher
 
     val accountRepository: AccountRepository
@@ -48,6 +49,7 @@ interface AppContainer {
     val simulatorRepository: SimulatorRepository
     val branchNavigationRepository: BranchNavigationRepository
     val chatbotRepository: ChatbotRepository
+    val flightRepository: com.mebanking.app.data.repository.lifestyle.FlightRepository
 
     val sessionManager: SessionManager
     val authService: AuthService

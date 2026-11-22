@@ -9,10 +9,12 @@ import com.mebanking.app.data.local.dao.BranchDao
 import com.mebanking.app.data.local.dao.ChatIntentDao
 import com.mebanking.app.data.local.dao.ExternalBankDao
 import com.mebanking.app.data.local.dao.OtpCodeDao
+import com.mebanking.app.data.local.dao.lifestyle.FlightDao
 import com.mebanking.app.data.local.dao.TransactionDao
 import com.mebanking.app.data.local.dao.UserDao
 import com.mebanking.app.data.local.security.PasswordHasher
 import com.mebanking.app.data.local.seed.DatabaseSeeder
+import com.mebanking.app.data.local.seed.LifestyleDatabaseSeeder
 import com.mebanking.app.data.navigation.RoadGraphLoader
 import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.AuthRepository
@@ -25,6 +27,8 @@ import com.mebanking.app.data.repository.DefaultSimulatorRepository
 import com.mebanking.app.data.repository.DefaultTransactionRepository
 import com.mebanking.app.data.repository.SimulatorRepository
 import com.mebanking.app.data.repository.TransactionRepository
+import com.mebanking.app.data.repository.lifestyle.DefaultFlightRepository
+import com.mebanking.app.data.repository.lifestyle.FlightRepository
 import com.mebanking.app.domain.service.AccountService
 import com.mebanking.app.domain.service.AuthService
 import com.mebanking.app.domain.service.ChatbotService
@@ -66,6 +70,7 @@ class DefaultAppContainer(
      */
     override val databaseReady: Deferred<Unit> = initializationScope.async {
         DatabaseSeeder.seed(database)
+        LifestyleDatabaseSeeder.seed(database)
     }
 
     override val accountDao: AccountDao by lazy { database.accountDao() }
@@ -76,6 +81,7 @@ class DefaultAppContainer(
     override val branchDao: BranchDao by lazy { database.branchDao() }
     override val chatIntentDao: ChatIntentDao by lazy { database.chatIntentDao() }
     override val otpCodeDao: OtpCodeDao by lazy { database.otpCodeDao() }
+    override val flightDao: FlightDao by lazy { database.flightDao() }
 
     override val passwordHasher: PasswordHasher = PasswordHasher
 
@@ -148,6 +154,10 @@ class DefaultAppContainer(
         DefaultChatbotRepository(
             chatIntentDao = chatIntentDao,
         )
+    }
+
+    override val flightRepository: FlightRepository by lazy {
+        DefaultFlightRepository(flightDao = flightDao)
     }
 
     override val authenticationPolicy: TransactionAuthenticationPolicy by lazy {

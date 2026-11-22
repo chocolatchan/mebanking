@@ -30,4 +30,13 @@ interface FlightDao {
 
     @Query("SELECT * FROM flight_bookings WHERE booking_reference = :ref")
     suspend fun getBookingByReference(ref: String): FlightBookingEntity?
+
+    @Query("SELECT * FROM flight_bookings WHERE id = :bookingId")
+    suspend fun getBookingById(bookingId: Long): FlightBookingEntity?
+
+    @Query("UPDATE flights SET available_seats = :newSeats WHERE id = :flightId")
+    suspend fun updateAvailableSeats(flightId: Long, newSeats: Int)
+
+    @Query("UPDATE flight_bookings SET status = :status WHERE id = :bookingId")
+    suspend fun updateBookingStatus(bookingId: Long, status: String)
 }

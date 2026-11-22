@@ -27,6 +27,17 @@ object LifestyleDatabaseSeeder {
         ),
         FlightEntity(
             id = 2L,
+            flightNumber = "VN124",
+            airline = "Vietnam Airlines",
+            departureAirport = "HAN",
+            arrivalAirport = "SGN",
+            departureTime = 1735005000000L,
+            arrivalTime = 1735012200000L,
+            priceVnd = 1_900_000L,
+            availableSeats = 35,
+        ),
+        FlightEntity(
+            id = 3L,
             flightNumber = "VJ456",
             airline = "Vietjet Air",
             departureAirport = "SGN",
@@ -35,17 +46,6 @@ object LifestyleDatabaseSeeder {
             arrivalTime = 1735014800000L,
             priceVnd = 980_000L,
             availableSeats = 28,
-        ),
-        FlightEntity(
-            id = 3L,
-            flightNumber = "QH789",
-            airline = "Bamboo Airways",
-            departureAirport = "HAN",
-            arrivalAirport = "PQC",
-            departureTime = 1735020000000L,
-            arrivalTime = 1735028000000L,
-            priceVnd = 2_150_000L,
-            availableSeats = 15,
         ),
     )
 
