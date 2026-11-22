@@ -14,6 +14,10 @@ import com.mebanking.app.data.local.dao.ExternalBankDao
 import com.mebanking.app.data.local.dao.OtpCodeDao
 import com.mebanking.app.data.local.dao.TransactionDao
 import com.mebanking.app.data.local.dao.UserDao
+import com.mebanking.app.data.local.dao.lifestyle.CinemaDao
+import com.mebanking.app.data.local.dao.lifestyle.FlightDao
+import com.mebanking.app.data.local.dao.lifestyle.HotelDao
+import com.mebanking.app.data.local.dao.lifestyle.ShopDao
 import com.mebanking.app.data.local.entity.AccountEntity
 import com.mebanking.app.data.local.entity.BillEntity
 import com.mebanking.app.data.local.entity.BranchEntity
@@ -22,6 +26,15 @@ import com.mebanking.app.data.local.entity.ExternalBankEntity
 import com.mebanking.app.data.local.entity.OtpCodeEntity
 import com.mebanking.app.data.local.entity.TransactionEntity
 import com.mebanking.app.data.local.entity.UserEntity
+import com.mebanking.app.data.local.entity.lifestyle.CinemaBookingEntity
+import com.mebanking.app.data.local.entity.lifestyle.CinemaShowtimeEntity
+import com.mebanking.app.data.local.entity.lifestyle.FlightBookingEntity
+import com.mebanking.app.data.local.entity.lifestyle.FlightEntity
+import com.mebanking.app.data.local.entity.lifestyle.HotelBookingEntity
+import com.mebanking.app.data.local.entity.lifestyle.HotelEntity
+import com.mebanking.app.data.local.entity.lifestyle.MovieEntity
+import com.mebanking.app.data.local.entity.lifestyle.OrderEntity
+import com.mebanking.app.data.local.entity.lifestyle.ProductEntity
 
 @Database(
     entities = [
@@ -33,8 +46,18 @@ import com.mebanking.app.data.local.entity.UserEntity
         ExternalBankEntity::class,
         BranchEntity::class,
         ChatIntentEntity::class,
+        // Lifestyle Simulators (Roadmap B)
+        FlightEntity::class,
+        FlightBookingEntity::class,
+        HotelEntity::class,
+        HotelBookingEntity::class,
+        MovieEntity::class,
+        CinemaShowtimeEntity::class,
+        CinemaBookingEntity::class,
+        ProductEntity::class,
+        OrderEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -48,6 +71,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun externalBankDao(): ExternalBankDao
     abstract fun branchDao(): BranchDao
     abstract fun chatIntentDao(): ChatIntentDao
+
+    // Lifestyle DAOs (Roadmap B)
+    abstract fun flightDao(): FlightDao
+    abstract fun hotelDao(): HotelDao
+    abstract fun cinemaDao(): CinemaDao
+    abstract fun shopDao(): ShopDao
 
     companion object {
         const val DATABASE_NAME = "mebanking.db"
