@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.mebanking.app.data.local.dao.AccountDao
 import com.mebanking.app.data.local.dao.BillDao
@@ -34,7 +35,7 @@ import com.mebanking.app.data.local.entity.UserEntity
         BranchEntity::class,
         ChatIntentEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -51,6 +52,13 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "mebanking.db"
+
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE transactions ADD COLUMN idempotency_key TEXT DEFAULT NULL")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_transactions_idempotency_key ON transactions(idempotency_key)")
+            }
+        }
 
         val DATABASE_CALLBACK = object : Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
@@ -112,6 +120,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 databaseName,
             )
+                .addMigrations(MIGRATION_1_2)
                 .addCallback(DATABASE_CALLBACK)
                 .build()
         }

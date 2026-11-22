@@ -20,6 +20,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getById(id: Long): TransactionEntity?
 
+    @Query("SELECT * FROM transactions WHERE idempotency_key = :key LIMIT 1")
+    suspend fun getByIdempotencyKey(key: String): TransactionEntity?
+
     @Query("SELECT * FROM transactions WHERE from_account_id = :accountId OR to_account_id = :accountId ORDER BY timestamp DESC")
     fun getTransactionsForAccount(accountId: Long): Flow<List<TransactionEntity>>
 

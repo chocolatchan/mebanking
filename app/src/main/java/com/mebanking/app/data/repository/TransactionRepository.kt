@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.Flow
  */
 interface TransactionRepository {
     suspend fun executeTransfer(request: TransferRequest): Result<TransactionResult>
-    suspend fun executeDeposit(accountId: Long, amount: Long, note: String? = null): Result<TransactionResult>
-    suspend fun executeWithdrawal(accountId: Long, amount: Long, note: String? = null): Result<TransactionResult>
+    suspend fun executeDeposit(accountId: Long, amount: Long, note: String? = null, idempotencyKey: String? = null): Result<TransactionResult>
+    suspend fun executeWithdrawal(accountId: Long, amount: Long, note: String? = null, idempotencyKey: String? = null): Result<TransactionResult>
     fun getTransactionsForAccount(accountId: Long): Flow<List<TransactionEntity>>
     suspend fun getTransactionsForAccountSync(accountId: Long): List<TransactionEntity>
     suspend fun count(): Int

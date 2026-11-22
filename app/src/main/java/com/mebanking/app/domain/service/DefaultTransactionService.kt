@@ -15,7 +15,6 @@ import com.mebanking.app.domain.model.UserSession
 import com.mebanking.app.domain.util.SafeMoneyMath
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Production implementation of [TransactionService].
@@ -35,7 +34,6 @@ class DefaultTransactionService(
     private val sessionManager: SessionManager? = null,
 ) : TransactionService {
 
-    private val idempotencyCache = ConcurrentHashMap<String, TransactionResult>()
     private val initialBalances = ConcurrentHashMap<Long, Long>()
     private val transferMutex = Mutex()
 
@@ -79,10 +77,6 @@ class DefaultTransactionService(
             return Result.failure(DomainError.AccountInactive("Tài khoản đích đang bị khóa"))
         }
 
-        if (fromAccount.balance < request.amount) {
-            return Result.failure(DomainError.InsufficientFunds("Số dư không đủ để thực hiện giao dịch"))
-        }
-
         // Auth Policy evaluation
         val decision = authenticationPolicy.evaluate(request, session)
         when (decision) {
@@ -95,18 +89,6 @@ class DefaultTransactionService(
         }
 
         transferMutex.withLock {
-            // Idempotency check
-            val cached = idempotencyCache[request.idempotencyKey]
-            if (cached != null) {
-                if (cached.amount != request.amount ||
-                    cached.fromAccountId != request.fromAccountId ||
-                    cached.toAccountId != request.toAccountId
-                ) {
-                    return Result.failure(DomainError.InvalidData("Trùng lặp idempotency key với thông tin giao dịch xung đột"))
-                }
-                return Result.success(cached)
-            }
-
             // Track initial balances for ledger reconciliation
             initialBalances.putIfAbsent(fromAccount.id, fromAccount.balance)
             initialBalances.putIfAbsent(toAccount.id, toAccount.balance)
@@ -125,7 +107,6 @@ class DefaultTransactionService(
             }
 
             val txResult = repoResult.getOrThrow()
-            idempotencyCache[request.idempotencyKey] = txResult
             return Result.success(txResult)
         }
     }
@@ -163,29 +144,13 @@ class DefaultTransactionService(
 
         initialBalances.putIfAbsent(account.id, account.balance)
 
-        // Overflow check before critical section
-        try {
-            SafeMoneyMath.safeAdd(account.balance, amount)
-        } catch (e: ArithmeticException) {
-            return Result.failure(DomainError.ArithmeticOverflow("Số tiền vượt quá giới hạn tối đa", e))
-        }
-
         transferMutex.withLock {
-            val cached = idempotencyCache[idempotencyKey]
-            if (cached != null) {
-                if (cached.amount != amount || cached.toAccountId != accountId) {
-                    return Result.failure(DomainError.InvalidData("Trùng lặp idempotency key với thông tin giao dịch xung đột"))
-                }
-                return Result.success(cached)
-            }
-
-            val repoResult = transactionRepository.executeDeposit(accountId, amount, "Nạp tiền vào tài khoản")
+            val repoResult = transactionRepository.executeDeposit(accountId, amount, "Nạp tiền vào tài khoản", idempotencyKey)
             if (repoResult.isFailure) {
                 return repoResult
             }
 
             val txResult = repoResult.getOrThrow()
-            idempotencyCache[idempotencyKey] = txResult
             return Result.success(txResult)
         }
     }
@@ -221,28 +186,15 @@ class DefaultTransactionService(
             return Result.failure(DomainError.AccountInactive("Tài khoản đang bị khóa"))
         }
 
-        if (account.balance < amount) {
-            return Result.failure(DomainError.InsufficientFunds("Số dư không đủ để rút tiền"))
-        }
-
         initialBalances.putIfAbsent(account.id, account.balance)
 
         transferMutex.withLock {
-            val cached = idempotencyCache[idempotencyKey]
-            if (cached != null) {
-                if (cached.amount != amount || cached.fromAccountId != accountId) {
-                    return Result.failure(DomainError.InvalidData("Trùng lặp idempotency key với thông tin giao dịch xung đột"))
-                }
-                return Result.success(cached)
-            }
-
-            val repoResult = transactionRepository.executeWithdrawal(accountId, amount, "Rút tiền mặt tại ATM/Quầy")
+            val repoResult = transactionRepository.executeWithdrawal(accountId, amount, "Rút tiền mặt tại ATM/Quầy", idempotencyKey)
             if (repoResult.isFailure) {
                 return repoResult
             }
 
             val txResult = repoResult.getOrThrow()
-            idempotencyCache[idempotencyKey] = txResult
             return Result.success(txResult)
         }
     }

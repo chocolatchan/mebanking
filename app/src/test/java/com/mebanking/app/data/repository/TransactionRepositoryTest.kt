@@ -93,6 +93,19 @@ class TransactionRepositoryTest {
     }
 
     @Test
+    fun executeTransfer_repeatedKeyReturnsPersistedTransactionWithoutSecondDebit() = runTest {
+        val request = TransferRequest(1L, 2L, 50_000_000L, "REPO-DURABLE-01")
+        val first = repository.executeTransfer(request).getOrThrow()
+        val recreatedRepository = DefaultTransactionRepository(transactionDao, accountDao, db)
+        val retry = recreatedRepository.executeTransfer(request).getOrThrow()
+
+        assertEquals(first.transactionId, retry.transactionId)
+        assertEquals(1, repository.count())
+        assertEquals(0L, accountDao.getById(1L)?.balance)
+        assertEquals(150_000_000L, accountDao.getById(2L)?.balance)
+    }
+
+    @Test
     fun executeTransfer_insufficientFunds_failsWithoutModifyingDatabase() = runTest {
         val request = TransferRequest(
             fromAccountId = 1L,

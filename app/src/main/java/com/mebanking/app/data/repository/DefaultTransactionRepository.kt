@@ -45,6 +45,14 @@ class DefaultTransactionRepository(
 
         try {
             val result = database.withTransaction {
+                findMatchingIdempotentResult(
+                    key = request.idempotencyKey,
+                    type = TransactionType.INTERNAL_TRANSFER,
+                    amount = request.amount,
+                    fromAccountId = request.fromAccountId,
+                    toAccountId = request.toAccountId,
+                )?.let { return@withTransaction it }
+
                 val fromAccount = accountDao.getById(request.fromAccountId)
                     ?: throw DomainError.NotFound("Không tìm thấy tài khoản nguồn")
                 val toAccount = accountDao.getById(request.toAccountId)
@@ -85,6 +93,7 @@ class DefaultTransactionRepository(
                     status = TransactionStatus.SUCCESS,
                     note = request.note ?: "Chuyển tiền nội bộ",
                     timestamp = System.currentTimeMillis(),
+                    idempotencyKey = request.idempotencyKey,
                 )
                 val txId = transactionDao.insert(entity)
 
@@ -108,13 +117,17 @@ class DefaultTransactionRepository(
         }
     }
 
-    override suspend fun executeDeposit(accountId: Long, amount: Long, note: String?): Result<TransactionResult> = withContext(ioDispatcher) {
+    override suspend fun executeDeposit(accountId: Long, amount: Long, note: String?, idempotencyKey: String?): Result<TransactionResult> = withContext(ioDispatcher) {
         if (amount <= 0L) {
             return@withContext Result.failure(DomainError.InvalidData("Số tiền nạp phải lớn hơn 0"))
         }
 
         try {
             val result = database.withTransaction {
+                idempotencyKey?.let {
+                    findMatchingIdempotentResult(it, TransactionType.DEPOSIT, amount, null, accountId)
+                }?.let { return@withTransaction it }
+
                 val account = accountDao.getById(accountId)
                     ?: throw DomainError.NotFound("Không tìm thấy tài khoản")
 
@@ -141,6 +154,7 @@ class DefaultTransactionRepository(
                     status = TransactionStatus.SUCCESS,
                     note = note ?: "Nạp tiền vào tài khoản",
                     timestamp = System.currentTimeMillis(),
+                    idempotencyKey = idempotencyKey,
                 )
                 val txId = transactionDao.insert(entity)
 
@@ -164,13 +178,17 @@ class DefaultTransactionRepository(
         }
     }
 
-    override suspend fun executeWithdrawal(accountId: Long, amount: Long, note: String?): Result<TransactionResult> = withContext(ioDispatcher) {
+    override suspend fun executeWithdrawal(accountId: Long, amount: Long, note: String?, idempotencyKey: String?): Result<TransactionResult> = withContext(ioDispatcher) {
         if (amount <= 0L) {
             return@withContext Result.failure(DomainError.InvalidData("Số tiền rút phải lớn hơn 0"))
         }
 
         try {
             val result = database.withTransaction {
+                idempotencyKey?.let {
+                    findMatchingIdempotentResult(it, TransactionType.WITHDRAWAL, amount, accountId, null)
+                }?.let { return@withTransaction it }
+
                 val account = accountDao.getById(accountId)
                     ?: throw DomainError.NotFound("Không tìm thấy tài khoản")
 
@@ -195,6 +213,7 @@ class DefaultTransactionRepository(
                     status = TransactionStatus.SUCCESS,
                     note = note ?: "Rút tiền mặt",
                     timestamp = System.currentTimeMillis(),
+                    idempotencyKey = idempotencyKey,
                 )
                 val txId = transactionDao.insert(entity)
 
@@ -240,5 +259,29 @@ class DefaultTransactionRepository(
 
     override suspend fun insertTransaction(transaction: TransactionEntity): Long = withContext(ioDispatcher) {
         transactionDao.insert(transaction)
+    }
+
+    private suspend fun findMatchingIdempotentResult(
+        key: String,
+        type: TransactionType,
+        amount: Long,
+        fromAccountId: Long?,
+        toAccountId: Long?,
+    ): TransactionResult? {
+        val existing = transactionDao.getByIdempotencyKey(key) ?: return null
+        if (existing.type != type || existing.amount != amount ||
+            existing.fromAccountId != fromAccountId || existing.toAccountId != toAccountId
+        ) {
+            throw DomainError.InvalidData("Idempotency key đã được dùng cho giao dịch khác")
+        }
+        return TransactionResult(
+            transactionId = existing.id,
+            fromAccountId = existing.fromAccountId,
+            toAccountId = existing.toAccountId,
+            amount = existing.amount,
+            status = existing.status,
+            timestamp = existing.timestamp,
+            note = existing.note,
+        )
     }
 }

@@ -41,6 +41,7 @@ import com.mebanking.app.domain.model.TransactionType
         Index(value = ["to_account_id"]),
         Index(value = ["external_bank_id"]),
         Index(value = ["timestamp"]),
+        Index(value = ["idempotency_key"], unique = true),
     ],
 )
 data class TransactionEntity(
@@ -74,6 +75,9 @@ data class TransactionEntity(
 
     @ColumnInfo(name = "timestamp")
     val timestamp: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(name = "idempotency_key")
+    val idempotencyKey: String? = null,
 ) {
     init {
         require(amount > 0) { "Transaction amount must be strictly positive: $amount" }
@@ -91,6 +95,7 @@ data class TransactionEntity(
             status = status,
             note = note,
             timestamp = timestamp,
+            idempotencyKey = idempotencyKey,
         )
     }
 
@@ -107,6 +112,7 @@ data class TransactionEntity(
                 status = tx.status,
                 note = tx.note,
                 timestamp = tx.timestamp,
+                idempotencyKey = tx.idempotencyKey,
             )
         }
     }

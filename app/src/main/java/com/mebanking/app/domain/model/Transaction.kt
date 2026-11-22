@@ -11,6 +11,7 @@ data class Transaction(
     val status: TransactionStatus,
     val note: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
+    val idempotencyKey: String? = null,
 ) {
     init {
         require(amount > 0) { "Transaction amount must be strictly positive: $amount" }
