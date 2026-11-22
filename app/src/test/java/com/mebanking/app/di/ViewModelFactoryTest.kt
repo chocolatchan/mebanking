@@ -53,6 +53,7 @@ class ViewModelFactoryTest {
         assertNotNull(factory.create(ChatbotViewModel::class.java))
         assertNotNull(factory.create(AccountDetailViewModel::class.java))
         assertNotNull(factory.create(com.mebanking.app.ui.lifestyle.FlightBookingViewModel::class.java))
+        assertNotNull(factory.create(com.mebanking.app.ui.lifestyle.HotelBookingViewModel::class.java))
     }
 
     @Test

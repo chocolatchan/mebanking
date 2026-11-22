@@ -30,4 +30,13 @@ interface HotelDao {
 
     @Query("SELECT * FROM hotel_bookings WHERE booking_reference = :ref")
     suspend fun getBookingByReference(ref: String): HotelBookingEntity?
+
+    @Query("SELECT * FROM hotel_bookings WHERE id = :bookingId")
+    suspend fun getBookingById(bookingId: Long): HotelBookingEntity?
+
+    @Query("UPDATE hotels SET available_rooms = :newRooms WHERE id = :hotelId")
+    suspend fun updateAvailableRooms(hotelId: Long, newRooms: Int)
+
+    @Query("UPDATE hotel_bookings SET status = :status WHERE id = :bookingId")
+    suspend fun updateBookingStatus(bookingId: Long, status: String)
 }
