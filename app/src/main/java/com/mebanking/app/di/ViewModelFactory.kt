@@ -10,6 +10,7 @@ import com.mebanking.app.ui.home.HomeViewModel
 import com.mebanking.app.ui.lifestyle.CinemaBookingViewModel
 import com.mebanking.app.ui.lifestyle.FlightBookingViewModel
 import com.mebanking.app.ui.lifestyle.HotelBookingViewModel
+import com.mebanking.app.ui.lifestyle.ShopViewModel
 import com.mebanking.app.ui.navigation.BranchLocatorViewModel
 import com.mebanking.app.ui.transfer.TransferViewModel
 
@@ -77,6 +78,12 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(CinemaBookingViewModel::class.java) -> {
                 CinemaBookingViewModel(
                     cinemaRepository = container.cinemaRepository,
+                    sessionManager = container.sessionManager,
+                ) as T
+            }
+            modelClass.isAssignableFrom(ShopViewModel::class.java) -> {
+                ShopViewModel(
+                    shopRepository = container.shopRepository,
                     sessionManager = container.sessionManager,
                 ) as T
             }

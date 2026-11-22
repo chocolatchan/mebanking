@@ -12,6 +12,7 @@ import com.mebanking.app.data.local.dao.OtpCodeDao
 import com.mebanking.app.data.local.dao.lifestyle.CinemaDao
 import com.mebanking.app.data.local.dao.lifestyle.FlightDao
 import com.mebanking.app.data.local.dao.lifestyle.HotelDao
+import com.mebanking.app.data.local.dao.lifestyle.ShopDao
 import com.mebanking.app.data.local.dao.TransactionDao
 import com.mebanking.app.data.local.dao.UserDao
 import com.mebanking.app.data.local.security.PasswordHasher
@@ -33,8 +34,10 @@ import com.mebanking.app.data.repository.lifestyle.CinemaRepository
 import com.mebanking.app.data.repository.lifestyle.DefaultCinemaRepository
 import com.mebanking.app.data.repository.lifestyle.DefaultFlightRepository
 import com.mebanking.app.data.repository.lifestyle.DefaultHotelRepository
+import com.mebanking.app.data.repository.lifestyle.DefaultShopRepository
 import com.mebanking.app.data.repository.lifestyle.FlightRepository
 import com.mebanking.app.data.repository.lifestyle.HotelRepository
+import com.mebanking.app.data.repository.lifestyle.ShopRepository
 import com.mebanking.app.domain.service.AccountService
 import com.mebanking.app.domain.service.AuthService
 import com.mebanking.app.domain.service.ChatbotService
@@ -90,6 +93,7 @@ class DefaultAppContainer(
     override val flightDao: FlightDao by lazy { database.flightDao() }
     override val hotelDao: HotelDao by lazy { database.hotelDao() }
     override val cinemaDao: CinemaDao by lazy { database.cinemaDao() }
+    override val shopDao: ShopDao by lazy { database.shopDao() }
 
     override val passwordHasher: PasswordHasher = PasswordHasher
 
@@ -174,6 +178,10 @@ class DefaultAppContainer(
 
     override val cinemaRepository: CinemaRepository by lazy {
         DefaultCinemaRepository(cinemaDao = cinemaDao)
+    }
+
+    override val shopRepository: ShopRepository by lazy {
+        DefaultShopRepository(shopDao = shopDao)
     }
 
     override val authenticationPolicy: TransactionAuthenticationPolicy by lazy {

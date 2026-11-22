@@ -25,6 +25,15 @@ interface ShopDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertOrder(order: OrderEntity): Long
 
+    @Query("SELECT * FROM orders WHERE id = :orderId")
+    suspend fun getOrderById(orderId: Long): OrderEntity?
+
+    @Query("UPDATE products SET stock_quantity = :newStock WHERE id = :productId")
+    suspend fun updateStock(productId: Long, newStock: Int)
+
+    @Query("UPDATE orders SET status = :status WHERE id = :orderId")
+    suspend fun updateOrderStatus(orderId: Long, status: String)
+
     @Query("SELECT * FROM orders WHERE user_id = :userId ORDER BY created_at DESC")
     fun getOrdersForUser(userId: Long): Flow<List<OrderEntity>>
 }
