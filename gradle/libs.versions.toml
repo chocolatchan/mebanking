@@ -11,6 +11,7 @@ ksp = "2.3.14"
 junit = "4.13.2"
 androidxTestExt = "1.2.1"
 androidxTestCore = "1.6.1"
+biometric = "1.1.0"
 robolectric = "4.14.1"
 coroutinesTest = "1.9.0"
 turbine = "1.2.0"
@@ -38,6 +39,7 @@ androidx-room-testing = { group = "androidx.room", name = "room-testing", versio
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExt" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
+androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }

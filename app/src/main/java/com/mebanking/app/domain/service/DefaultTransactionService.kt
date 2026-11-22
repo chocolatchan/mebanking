@@ -15,6 +15,7 @@ import com.mebanking.app.domain.model.UserSession
 import com.mebanking.app.domain.util.SafeMoneyMath
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Production implementation of [TransactionService].

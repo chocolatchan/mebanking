@@ -16,10 +16,15 @@ import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.SessionState
 import com.mebanking.app.ui.account.AccountDetailScreen
 import com.mebanking.app.ui.auth.LoginScreen
+import com.mebanking.app.ui.cash.DepositScreen
+import com.mebanking.app.ui.cash.WithdrawScreen
 import com.mebanking.app.ui.bills.BillPaymentScreen
 import com.mebanking.app.ui.chatbot.ChatbotScreen
 import com.mebanking.app.ui.home.HomeScreen
+import com.mebanking.app.ui.history.TransactionHistoryScreen
+import com.mebanking.app.ui.history.TransactionDetailScreen
 import com.mebanking.app.ui.navigation.BranchLocatorScreen
+import com.mebanking.app.ui.officer.OfficerDashboardScreen
 import com.mebanking.app.ui.transfer.TransferScreen
 
 /**
@@ -70,6 +75,10 @@ private fun AuthenticatedApp(
                         navController.navigate("transfer") { launchSingleTop = true }
                     }
                 },
+                onNavigateToDeposit = { if (isCustomer) navController.navigate("deposit") { launchSingleTop = true } },
+                onNavigateToWithdraw = { if (isCustomer) navController.navigate("withdraw") { launchSingleTop = true } },
+                onNavigateToHistory = { if (isCustomer) navController.navigate("transaction_history") { launchSingleTop = true } },
+                onNavigateToOfficerDashboard = { if (!isCustomer) navController.navigate("officer_dashboard") { launchSingleTop = true } },
                 onNavigateToBills = {
                     if (isCustomer) {
                         navController.navigate("bills") { launchSingleTop = true }
@@ -90,6 +99,21 @@ private fun AuthenticatedApp(
         }
         composable("transfer") {
             TransferScreen(onBack = { navController.popBackStack() })
+        }
+        composable("deposit") { DepositScreen(onBack = { navController.popBackStack() }) }
+        composable("withdraw") { WithdrawScreen(onBack = { navController.popBackStack() }) }
+        composable("transaction_history") {
+            TransactionHistoryScreen(
+                onBack = { navController.popBackStack() },
+                onOpenTransaction = { id -> navController.navigate("transaction_detail/$id") { launchSingleTop = true } },
+            )
+        }
+        composable("transaction_detail/{transactionId}") { entry ->
+            val transactionId = entry.arguments?.getString("transactionId")?.toLongOrNull() ?: -1L
+            TransactionDetailScreen(transactionId = transactionId, onBack = { navController.popBackStack() })
+        }
+        composable("officer_dashboard") {
+            OfficerDashboardScreen(onBack = { navController.popBackStack() })
         }
         composable("bills") {
             BillPaymentScreen(onBack = { navController.popBackStack() })

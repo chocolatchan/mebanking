@@ -12,6 +12,7 @@ import com.mebanking.app.data.local.dao.OtpCodeDao
 import com.mebanking.app.data.local.dao.TransactionDao
 import com.mebanking.app.data.local.dao.UserDao
 import com.mebanking.app.data.local.security.PasswordHasher
+import com.mebanking.app.data.local.security.AndroidKeystoreNationalIdProtector
 import com.mebanking.app.data.local.seed.DatabaseSeeder
 import com.mebanking.app.data.navigation.RoadGraphLoader
 import com.mebanking.app.data.repository.AccountRepository
@@ -39,6 +40,7 @@ import com.mebanking.app.domain.service.DefaultTransactionAuthenticationPolicy
 import com.mebanking.app.domain.service.DefaultTransactionService
 import com.mebanking.app.domain.service.FaceRecognitionService
 import com.mebanking.app.domain.service.OfficerCustomerService
+import com.mebanking.app.domain.service.OtpService
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.SimulatorService
 import com.mebanking.app.domain.service.TransactionAuthenticationPolicy
@@ -112,6 +114,7 @@ class DefaultAppContainer(
             accountDao = accountDao,
             sessionManager = sessionManager,
             passwordHasher = passwordHasher,
+            nationalIdProtector = AndroidKeystoreNationalIdProtector(),
         )
     }
 
@@ -155,6 +158,8 @@ class DefaultAppContainer(
             faceRecognitionService = faceRecognitionService,
         )
     }
+
+    override val otpService: OtpService by lazy { OtpService() }
 
     override val transactionService: TransactionService by lazy {
         DefaultTransactionService(

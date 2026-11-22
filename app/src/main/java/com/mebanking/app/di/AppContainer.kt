@@ -23,6 +23,7 @@ import com.mebanking.app.domain.service.AuthService
 import com.mebanking.app.domain.service.ChatbotService
 import com.mebanking.app.domain.service.FaceRecognitionService
 import com.mebanking.app.domain.service.OfficerCustomerService
+import com.mebanking.app.domain.service.OtpService
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.SimulatorService
 import com.mebanking.app.domain.service.TransactionAuthenticationPolicy
@@ -58,6 +59,7 @@ interface AppContainer {
     val simulatorService: SimulatorService
     val chatbotService: ChatbotService
     val authenticationPolicy: TransactionAuthenticationPolicy
+    val otpService: OtpService
 
     val viewModelFactory: ViewModelProvider.Factory
 }

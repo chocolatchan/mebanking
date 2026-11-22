@@ -17,6 +17,7 @@ import com.mebanking.app.domain.model.User
     tableName = "users",
     indices = [
         Index(value = ["username"], unique = true),
+        Index(value = ["national_id_hash"], unique = true),
     ],
 )
 data class UserEntity(
@@ -47,6 +48,12 @@ data class UserEntity(
 
     @ColumnInfo(name = "face_image_path")
     val faceImagePath: String? = null,
+
+    @ColumnInfo(name = "national_id_cipher")
+    val nationalIdCipher: String? = null,
+
+    @ColumnInfo(name = "national_id_hash")
+    val nationalIdHash: String? = null,
 
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),

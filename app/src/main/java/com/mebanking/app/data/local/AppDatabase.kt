@@ -35,7 +35,7 @@ import com.mebanking.app.data.local.entity.UserEntity
         BranchEntity::class,
         ChatIntentEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -57,6 +57,14 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE transactions ADD COLUMN idempotency_key TEXT DEFAULT NULL")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_transactions_idempotency_key ON transactions(idempotency_key)")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE users ADD COLUMN national_id_cipher TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE users ADD COLUMN national_id_hash TEXT DEFAULT NULL")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_users_national_id_hash ON users(national_id_hash)")
             }
         }
 
@@ -120,7 +128,7 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 databaseName,
             )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .addCallback(DATABASE_CALLBACK)
                 .build()
         }

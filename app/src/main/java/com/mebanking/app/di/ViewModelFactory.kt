@@ -6,8 +6,13 @@ import com.mebanking.app.ui.account.AccountDetailViewModel
 import com.mebanking.app.ui.auth.LoginViewModel
 import com.mebanking.app.ui.bills.BillPaymentViewModel
 import com.mebanking.app.ui.chatbot.ChatbotViewModel
+import com.mebanking.app.ui.cash.DepositViewModel
+import com.mebanking.app.ui.cash.WithdrawViewModel
 import com.mebanking.app.ui.home.HomeViewModel
+import com.mebanking.app.ui.history.TransactionDetailViewModel
+import com.mebanking.app.ui.history.TransactionHistoryViewModel
 import com.mebanking.app.ui.navigation.BranchLocatorViewModel
+import com.mebanking.app.ui.officer.OfficerDashboardViewModel
 import com.mebanking.app.ui.transfer.TransferViewModel
 
 class ViewModelFactory(
@@ -39,7 +44,23 @@ class ViewModelFactory(
                     transactionService = container.transactionService,
                     accountRepository = container.accountRepository,
                     sessionManager = container.sessionManager,
+                    otpService = container.otpService,
                 ) as T
+            }
+            modelClass.isAssignableFrom(DepositViewModel::class.java) -> {
+                DepositViewModel(container.transactionService, container.accountRepository, container.sessionManager) as T
+            }
+            modelClass.isAssignableFrom(WithdrawViewModel::class.java) -> {
+                WithdrawViewModel(container.transactionService, container.accountRepository, container.sessionManager) as T
+            }
+            modelClass.isAssignableFrom(TransactionHistoryViewModel::class.java) -> {
+                TransactionHistoryViewModel(container.transactionRepository, container.sessionManager) as T
+            }
+            modelClass.isAssignableFrom(TransactionDetailViewModel::class.java) -> {
+                TransactionDetailViewModel(container.transactionRepository, container.sessionManager) as T
+            }
+            modelClass.isAssignableFrom(OfficerDashboardViewModel::class.java) -> {
+                OfficerDashboardViewModel(container.officerCustomerService, container.sessionManager) as T
             }
             modelClass.isAssignableFrom(BillPaymentViewModel::class.java) -> {
                 BillPaymentViewModel(

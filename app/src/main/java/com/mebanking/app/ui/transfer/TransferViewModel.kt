@@ -8,6 +8,7 @@ import com.mebanking.app.domain.model.TransferRequest
 import com.mebanking.app.domain.model.UserSession
 import com.mebanking.app.domain.model.toDomainError
 import com.mebanking.app.domain.service.SessionManager
+import com.mebanking.app.domain.service.OtpService
 import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,11 @@ data class TransferUiState(
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null,
+    val showOtpDialog: Boolean = false,
+    val otpChallengeId: String? = null,
+    val otpCode: String = "",
+    val otpInput: String = "",
+    val otpExpiresAt: Long = 0L,
 ) {
     val selectedFromAccount: Account?
         get() = accounts.firstOrNull { it.id == selectedFromAccountId }
@@ -53,12 +59,66 @@ class TransferViewModel(
     private val transactionService: TransactionService,
     private val accountRepository: AccountRepository,
     private val sessionManager: SessionManager,
+    private val otpService: OtpService = OtpService(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TransferUiState())
     val uiState: StateFlow<TransferUiState> = _uiState.asStateFlow()
 
     private var idempotencyKey: String? = null
+    private var authorizationGranted = false
+
+    fun beginOtpChallenge() {
+        val state = _uiState.value
+        val session = sessionManager.currentSession
+        val amount = state.parsedAmount
+        when {
+            session == null -> _uiState.update { it.copy(errorMessage = "Phiên đăng nhập đã hết hạn") }
+            amount == null || amount <= 0 -> _uiState.update { it.copy(errorMessage = "Số tiền chuyển phải lớn hơn 0") }
+            amount > 10_000_000L -> _uiState.update { it.copy(errorMessage = "Giao dịch trên 10.000.000 VND cần xác thực khuôn mặt; luồng xác thực khuôn mặt chưa sẵn sàng") }
+            else -> {
+                val challenge = otpService.createChallenge(session.userId)
+                _uiState.update {
+                    it.copy(showOtpDialog = true, otpChallengeId = challenge.id, otpCode = challenge.code,
+                        otpInput = "", otpExpiresAt = challenge.expiresAtMillis, errorMessage = null)
+                }
+            }
+        }
+    }
+
+    fun refreshOtpChallenge() {
+        val state = _uiState.value
+        val session = sessionManager.currentSession ?: return
+        val id = state.otpChallengeId ?: return
+        val challenge = otpService.getCurrentChallenge(id, session.userId)
+        _uiState.update { it.copy(otpCode = challenge?.code.orEmpty(), otpExpiresAt = challenge?.expiresAtMillis ?: 0L) }
+        if (challenge == null) _uiState.update { it.copy(showOtpDialog = false, errorMessage = "Mã OTP đã hết hạn. Hãy xác thực lại") }
+    }
+
+    fun onOtpInputChanged(value: String) { _uiState.update { it.copy(otpInput = value.filter(Char::isDigit).take(6)) } }
+
+    fun cancelOtpChallenge() {
+        _uiState.value.otpChallengeId?.let(otpService::cancel)
+        _uiState.update { it.copy(showOtpDialog = false, otpChallengeId = null, otpCode = "", otpInput = "") }
+    }
+
+    fun verifyOtpAndSubmit() {
+        val state = _uiState.value
+        val session = sessionManager.currentSession
+        val challengeId = state.otpChallengeId
+        if (session == null || challengeId == null || !otpService.verify(challengeId, session.userId, state.otpInput)) {
+            refreshOtpChallenge()
+            if (_uiState.value.showOtpDialog) _uiState.update { it.copy(errorMessage = "Mã OTP không đúng hoặc đã hết hạn") }
+            return
+        }
+        otpService.cancel(challengeId)
+        _uiState.update { it.copy(showOtpDialog = false, otpChallengeId = null, otpCode = "", otpInput = "") }
+        authorizationGranted = true
+        submit()
+        authorizationGranted = false
+    }
+
+    fun setAuthenticationError(message: String) { _uiState.update { it.copy(errorMessage = message) } }
 
     init {
         loadAccounts()
@@ -140,6 +200,10 @@ class TransferViewModel(
             _uiState.update { it.copy(errorMessage = "Vui lòng nhập số tài khoản đích") }
             return
         }
+        if (!authorizationGranted) {
+            _uiState.update { it.copy(errorMessage = "Cần xác thực thiết bị và OTP trước khi chuyển tiền") }
+            return
+        }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null, successMessage = null) }
@@ -215,5 +279,8 @@ class TransferViewModel(
 
     private fun resetIdempotency() {
         idempotencyKey = null
+        authorizationGranted = false
+        _uiState.value.otpChallengeId?.let(otpService::cancel)
+        _uiState.update { it.copy(showOtpDialog = false, otpChallengeId = null, otpCode = "", otpInput = "") }
     }
 }

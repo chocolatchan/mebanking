@@ -9,5 +9,6 @@ data class User(
     val role: Role,
     val kycVerified: Boolean = false,
     val faceImagePath: String? = null,
+    val nationalId: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
 )

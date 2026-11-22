@@ -13,6 +13,8 @@ interface TransactionRepository {
     suspend fun executeDeposit(accountId: Long, amount: Long, note: String? = null, idempotencyKey: String? = null): Result<TransactionResult>
     suspend fun executeWithdrawal(accountId: Long, amount: Long, note: String? = null, idempotencyKey: String? = null): Result<TransactionResult>
     fun getTransactionsForAccount(accountId: Long): Flow<List<TransactionEntity>>
+    fun getTransactionsForUser(userId: Long): Flow<List<TransactionEntity>>
+    suspend fun getTransactionByIdForUser(id: Long, userId: Long): TransactionEntity?
     suspend fun getTransactionsForAccountSync(accountId: Long): List<TransactionEntity>
     suspend fun count(): Int
     suspend fun getTransactionById(id: Long): TransactionEntity?

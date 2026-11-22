@@ -26,6 +26,12 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE from_account_id = :accountId OR to_account_id = :accountId ORDER BY timestamp DESC")
     fun getTransactionsForAccount(accountId: Long): Flow<List<TransactionEntity>>
 
+    @Query("SELECT DISTINCT t.* FROM transactions t LEFT JOIN accounts fa ON t.from_account_id = fa.id LEFT JOIN accounts ta ON t.to_account_id = ta.id WHERE fa.user_id = :userId OR ta.user_id = :userId ORDER BY t.timestamp DESC")
+    fun getTransactionsForUser(userId: Long): Flow<List<TransactionEntity>>
+
+    @Query("SELECT DISTINCT t.* FROM transactions t LEFT JOIN accounts fa ON t.from_account_id = fa.id LEFT JOIN accounts ta ON t.to_account_id = ta.id WHERE t.id = :transactionId AND (fa.user_id = :userId OR ta.user_id = :userId) LIMIT 1")
+    suspend fun getByIdForUser(transactionId: Long, userId: Long): TransactionEntity?
+
     @Query("SELECT * FROM transactions ORDER BY timestamp DESC")
     fun getAll(): Flow<List<TransactionEntity>>
 

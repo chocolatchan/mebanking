@@ -24,6 +24,12 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE username = :username LIMIT 1")
     suspend fun getByUsername(username: String): UserEntity?
 
+    @Query("SELECT * FROM users WHERE national_id_hash = :nationalIdHash LIMIT 1")
+    suspend fun getByNationalIdHash(nationalIdHash: String): UserEntity?
+
+    @Query("SELECT * FROM users WHERE role = 'CUSTOMER' AND (:query = '' OR full_name LIKE '%' || :query || '%') OR (role = 'CUSTOMER' AND :nationalIdHash IS NOT NULL AND national_id_hash = :nationalIdHash) ORDER BY full_name COLLATE NOCASE LIMIT 100")
+    suspend fun searchCustomers(query: String, nationalIdHash: String?): List<UserEntity>
+
     @Query("SELECT * FROM users ORDER BY id ASC")
     fun getAll(): Flow<List<UserEntity>>
 

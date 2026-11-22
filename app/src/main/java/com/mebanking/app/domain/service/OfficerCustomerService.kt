@@ -5,12 +5,15 @@ import com.mebanking.app.data.local.dao.UserDao
 import com.mebanking.app.data.local.entity.AccountEntity
 import com.mebanking.app.data.local.entity.UserEntity
 import com.mebanking.app.data.local.security.PasswordHasher
+import com.mebanking.app.data.local.security.NationalIdProtector
 import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.model.DomainError
 import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.SessionState
 
 interface OfficerCustomerService {
+    suspend fun searchCustomers(query: String): Result<List<com.mebanking.app.domain.model.User>>
+
     suspend fun createCustomer(
         username: String,
         rawPassword: String,
@@ -18,6 +21,7 @@ interface OfficerCustomerService {
         email: String,
         phone: String,
         kycVerified: Boolean = false,
+        nationalId: String? = null,
     ): Result<Long>
 
     suspend fun updateCustomerProfile(
@@ -26,6 +30,7 @@ interface OfficerCustomerService {
         email: String,
         phone: String,
         kycVerified: Boolean? = null,
+        nationalId: String? = null,
     ): Result<Unit>
 }
 
@@ -34,11 +39,24 @@ class DefaultOfficerCustomerService(
     private val accountDao: AccountDao,
     private val sessionManager: SessionManager,
     private val passwordHasher: PasswordHasher = PasswordHasher,
+    private val nationalIdProtector: NationalIdProtector? = null,
 ) : OfficerCustomerService {
 
     private val usernameRegex = Regex("^[a-zA-Z0-9_]{4,32}$")
     private val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-zA-Z]{2,}$")
     private val phoneRegex = Regex("^0[0-9]{9}$")
+    private val nationalIdRegex = Regex("^[0-9]{12}$")
+
+    override suspend fun searchCustomers(query: String): Result<List<com.mebanking.app.domain.model.User>> {
+        val session = sessionManager.currentSession
+            ?: return Result.failure(DomainError.Unauthorized("Authentication required"))
+        if (session.role != Role.OFFICER) return Result.failure(DomainError.Forbidden("Only bank officers can search customers"))
+        val normalized = query.trim().take(100)
+        val lookupHash = if (nationalIdRegex.matches(normalized)) nationalIdProtector?.lookupHash(normalized) else null
+        return Result.success(userDao.searchCustomers(normalized, lookupHash).map { entity ->
+            entity.toDomainModel().copy(nationalId = entity.nationalIdCipher?.let { nationalIdProtector?.decrypt(it) })
+        })
+    }
 
     override suspend fun createCustomer(
         username: String,
@@ -47,6 +65,7 @@ class DefaultOfficerCustomerService(
         email: String,
         phone: String,
         kycVerified: Boolean,
+        nationalId: String?,
     ): Result<Long> {
         val session = sessionManager.currentSession
             ?: return Result.failure(
@@ -64,6 +83,7 @@ class DefaultOfficerCustomerService(
         val trimmedName = fullName.trim()
         val trimmedEmail = email.trim()
         val trimmedPhone = phone.trim()
+        val trimmedNationalId = nationalId?.trim()?.takeIf { it.isNotEmpty() }
 
         if (!usernameRegex.matches(trimmedUsername)) {
             return Result.failure(DomainError.InvalidData("Username must be 4-32 alphanumeric characters or underscores"))
@@ -80,9 +100,19 @@ class DefaultOfficerCustomerService(
         if (!phoneRegex.matches(trimmedPhone)) {
             return Result.failure(DomainError.InvalidData("Phone number must be a valid 10-digit number starting with 0"))
         }
+        if (trimmedNationalId != null && !nationalIdRegex.matches(trimmedNationalId)) {
+            return Result.failure(DomainError.InvalidData("CCCD phải gồm đúng 12 chữ số"))
+        }
 
         if (userDao.getByUsername(trimmedUsername) != null) {
             return Result.failure(DomainError.InvalidData("Username '$trimmedUsername' is already taken"))
+        }
+        val protectedId = trimmedNationalId?.let { nationalIdProtector?.protect(it) }
+        if (trimmedNationalId != null && protectedId == null) {
+            return Result.failure(DomainError.InvalidData("Không thể bảo vệ CCCD trên thiết bị; hồ sơ chưa được lưu"))
+        }
+        if (protectedId != null && userDao.getByNationalIdHash(protectedId.lookupHash) != null) {
+            return Result.failure(DomainError.InvalidData("CCCD đã được đăng ký"))
         }
 
         val versionedHash = passwordHasher.hashPasswordV1(rawPassword)
@@ -95,6 +125,8 @@ class DefaultOfficerCustomerService(
             phone = trimmedPhone,
             role = Role.CUSTOMER,
             kycVerified = kycVerified,
+            nationalIdCipher = protectedId?.cipherText,
+            nationalIdHash = protectedId?.lookupHash,
             createdAt = System.currentTimeMillis(),
         )
         val newUserId = userDao.insert(userEntity)
@@ -121,6 +153,7 @@ class DefaultOfficerCustomerService(
         email: String,
         phone: String,
         kycVerified: Boolean?,
+        nationalId: String?,
     ): Result<Unit> {
         val session = sessionManager.currentSession
             ?: return Result.failure(
@@ -144,6 +177,7 @@ class DefaultOfficerCustomerService(
         val trimmedName = fullName.trim()
         val trimmedEmail = email.trim()
         val trimmedPhone = phone.trim()
+        val trimmedNationalId = nationalId?.trim()?.takeIf { it.isNotEmpty() }
 
         if (trimmedName.length < 2) {
             return Result.failure(DomainError.InvalidData("Full name must be at least 2 characters"))
@@ -154,12 +188,24 @@ class DefaultOfficerCustomerService(
         if (!phoneRegex.matches(trimmedPhone)) {
             return Result.failure(DomainError.InvalidData("Phone number must be a valid 10-digit number starting with 0"))
         }
+        if (trimmedNationalId != null && !nationalIdRegex.matches(trimmedNationalId)) {
+            return Result.failure(DomainError.InvalidData("CCCD phải gồm đúng 12 chữ số"))
+        }
+        val protectedId = trimmedNationalId?.let { nationalIdProtector?.protect(it) }
+        if (trimmedNationalId != null && protectedId == null) {
+            return Result.failure(DomainError.InvalidData("Không thể bảo vệ CCCD trên thiết bị; hồ sơ chưa được lưu"))
+        }
+        if (protectedId != null && userDao.getByNationalIdHash(protectedId.lookupHash)?.id?.let { it != targetUserId } == true) {
+            return Result.failure(DomainError.InvalidData("CCCD đã được đăng ký"))
+        }
 
         val updated = existing.copy(
             fullName = trimmedName,
             email = trimmedEmail,
             phone = trimmedPhone,
             kycVerified = kycVerified ?: existing.kycVerified,
+            nationalIdCipher = protectedId?.cipherText ?: existing.nationalIdCipher,
+            nationalIdHash = protectedId?.lookupHash ?: existing.nationalIdHash,
         )
         userDao.update(updated)
         return Result.success(Unit)

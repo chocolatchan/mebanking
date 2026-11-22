@@ -186,7 +186,7 @@ class Phase4ViewModelIntegrationTest {
 
         viewModel.onToAccountNumberChanged("200123456789")
         viewModel.onAmountChanged("1.000.000")
-        viewModel.submit()
+        authorizeTransfer(viewModel)
         awaitCondition("transfer completed") {
             viewModel.uiState.value.successMessage != null || viewModel.uiState.value.errorMessage != null
         }
@@ -206,7 +206,7 @@ class Phase4ViewModelIntegrationTest {
 
         viewModel.onToAccountNumberChanged("000000000000")
         viewModel.onAmountChanged("1000000")
-        viewModel.submit()
+        authorizeTransfer(viewModel)
         awaitCondition("transfer error") { viewModel.uiState.value.errorMessage != null }
 
         assertTrue(viewModel.uiState.value.errorMessage!!.contains("Không tìm thấy tài khoản đích"))
@@ -220,6 +220,13 @@ class Phase4ViewModelIntegrationTest {
         awaitCondition("session error") { viewModel.uiState.value.errorMessage != null }
 
         assertEquals("Phiên đăng nhập đã hết hạn", viewModel.uiState.value.errorMessage)
+    }
+
+    private fun authorizeTransfer(viewModel: TransferViewModel) {
+        viewModel.beginOtpChallenge()
+        val code = viewModel.uiState.value.otpCode
+        viewModel.onOtpInputChanged(code)
+        viewModel.verifyOtpAndSubmit()
     }
 
     // ------------------------------------------------------------------

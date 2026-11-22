@@ -4,6 +4,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.mebanking.app.data.local.AppDatabase
 import com.mebanking.app.data.local.entity.UserEntity
 import com.mebanking.app.data.local.security.PasswordHasher
+import com.mebanking.app.data.local.security.NationalIdProtector
+import com.mebanking.app.data.local.security.ProtectedNationalId
 import com.mebanking.app.domain.model.DomainError
 import com.mebanking.app.domain.model.Role
 import kotlinx.coroutines.test.runTest
@@ -21,6 +23,12 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class OfficerCustomerServiceTest {
 
+    private class TestNationalIdProtector : NationalIdProtector {
+        override fun protect(value: String) = ProtectedNationalId(value.reversed(), value.hashCode().toString())
+        override fun lookupHash(value: String) = value.hashCode().toString()
+        override fun decrypt(cipherText: String) = cipherText.reversed()
+    }
+
     private lateinit var db: AppDatabase
     private lateinit var sessionManager: SessionManager
     private lateinit var officerService: OfficerCustomerService
@@ -35,7 +43,7 @@ class OfficerCustomerServiceTest {
             UserEntity(2L, "cust1", PasswordHasher.hashPasswordV1("CustPass@123"), "Customer One", "cust@bank.vn", "0901000000", Role.CUSTOMER)
         )
         sessionManager = DefaultSessionManager(db.userDao(), PasswordHasher)
-        officerService = DefaultOfficerCustomerService(db.userDao(), db.accountDao(), sessionManager)
+        officerService = DefaultOfficerCustomerService(db.userDao(), db.accountDao(), sessionManager, nationalIdProtector = TestNationalIdProtector())
     }
 
     @After
@@ -117,6 +125,24 @@ class OfficerCustomerServiceTest {
         assertEquals("updated@bank.vn", updatedUser?.email)
         assertEquals("0909111222", updatedUser?.phone)
         assertTrue(updatedUser?.kycVerified == true)
+    }
+
+    @Test
+    fun officerCanCreateAndSearchCustomerByNationalId() = runTest {
+        sessionManager.login("officer1", "OfficerPass@123")
+        val createdId = officerService.createCustomer(
+            username = "cccd_customer",
+            rawPassword = "SecurePassword@123",
+            fullName = "Lê Thị Minh",
+            email = "minh@example.com",
+            phone = "0901234567",
+            nationalId = "012345678901",
+        ).getOrThrow()
+
+        val matches = officerService.searchCustomers("012345678901").getOrThrow()
+        assertEquals(listOf(createdId), matches.map { it.id })
+        assertEquals("012345678901", matches.single().nationalId)
+        assertEquals(1, db.accountDao().getAccountsByUserIdSync(createdId).size)
     }
 
     @Test

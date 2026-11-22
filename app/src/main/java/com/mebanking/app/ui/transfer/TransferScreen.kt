@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,9 +26,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.fragment.app.FragmentActivity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -41,6 +46,12 @@ import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.common.label
 import com.mebanking.app.ui.theme.MEbankingTheme
+import com.mebanking.app.ui.auth.DeviceAuthenticationResult
+import com.mebanking.app.ui.auth.DeviceAuthenticator
+import android.content.Context
+import android.content.ContextWrapper
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun TransferScreen(
@@ -51,6 +62,9 @@ fun TransferScreen(
     ),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val activity = remember(context) { context.findFragmentActivity() }
+    val scope = rememberCoroutineScope()
 
     TransferContent(
         uiState = uiState,
@@ -59,7 +73,23 @@ fun TransferScreen(
         onToAccountNumberChanged = viewModel::onToAccountNumberChanged,
         onAmountChanged = viewModel::onAmountChanged,
         onNoteChanged = viewModel::onNoteChanged,
-        onSubmit = viewModel::submit,
+        onSubmit = {
+            val host = activity
+            if (host == null) viewModel.setAuthenticationError("Không thể mở xác thực thiết bị")
+            else scope.launch {
+                when (val result = DeviceAuthenticator(host).authenticate()) {
+                    DeviceAuthenticationResult.Authenticated -> viewModel.beginOtpChallenge()
+                    DeviceAuthenticationResult.Cancelled -> viewModel.setAuthenticationError("Bạn đã hủy xác thực")
+                    DeviceAuthenticationResult.TemporarilyLocked -> viewModel.setAuthenticationError("Xác thực bị khóa tạm thời. Hãy thử lại sau")
+                    is DeviceAuthenticationResult.Unavailable -> viewModel.setAuthenticationError(result.reason)
+                    is DeviceAuthenticationResult.Failed -> viewModel.setAuthenticationError(result.reason)
+                }
+            }
+        },
+        onOtpInputChanged = viewModel::onOtpInputChanged,
+        onVerifyOtp = viewModel::verifyOtpAndSubmit,
+        onCancelOtp = viewModel::cancelOtpChallenge,
+        onRefreshOtp = viewModel::refreshOtpChallenge,
         modifier = modifier,
     )
 }
@@ -74,8 +104,18 @@ fun TransferContent(
     onAmountChanged: (String) -> Unit,
     onNoteChanged: (String) -> Unit,
     onSubmit: () -> Unit,
+    onOtpInputChanged: (String) -> Unit = {},
+    onVerifyOtp: () -> Unit = {},
+    onCancelOtp: () -> Unit = {},
+    onRefreshOtp: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    LaunchedEffect(uiState.showOtpDialog) {
+        while (uiState.showOtpDialog) {
+            delay(1_000)
+            onRefreshOtp()
+        }
+    }
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -228,6 +268,35 @@ fun TransferContent(
             }
         }
     }
+
+    if (uiState.showOtpDialog) {
+        AlertDialog(
+            onDismissRequest = onCancelOtp,
+            title = { Text("Xác nhận OTP") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Nhập mã 6 chữ số hiển thị bên dưới. Mã sẽ đổi sau 30 giây và hết hạn sau 60 giây.")
+                    Text(uiState.otpCode.ifBlank { "Mã đã hết hạn" }, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = uiState.otpInput,
+                        onValueChange = onOtpInputChanged,
+                        label = { Text("Mã OTP") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                    uiState.errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = { TextButton(onClick = onVerifyOtp, enabled = uiState.otpInput.length == 6) { Text("Xác nhận") } },
+            dismissButton = { TextButton(onClick = onCancelOtp) { Text("Hủy") } },
+        )
+    }
+}
+
+private tailrec fun Context.findFragmentActivity(): FragmentActivity? = when (this) {
+    is FragmentActivity -> this
+    is ContextWrapper -> baseContext.findFragmentActivity()
+    else -> null
 }
 
 @Composable

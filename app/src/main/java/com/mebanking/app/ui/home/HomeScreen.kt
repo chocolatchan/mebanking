@@ -51,6 +51,10 @@ fun HomeScreen(
     ),
     onNavigateToBranchLocator: () -> Unit = {},
     onNavigateToTransfer: () -> Unit = {},
+    onNavigateToDeposit: () -> Unit = {},
+    onNavigateToWithdraw: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {},
+    onNavigateToOfficerDashboard: () -> Unit = {},
     onNavigateToBills: () -> Unit = {},
     onNavigateToChatbot: () -> Unit = {},
     onNavigateToAccountDetail: (Long) -> Unit = {},
@@ -64,6 +68,10 @@ fun HomeScreen(
         onRetry = viewModel::refresh,
         onNavigateToBranchLocator = onNavigateToBranchLocator,
         onNavigateToTransfer = onNavigateToTransfer,
+        onNavigateToDeposit = onNavigateToDeposit,
+        onNavigateToWithdraw = onNavigateToWithdraw,
+        onNavigateToHistory = onNavigateToHistory,
+        onNavigateToOfficerDashboard = onNavigateToOfficerDashboard,
         onNavigateToBills = onNavigateToBills,
         onNavigateToChatbot = onNavigateToChatbot,
         onNavigateToAccountDetail = onNavigateToAccountDetail,
@@ -81,6 +89,10 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onNavigateToBranchLocator: () -> Unit = {},
     onNavigateToTransfer: () -> Unit = {},
+    onNavigateToDeposit: () -> Unit = {},
+    onNavigateToWithdraw: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {},
+    onNavigateToOfficerDashboard: () -> Unit = {},
     onNavigateToBills: () -> Unit = {},
     onNavigateToChatbot: () -> Unit = {},
     onNavigateToAccountDetail: (Long) -> Unit = {},
@@ -112,6 +124,10 @@ fun HomeScreen(
                 uiState = uiState,
                 onNavigateToBranchLocator = onNavigateToBranchLocator,
                 onNavigateToTransfer = onNavigateToTransfer,
+                onNavigateToDeposit = onNavigateToDeposit,
+                onNavigateToWithdraw = onNavigateToWithdraw,
+                onNavigateToHistory = onNavigateToHistory,
+                onNavigateToOfficerDashboard = onNavigateToOfficerDashboard,
                 onNavigateToBills = onNavigateToBills,
                 onNavigateToChatbot = onNavigateToChatbot,
                 onNavigateToAccountDetail = onNavigateToAccountDetail,
@@ -167,6 +183,10 @@ private fun AccountsContent(
     uiState: HomeUiState,
     onNavigateToBranchLocator: () -> Unit,
     onNavigateToTransfer: () -> Unit,
+    onNavigateToDeposit: () -> Unit,
+    onNavigateToWithdraw: () -> Unit,
+    onNavigateToHistory: () -> Unit,
+    onNavigateToOfficerDashboard: () -> Unit,
     onNavigateToBills: () -> Unit,
     onNavigateToChatbot: () -> Unit,
     onNavigateToAccountDetail: (Long) -> Unit,
@@ -184,6 +204,10 @@ private fun AccountsContent(
         item {
             QuickActions(
                 onNavigateToTransfer = onNavigateToTransfer,
+                onNavigateToDeposit = onNavigateToDeposit,
+                onNavigateToWithdraw = onNavigateToWithdraw,
+                onNavigateToHistory = onNavigateToHistory,
+                onNavigateToOfficerDashboard = onNavigateToOfficerDashboard,
                 onNavigateToBills = onNavigateToBills,
                 onNavigateToChatbot = onNavigateToChatbot,
                 onNavigateToBranchLocator = onNavigateToBranchLocator,
@@ -221,6 +245,10 @@ private fun AccountsContent(
 @Composable
 private fun QuickActions(
     onNavigateToTransfer: () -> Unit,
+    onNavigateToDeposit: () -> Unit,
+    onNavigateToWithdraw: () -> Unit,
+    onNavigateToHistory: () -> Unit,
+    onNavigateToOfficerDashboard: () -> Unit,
     onNavigateToBills: () -> Unit,
     onNavigateToChatbot: () -> Unit,
     onNavigateToBranchLocator: () -> Unit,
@@ -228,6 +256,29 @@ private fun QuickActions(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (isCustomer) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuickActionCard(
+                    emoji = "+",
+                    title = "Nạp tiền",
+                    subtitle = "Ghi nhận vào tài khoản",
+                    onClick = onNavigateToDeposit,
+                    modifier = Modifier.weight(1f),
+                )
+                QuickActionCard(
+                    emoji = "−",
+                    title = "Rút tiền",
+                    subtitle = "Từ tài khoản MEbanking",
+                    onClick = onNavigateToWithdraw,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            QuickActionCard(
+                emoji = "↕",
+                title = "Lịch sử giao dịch",
+                subtitle = "Xem và lọc giao dịch",
+                onClick = onNavigateToHistory,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 QuickActionCard(
                     emoji = "↗",
@@ -259,6 +310,15 @@ private fun QuickActions(
                 subtitle = "Chỉ đường đi bộ",
                 onClick = onNavigateToBranchLocator,
                 modifier = Modifier.weight(1f),
+            )
+        }
+        if (!isCustomer) {
+            QuickActionCard(
+                emoji = "👥",
+                title = "Quản lý khách hàng",
+                subtitle = "Tìm kiếm và cập nhật hồ sơ",
+                onClick = onNavigateToOfficerDashboard,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }

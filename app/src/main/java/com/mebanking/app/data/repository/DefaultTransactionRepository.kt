@@ -241,6 +241,14 @@ class DefaultTransactionRepository(
         return transactionDao.getTransactionsForAccount(accountId).flowOn(ioDispatcher)
     }
 
+    override fun getTransactionsForUser(userId: Long): Flow<List<TransactionEntity>> {
+        return transactionDao.getTransactionsForUser(userId).flowOn(ioDispatcher)
+    }
+
+    override suspend fun getTransactionByIdForUser(id: Long, userId: Long): TransactionEntity? = withContext(ioDispatcher) {
+        transactionDao.getByIdForUser(id, userId)
+    }
+
     override suspend fun getTransactionsForAccountSync(accountId: Long): List<TransactionEntity> = withContext(ioDispatcher) {
         transactionDao.getTransactionsForAccount(accountId).first()
     }
