@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">M.Ebanking</string>
+    <string name="home_title">M.Ebanking</string>
+    <string name="home_greeting">Welcome back</string>
+    <string name="home_total_balance">Total balance</string>
+    <string name="home_accounts_title">Your accounts</string>
+    <string name="home_empty">No accounts yet</string>
+    <string name="home_retry">Retry</string>
+    <string name="home_loading">Loading accounts…</string>
+</resources>

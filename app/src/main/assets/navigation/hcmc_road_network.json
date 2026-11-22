@@ -1,0 +1,250 @@
+{
+  "nodes": [
+    {
+      "id": "node_d1_hoi_so",
+      "name": "Chi nhánh Quận 1 - Hội Sở",
+      "latitude": 10.7769,
+      "longitude": 106.7009
+    },
+    {
+      "id": "node_d1_le_loi_pasteur",
+      "name": "Ngã tư Lê Lợi - Pasteur",
+      "latitude": 10.7745,
+      "longitude": 106.6995
+    },
+    {
+      "id": "node_d1_hoi_so_le_loi",
+      "name": "Hội Sở - Lê Lợi",
+      "latitude": 10.7725,
+      "longitude": 106.698
+    },
+    {
+      "id": "node_d1_ben_thanh_atm",
+      "name": "ATM Chợ Bến Thành",
+      "latitude": 10.7718,
+      "longitude": 106.6983
+    },
+    {
+      "id": "node_d1_ben_thanh_roundabout",
+      "name": "Vòng xoay Bến Thành",
+      "latitude": 10.7715,
+      "longitude": 106.6978
+    },
+    {
+      "id": "node_d1_nguyen_hue",
+      "name": "Phố đi bộ Nguyễn Huệ",
+      "latitude": 10.7735,
+      "longitude": 106.7035
+    },
+    {
+      "id": "node_d1_ham_nghi",
+      "name": "Đường Hàm Nghi",
+      "latitude": 10.7698,
+      "longitude": 106.7015
+    },
+    {
+      "id": "node_d1_tran_hung_dao",
+      "name": "Đường Trần Hưng Đạo",
+      "latitude": 10.768,
+      "longitude": 106.696
+    },
+    {
+      "id": "node_corridor_calmette",
+      "name": "Cầu Calmette",
+      "latitude": 10.7655,
+      "longitude": 106.6998
+    },
+    {
+      "id": "node_corridor_hoang_dieu",
+      "name": "Đường Hoàng Diệu",
+      "latitude": 10.76,
+      "longitude": 106.7005
+    },
+    {
+      "id": "node_corridor_khanh_hoi",
+      "name": "Đường Khánh Hội",
+      "latitude": 10.753,
+      "longitude": 106.701
+    },
+    {
+      "id": "node_corridor_cau_kenh_te",
+      "name": "Cầu Kênh Tẻ",
+      "latitude": 10.746,
+      "longitude": 106.7012
+    },
+    {
+      "id": "node_d7_nguyen_thi_thap",
+      "name": "Giao lộ Nguyễn Hữu Thọ - Nguyễn Thị Thập",
+      "latitude": 10.74,
+      "longitude": 106.7005
+    },
+    {
+      "id": "node_d7_tan_phong",
+      "name": "Chi nhánh Quận 7 - Tân Phong",
+      "latitude": 10.7326,
+      "longitude": 106.6992
+    },
+    {
+      "id": "node_d7_sc_vivocity",
+      "name": "SC VivoCity",
+      "latitude": 10.7305,
+      "longitude": 106.7
+    },
+    {
+      "id": "node_d7_tan_phong_south",
+      "name": "Tân Phong - Nguyễn Văn Linh",
+      "latitude": 10.729,
+      "longitude": 106.7115
+    },
+    {
+      "id": "node_d7_crescent_mall",
+      "name": "Crescent Mall Phú Mỹ Hưng",
+      "latitude": 10.728,
+      "longitude": 106.721
+    },
+    {
+      "id": "node_disconnected",
+      "name": "Điểm cô lập Cần Giờ",
+      "latitude": 10.4114,
+      "longitude": 106.9547
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_le_loi_1",
+      "fromNodeId": "node_d1_hoi_so",
+      "toNodeId": "node_d1_le_loi_pasteur",
+      "distanceMeters": 307.6,
+      "streetName": "Đường Lê Lợi",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_le_loi_2",
+      "fromNodeId": "node_d1_le_loi_pasteur",
+      "toNodeId": "node_d1_hoi_so_le_loi",
+      "distanceMeters": 276.2,
+      "streetName": "Đường Lê Lợi",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_ben_thanh_1",
+      "fromNodeId": "node_d1_hoi_so_le_loi",
+      "toNodeId": "node_d1_ben_thanh_atm",
+      "distanceMeters": 84.5,
+      "streetName": "Đường Phan Chu Trinh",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_ben_thanh_2",
+      "fromNodeId": "node_d1_ben_thanh_atm",
+      "toNodeId": "node_d1_ben_thanh_roundabout",
+      "distanceMeters": 64.0,
+      "streetName": "Quảng trường Quách Thị Trang",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_pasteur_nguyen_hue",
+      "fromNodeId": "node_d1_le_loi_pasteur",
+      "toNodeId": "node_d1_nguyen_hue",
+      "distanceMeters": 450.9,
+      "streetName": "Đường Huỳnh Thúc Kháng",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_nguyen_hue_ham_nghi",
+      "fromNodeId": "node_d1_nguyen_hue",
+      "toNodeId": "node_d1_ham_nghi",
+      "distanceMeters": 465.8,
+      "streetName": "Đường Hải Triều",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_ben_thanh_ham_nghi",
+      "fromNodeId": "node_d1_ben_thanh_roundabout",
+      "toNodeId": "node_d1_ham_nghi",
+      "distanceMeters": 446.2,
+      "streetName": "Đường Hàm Nghi",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_ben_thanh_tran_hung_dao",
+      "fromNodeId": "node_d1_ben_thanh_roundabout",
+      "toNodeId": "node_d1_tran_hung_dao",
+      "distanceMeters": 436.0,
+      "streetName": "Đường Trần Hưng Đạo",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_ham_nghi_calmette",
+      "fromNodeId": "node_d1_ham_nghi",
+      "toNodeId": "node_corridor_calmette",
+      "distanceMeters": 512.9,
+      "streetName": "Đường Calmette",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_calmette_hoang_dieu",
+      "fromNodeId": "node_corridor_calmette",
+      "toNodeId": "node_corridor_hoang_dieu",
+      "distanceMeters": 616.3,
+      "streetName": "Cầu Calmette",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_hoang_dieu_khanh_hoi",
+      "fromNodeId": "node_corridor_hoang_dieu",
+      "toNodeId": "node_corridor_khanh_hoi",
+      "distanceMeters": 780.3,
+      "streetName": "Đường Khánh Hội",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_khanh_hoi_kenh_te",
+      "fromNodeId": "node_corridor_khanh_hoi",
+      "toNodeId": "node_corridor_cau_kenh_te",
+      "distanceMeters": 778.7,
+      "streetName": "Cầu Kênh Tẻ",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_kenh_te_d7_nguyen_thi_thap",
+      "fromNodeId": "node_corridor_cau_kenh_te",
+      "toNodeId": "node_d7_nguyen_thi_thap",
+      "distanceMeters": 671.5,
+      "streetName": "Đường Nguyễn Hữu Thọ",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_d7_nguyen_thi_thap_tan_phong",
+      "fromNodeId": "node_d7_nguyen_thi_thap",
+      "toNodeId": "node_d7_tan_phong",
+      "distanceMeters": 835.0,
+      "streetName": "Đường Nguyễn Hữu Thọ",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_d7_tan_phong_vivocity",
+      "fromNodeId": "node_d7_tan_phong",
+      "toNodeId": "node_d7_sc_vivocity",
+      "distanceMeters": 249.3,
+      "streetName": "Đường Nguyễn Hữu Thọ",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_d7_vivocity_tan_phong_south",
+      "fromNodeId": "node_d7_sc_vivocity",
+      "toNodeId": "node_d7_tan_phong_south",
+      "distanceMeters": 1267.4,
+      "streetName": "Đại lộ Nguyễn Văn Linh",
+      "isBidirectional": true
+    },
+    {
+      "id": "edge_d7_tan_phong_south_crescent",
+      "fromNodeId": "node_d7_tan_phong_south",
+      "toNodeId": "node_d7_crescent_mall",
+      "distanceMeters": 1043.8,
+      "streetName": "Đại lộ Nguyễn Văn Linh",
+      "isBidirectional": true
+    }
+  ]
+}
