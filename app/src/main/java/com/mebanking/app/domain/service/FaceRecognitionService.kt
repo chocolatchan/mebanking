@@ -5,7 +5,6 @@ import com.mebanking.app.domain.model.AuthenticationDecision
 import com.mebanking.app.domain.model.FaceDetectionError
 import com.mebanking.app.domain.model.FaceRecognitionError
 import com.mebanking.app.domain.model.FaceRecognitionResult
-import java.io.File
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.sqrt
@@ -20,7 +19,15 @@ import kotlin.math.sqrt
  *
  * STORAGE INVARIANT:
  * Raw biometric templates are strictly forbidden from being stored in Room SQLite database tables.
- * Templates are persisted in app-private encrypted file storage with secure zero-overwrite lifecycles.
+ * When the Android Keystore is available, templates are persisted in app-private
+ * AES-256/GCM encrypted files with zero-overwrite deletion. Otherwise they remain
+ * memory-only; plaintext template bytes are never written to disk.
+ *
+ * IMPLEMENTATION LIMITATION:
+ * The embedding extractor below is a deterministic demo stub, not MediaPipe or
+ * MobileFaceNet. It must not be represented as production-grade face matching,
+ * and the high-value authentication policy remains blocked until a real
+ * on-device model and a liveness decision are approved and implemented.
  */
 interface FaceRecognitionService {
 
@@ -76,6 +83,7 @@ class DefaultFaceRecognitionService(
     }
 
     private val memoryTemplateStore = ConcurrentHashMap<Long, FloatArray>()
+    private val templateCipher = FaceTemplateCipher(context)
 
     override suspend fun detectFace(imageBytes: ByteArray?): Result<Unit> {
         if (imageBytes == null || imageBytes.isEmpty()) {
@@ -272,67 +280,36 @@ class DefaultFaceRecognitionService(
     private fun saveTemplateToStorage(userId: Long, template: FloatArray) {
         memoryTemplateStore[userId] = template.clone()
 
-        context?.let { ctx ->
-            try {
-                val dir = File(ctx.filesDir, "biometrics")
-                if (!dir.exists()) dir.mkdirs()
-                val file = File(dir, "template_$userId.bin")
-                val buffer = ByteBuffer.allocate(template.size * 4)
-                for (f in template) buffer.putFloat(f)
-                val bytes = buffer.array()
-                val key = (userId.toInt() xor 0x5A).toByte()
-                for (i in bytes.indices) bytes[i] = (bytes[i].toInt() xor key.toInt()).toByte()
-                file.writeBytes(bytes)
-            } catch (_: Exception) {
-                // Fallback to in-memory store
-            }
+        val buffer = ByteBuffer.allocate(template.size * 4)
+        for (f in template) buffer.putFloat(f)
+        val bytes = buffer.array()
+        try {
+            templateCipher.write(userId, bytes)
+        } finally {
+            bytes.fill(0)
         }
     }
 
     private fun getTemplateFromStorage(userId: Long): FloatArray? {
-        context?.let { ctx ->
-            try {
-                val file = File(File(ctx.filesDir, "biometrics"), "template_$userId.bin")
-                if (file.exists()) {
-                    val bytes = file.readBytes()
-                    val key = (userId.toInt() xor 0x5A).toByte()
-                    for (i in bytes.indices) bytes[i] = (bytes[i].toInt() xor key.toInt()).toByte()
-                    val buffer = ByteBuffer.wrap(bytes)
-                    val template = FloatArray(bytes.size / 4)
-                    for (i in template.indices) template[i] = buffer.getFloat()
-                    return template
-                }
-            } catch (_: Exception) {
-                // Fallback to in-memory store
-            }
+        val bytes = templateCipher.read(userId) ?: return memoryTemplateStore[userId]?.clone()
+        try {
+            if (bytes.isEmpty() || bytes.size % 4 != 0) return null
+            val buffer = ByteBuffer.wrap(bytes)
+            val template = FloatArray(bytes.size / 4)
+            for (i in template.indices) template[i] = buffer.getFloat()
+            return template
+        } finally {
+            bytes.fill(0)
         }
-        return memoryTemplateStore[userId]?.clone()
     }
 
     private fun deleteTemplateFromStorage(userId: Long) {
         val existing = memoryTemplateStore.remove(userId)
         existing?.fill(0f)
-
-        context?.let { ctx ->
-            try {
-                val file = File(File(ctx.filesDir, "biometrics"), "template_$userId.bin")
-                if (file.exists()) {
-                    // Secure zeroization before deletion
-                    file.writeBytes(ByteArray(file.length().toInt()))
-                    file.delete()
-                }
-            } catch (_: Exception) {
-                // Fallback
-            }
-        }
+        templateCipher.delete(userId)
     }
 
     private fun hasTemplateInStorage(userId: Long): Boolean {
-        if (memoryTemplateStore.containsKey(userId)) return true
-        context?.let { ctx ->
-            val file = File(File(ctx.filesDir, "biometrics"), "template_$userId.bin")
-            if (file.exists()) return true
-        }
-        return false
+        return memoryTemplateStore.containsKey(userId) || templateCipher.exists(userId)
     }
 }

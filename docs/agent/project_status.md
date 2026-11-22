@@ -2,7 +2,7 @@
 
 **Project**: Android Mobile Banking Application (`m.ebanking`)  
 **Specification Reference**: `.agent/work.md`, `FinalProject_2026_2027.pdf`, `Sơ đồ thiết kế app ngân hàng.md`  
-**Last Updated**: 2026-11-21  
+**Last Updated**: 2026-11-22  
 
 ---
 
@@ -14,8 +14,8 @@
 | **Phase 1** | **Domain Modeling & DB Schema** | Room 8-table relational schema, Entity design, Long VND currency models, simulator contracts | **COMPLETED (Gate 1 Passed)** |
 | **Phase 2** | **Persistence & Room Implementation** | Room Database, DAOs, TypeConverters, seed data, DI container, navigation road graph, offline map | **COMPLETED (Gate 2 Passed)** |
 | **Phase 3** | **Domain Services, Auth, Transactions, Simulators & Chatbot** | DI unification, Auth/RBAC, Face Recognition, Account Service, Transaction Core, Auth Policy, Simulators, Chatbot, Navigation integration, full UI wiring (Task 3.10) | **COMPLETED (Gate 3 Passed)** |
-| **Phase 4** | **Full UI Integration & Polish** | Remaining UX polish, accessibility, instrumented/Compose UI tests | **PLANNED** |
-| **Phase 5** | **Hardening & Final Gate** | Automated unit/UI test coverage, lint fixes, release APK build, course demo verification | **PLANNED** |
+| **Phase 4** | **Testing & Verification** | Independent test audit (4.1), transaction integrity (4.2), security review (4.3), offline runtime (4.4), UI acceptance (4.5) | **COMPLETED (Gate 4 Passed)** |
+| **Phase 5** | **Final Audit & Delivery** | Independent requirement audit, release build verification, final report & demo script | **PLANNED** |
 
 ---
 
@@ -93,4 +93,19 @@ The following gaps were cataloged during Phase 0 and will be resolved across sub
 - High-value threshold, step-up authentication and 2FA equivalence (OQ-3.6-1..3).
 - Utility/ticket pricing, fees and refund policy (OQ-3.7-1..2).
 
-These remain visibly blocked in the UI and enforced in the domain services; no success is simulated.
+## 5. Phase 4 Gate Assessment
+
+**Decision: PASSED (2026-11-22)**
+
+All 5 verification tasks in Phase 4 have been executed and documented:
+
+| Task | Domain / Role | Status | Deliverables | Verification Evidence |
+|---|---|:---:|---|---|
+| **Task 4.1** | Unit & Integration Test Audit | **PASS** | `test_execution_report.md`<br>`coverage_gap_report.md` | 437/437 tests passing (100%), 0 failures, 0 skipped. |
+| **Task 4.2** | Transaction Integrity Audit | **CONDITIONAL PASS** | `transaction_integrity_report.md` | Atomic Room transactions, SQL conditional debit, ledger reconciliation, SafeMoneyMath overflow protection verified. |
+| **Task 4.3** | Security Review | **PASS** | `security_review.md`<br>`security_findings.md` | Zero critical/high vulnerabilities; PBKDF2 100k, AES-256-GCM face templates, no internet permission, no sensitive logging. |
+| **Task 4.4** | Offline Runtime Verification | **PASS** | `offline_verification.md` | Strictly offline operation confirmed; local SQLite DB, local 18-vertex JSON road graph, local rule-based chatbot. |
+| **Task 4.5** | UI & Functional Acceptance | **PASS** | `ui_functional_acceptance.md` | Customer flows verified against Room-backed ViewModels with real loading/error/success states. |
+
+**Current Workflow Position:** Phase 4 is complete. Ready to proceed to **Phase 5: Final Audit & Delivery** (Tasks 5.1–5.3).
+

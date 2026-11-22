@@ -7,8 +7,6 @@ import com.mebanking.app.data.repository.TransactionRepository
 import com.mebanking.app.domain.model.AuthenticationDecision
 import com.mebanking.app.domain.model.DomainError
 import com.mebanking.app.domain.model.ReconciliationReport
-import com.mebanking.app.domain.model.Role
-import com.mebanking.app.domain.model.SessionState
 import com.mebanking.app.domain.model.TransactionResult
 import com.mebanking.app.domain.model.TransactionStatus
 import com.mebanking.app.domain.model.TransactionType
@@ -45,25 +43,16 @@ class DefaultTransactionService(
         request: TransferRequest,
         session: UserSession,
     ): Result<TransactionResult> {
-        // Session & RBAC validation
-        if (session.userId <= 0L) {
-            return Result.failure(DomainError.Unauthorized("Người dùng chưa được xác thực"))
-        }
-        if (session.role == Role.OFFICER) {
-            return Result.failure(DomainError.Forbidden("Cán bộ ngân hàng không thể thực hiện giao dịch chuyển tiền trực tiếp"))
-        }
-
-        sessionManager?.let { sm ->
-            when (sm.sessionState.value) {
-                is SessionState.Expired -> return Result.failure(DomainError.Unauthorized("Phiên làm việc đã hết hạn"))
-                is SessionState.LoggedOut, SessionState.Unauthenticated -> return Result.failure(DomainError.Unauthorized("Người dùng chưa được xác thực"))
-                is SessionState.Authenticated -> {}
-            }
-        }
+        // Session, RBAC and ownership validation
+        SessionAuthorization.requireCustomer(session)?.let { return Result.failure(it) }
+        SessionAuthorization.validateSession(session, sessionManager)?.let { return Result.failure(it) }
 
         // Amount validation
         if (request.amount <= 0L) {
             return Result.failure(DomainError.InvalidData("Số tiền chuyển khoản phải lớn hơn 0"))
+        }
+        if (request.idempotencyKey.isBlank()) {
+            return Result.failure(DomainError.InvalidData("Idempotency key không được để trống"))
         }
 
         // Self-transfer validation
@@ -76,6 +65,12 @@ class DefaultTransactionService(
             ?: return Result.failure(DomainError.NotFound("Không tìm thấy tài khoản nguồn"))
         val toAccount = accountDao.getById(request.toAccountId)
             ?: return Result.failure(DomainError.NotFound("Không tìm thấy tài khoản đích"))
+
+        SessionAuthorization.requireOwnedAccount(
+            accountOwnerId = fromAccount.userId,
+            session = session,
+            resourceName = "tài khoản nguồn",
+        )?.let { return Result.failure(it) }
 
         if (fromAccount.status != "ACTIVE") {
             return Result.failure(DomainError.AccountInactive("Tài khoản nguồn đang bị khóa"))
@@ -141,26 +136,26 @@ class DefaultTransactionService(
         idempotencyKey: String,
         session: UserSession,
     ): Result<TransactionResult> {
-        // Session validation
-        if (session.userId <= 0L) {
-            return Result.failure(DomainError.Unauthorized("Người dùng chưa được xác thực"))
-        }
-
-        sessionManager?.let { sm ->
-            when (sm.sessionState.value) {
-                is SessionState.Expired -> return Result.failure(DomainError.Unauthorized("Phiên làm việc đã hết hạn"))
-                is SessionState.LoggedOut, SessionState.Unauthenticated -> return Result.failure(DomainError.Unauthorized("Người dùng chưa được xác thực"))
-                is SessionState.Authenticated -> {}
-            }
-        }
+        // Session, RBAC and ownership validation
+        SessionAuthorization.requireCustomer(session)?.let { return Result.failure(it) }
+        SessionAuthorization.validateSession(session, sessionManager)?.let { return Result.failure(it) }
 
         // Amount validation
         if (amount <= 0L) {
             return Result.failure(DomainError.InvalidData("Số tiền nạp phải lớn hơn 0"))
         }
+        if (idempotencyKey.isBlank()) {
+            return Result.failure(DomainError.InvalidData("Idempotency key không được để trống"))
+        }
 
         val account = accountDao.getById(accountId)
             ?: return Result.failure(DomainError.NotFound("Không tìm thấy tài khoản"))
+
+        SessionAuthorization.requireOwnedAccount(
+            accountOwnerId = account.userId,
+            session = session,
+            resourceName = "tài khoản nạp tiền",
+        )?.let { return Result.failure(it) }
 
         if (account.status != "ACTIVE") {
             return Result.failure(DomainError.AccountInactive("Tài khoản đang bị khóa"))
@@ -201,29 +196,26 @@ class DefaultTransactionService(
         idempotencyKey: String,
         session: UserSession,
     ): Result<TransactionResult> {
-        // Session & RBAC validation
-        if (session.userId <= 0L) {
-            return Result.failure(DomainError.Unauthorized("Người dùng chưa được xác thực"))
-        }
-        if (session.role != Role.CUSTOMER) {
-            return Result.failure(DomainError.Forbidden("Cán bộ ngân hàng không thể thực hiện giao dịch rút tiền trực tiếp"))
-        }
-
-        sessionManager?.let { sm ->
-            when (sm.sessionState.value) {
-                is SessionState.Expired -> return Result.failure(DomainError.Unauthorized("Phiên làm việc đã hết hạn"))
-                is SessionState.LoggedOut, SessionState.Unauthenticated -> return Result.failure(DomainError.Unauthorized("Người dùng chưa được xác thực"))
-                is SessionState.Authenticated -> {}
-            }
-        }
+        // Session, RBAC and ownership validation
+        SessionAuthorization.requireCustomer(session)?.let { return Result.failure(it) }
+        SessionAuthorization.validateSession(session, sessionManager)?.let { return Result.failure(it) }
 
         // Amount validation
         if (amount <= 0L) {
             return Result.failure(DomainError.InvalidData("Số tiền rút phải lớn hơn 0"))
         }
+        if (idempotencyKey.isBlank()) {
+            return Result.failure(DomainError.InvalidData("Idempotency key không được để trống"))
+        }
 
         val account = accountDao.getById(accountId)
             ?: return Result.failure(DomainError.NotFound("Không tìm thấy tài khoản"))
+
+        SessionAuthorization.requireOwnedAccount(
+            accountOwnerId = account.userId,
+            session = session,
+            resourceName = "tài khoản rút tiền",
+        )?.let { return Result.failure(it) }
 
         if (account.status != "ACTIVE") {
             return Result.failure(DomainError.AccountInactive("Tài khoản đang bị khóa"))

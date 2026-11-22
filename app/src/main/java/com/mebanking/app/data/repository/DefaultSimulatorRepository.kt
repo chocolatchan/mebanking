@@ -90,10 +90,20 @@ class DefaultSimulatorRepository(
         amount: Long,
         note: String?,
     ): Result<TransactionResult> = withContext(ioDispatcher) {
+        if (amount <= 0L) {
+            return@withContext Result.failure(DomainError.InvalidData("Số tiền chuyển liên ngân hàng phải lớn hơn 0"))
+        }
+        if (toAccountNo.isBlank()) {
+            return@withContext Result.failure(DomainError.InvalidData("Số tài khoản đích không được để trống"))
+        }
         try {
             val result = database.withTransaction {
                 val fromAccount = accountDao.getById(fromAccountId)
                     ?: throw DomainError.NotFound("Không tìm thấy tài khoản nguồn")
+
+                if (fromAccount.status != "ACTIVE") {
+                    throw DomainError.AccountInactive("Tài khoản nguồn đang bị khóa")
+                }
 
                 if (fromAccount.balance < amount) {
                     throw DomainError.InsufficientFunds("Số dư không đủ chuyển liên ngân hàng")
@@ -152,8 +162,17 @@ class DefaultSimulatorRepository(
                     throw DomainError.BillAlreadyPaid("Hóa đơn này đã được thanh toán trước đó")
                 }
 
+                // The bill amount is authoritative; never trust a caller-supplied amount.
+                if (amount != billEntity.amount) {
+                    throw DomainError.InvalidData("Số tiền thanh toán không khớp với hóa đơn")
+                }
+
                 val fromAccount = accountDao.getById(fromAccountId)
                     ?: throw DomainError.NotFound("Không tìm thấy tài khoản thanh toán")
+
+                if (fromAccount.status != "ACTIVE") {
+                    throw DomainError.AccountInactive("Tài khoản thanh toán đang bị khóa")
+                }
 
                 if (fromAccount.balance < amount) {
                     throw DomainError.InsufficientFunds("Số dư không đủ thanh toán hóa đơn")
@@ -165,7 +184,10 @@ class DefaultSimulatorRepository(
                 }
 
                 val paidAt = System.currentTimeMillis()
-                billDao.markPaid(billId, paidAt)
+                val updatedBills = billDao.markPaid(billId, paidAt)
+                if (updatedBills != 1) {
+                    throw DomainError.SystemError("Không thể cập nhật trạng thái hóa đơn")
+                }
 
                 val txEntity = TransactionEntity(
                     fromAccountId = fromAccountId,

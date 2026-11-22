@@ -36,6 +36,9 @@ class DefaultTransactionRepository(
         if (request.amount <= 0L) {
             return@withContext Result.failure(DomainError.InvalidData("Số tiền chuyển khoản phải lớn hơn 0"))
         }
+        if (request.idempotencyKey.isBlank()) {
+            return@withContext Result.failure(DomainError.InvalidData("Idempotency key không được để trống"))
+        }
         if (request.fromAccountId == request.toAccountId) {
             return@withContext Result.failure(DomainError.InvalidData("Không thể chuyển tiền đến cùng tài khoản nguồn"))
         }

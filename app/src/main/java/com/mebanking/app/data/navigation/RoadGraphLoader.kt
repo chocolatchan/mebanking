@@ -1,57 +1,61 @@
 package com.mebanking.app.data.navigation
 
 import android.content.Context
-import com.google.gson.Gson
-import com.google.gson.JsonParser
-import com.google.gson.reflect.TypeToken
 import com.mebanking.app.domain.model.navigation.RoadEdge
 import com.mebanking.app.domain.model.navigation.RoadGraph
 import com.mebanking.app.domain.model.navigation.RoadNode
 import java.io.InputStream
 import java.io.InputStreamReader
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Parser and loader for bundled offline road network graph JSON assets.
+ *
+ * Uses the platform [JSONObject]/[JSONArray] implementation so the offline
+ * navigation layer carries no third-party JSON dependency.
  */
 class RoadGraphLoader(
     private val context: Context? = null,
-    private val gson: Gson = Gson(),
 ) {
     /**
      * Parses road network JSON from an [InputStream] into a [RoadGraph].
      * Pure JVM execution without requiring Android platform dependencies.
      */
     fun loadFromStream(inputStream: InputStream): RoadGraph {
-        val reader = InputStreamReader(inputStream, Charsets.UTF_8)
-        val jsonElement = JsonParser.parseReader(reader)
-        if (!jsonElement.isJsonObject) {
-            throw IllegalArgumentException("Root road network JSON must be an object")
+        val text = InputStreamReader(inputStream, Charsets.UTF_8).use { it.readText() }
+        val rootObj = try {
+            JSONObject(text)
+        } catch (e: Exception) {
+            throw IllegalArgumentException("Root road network JSON must be an object", e)
         }
-        val rootObj = jsonElement.asJsonObject
 
         val nodesMap = mutableMapOf<String, RoadNode>()
-        if (rootObj.has("nodes")) {
-            val nodesElement = rootObj.get("nodes")
-            if (nodesElement.isJsonArray) {
-                val listType = object : TypeToken<List<RoadNode>>() {}.type
-                val nodeList: List<RoadNode> = gson.fromJson(nodesElement, listType) ?: emptyList()
-                for (node in nodeList) {
-                    nodesMap[node.id] = node
+        val nodesElement = rootObj.opt("nodes")
+        when (nodesElement) {
+            is JSONArray -> {
+                for (index in 0 until nodesElement.length()) {
+                    val node = nodesElement.optJSONObject(index) ?: continue
+                    val parsed = parseNode(node) ?: continue
+                    nodesMap[parsed.id] = parsed
                 }
-            } else if (nodesElement.isJsonObject) {
-                val mapType = object : TypeToken<Map<String, RoadNode>>() {}.type
-                val map: Map<String, RoadNode> = gson.fromJson(nodesElement, mapType) ?: emptyMap()
-                nodesMap.putAll(map)
+            }
+            is JSONObject -> {
+                val keys = nodesElement.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val node = nodesElement.optJSONObject(key) ?: continue
+                    val parsed = parseNode(node) ?: continue
+                    nodesMap[parsed.id] = parsed
+                }
             }
         }
 
         val edgesList = mutableListOf<RoadEdge>()
-        if (rootObj.has("edges")) {
-            val edgesElement = rootObj.get("edges")
-            if (edgesElement.isJsonArray) {
-                val listType = object : TypeToken<List<RoadEdge>>() {}.type
-                val list: List<RoadEdge> = gson.fromJson(edgesElement, listType) ?: emptyList()
-                edgesList.addAll(list)
+        rootObj.optJSONArray("edges")?.let { edges ->
+            for (index in 0 until edges.length()) {
+                val edge = edges.optJSONObject(index) ?: continue
+                parseEdge(edge)?.let(edgesList::add)
             }
         }
 
@@ -61,12 +65,17 @@ class RoadGraphLoader(
             adjacencyMap[nodeId] = mutableListOf()
         }
 
-        if (rootObj.has("adjacencyMap") && edgesList.isEmpty()) {
-            val adjType = object : TypeToken<Map<String, List<RoadEdge>>>() {}.type
-            val parsedAdj: Map<String, List<RoadEdge>> =
-                gson.fromJson(rootObj.get("adjacencyMap"), adjType) ?: emptyMap()
-            for ((k, v) in parsedAdj) {
-                adjacencyMap.getOrPut(k) { mutableListOf() }.addAll(v)
+        val adjacencyElement = rootObj.optJSONObject("adjacencyMap")
+        if (adjacencyElement != null && edgesList.isEmpty()) {
+            val keys = adjacencyElement.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val edgeArray = adjacencyElement.optJSONArray(key) ?: continue
+                val target = adjacencyMap.getOrPut(key) { mutableListOf() }
+                for (index in 0 until edgeArray.length()) {
+                    val edge = edgeArray.optJSONObject(index) ?: continue
+                    parseEdge(edge)?.let(target::add)
+                }
             }
         } else {
             for (edge in edgesList) {
@@ -124,5 +133,32 @@ class RoadGraphLoader(
         return context.assets.open(assetPath).use { inputStream ->
             loadFromStream(inputStream)
         }
+    }
+
+    private fun parseNode(node: JSONObject): RoadNode? {
+        val id = node.optString("id").takeIf { it.isNotBlank() } ?: return null
+        val name = node.optString("name").ifBlank { id }
+        val latitude = node.optDouble("latitude", Double.NaN)
+        val longitude = node.optDouble("longitude", Double.NaN)
+        if (latitude.isNaN() || longitude.isNaN()) return null
+        return RoadNode(id = id, name = name, latitude = latitude, longitude = longitude)
+    }
+
+    private fun parseEdge(edge: JSONObject): RoadEdge? {
+        val id = edge.optString("id").takeIf { it.isNotBlank() } ?: return null
+        val from = edge.optString("fromNodeId").takeIf { it.isNotBlank() } ?: return null
+        val to = edge.optString("toNodeId").takeIf { it.isNotBlank() } ?: return null
+        val distance = edge.optDouble("distanceMeters", Double.NaN)
+        if (distance.isNaN() || distance < 0.0) return null
+        val streetName = edge.optString("streetName").ifBlank { "Street $id" }
+        val bidirectional = edge.optBoolean("isBidirectional", true)
+        return RoadEdge(
+            id = id,
+            fromNodeId = from,
+            toNodeId = to,
+            distanceMeters = distance,
+            streetName = streetName,
+            isBidirectional = bidirectional,
+        )
     }
 }

@@ -17,8 +17,10 @@ import com.mebanking.app.domain.model.Role
  * Idempotent database seeder for populating initial offline demo data and test fixtures.
  *
  * Security Notice:
- * All pre-populated accounts and users are strictly designated as test fixtures.
- * No static default passwords exist in production paths. Passwords use salted SHA-256 hashes.
+ * All pre-populated users, accounts and bills are demo fixtures for the offline
+ * course build. They are intentionally seeded with public demo credentials and
+ * MUST NOT be shipped as production customer data. Passwords are stored as
+ * PBKDF2WithHmacSHA256 hashes (never plaintext); see [PasswordHasher].
  */
 object DatabaseSeeder {
 

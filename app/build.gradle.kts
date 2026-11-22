@@ -14,8 +14,6 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0.0"
-
-        buildConfigField("String", "API_BASE_URL", "\"https://api.example.com/\"")
     }
 
     buildTypes {
@@ -83,13 +81,6 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.navigation.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
-
-    implementation(platform(libs.okhttp.bom))
-    implementation(libs.okhttp)
-    implementation(libs.okhttp.logging.interceptor)
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.gson)
-    implementation(libs.gson)
 
     // Room persistence
     implementation(libs.androidx.room.runtime)

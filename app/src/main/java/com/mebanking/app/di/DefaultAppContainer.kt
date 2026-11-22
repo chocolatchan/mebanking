@@ -170,6 +170,7 @@ class DefaultAppContainer(
     override val simulatorService: SimulatorService by lazy {
         DefaultSimulatorService(
             simulatorRepository = simulatorRepository,
+            accountRepository = accountRepository,
             authenticationPolicy = authenticationPolicy,
             sessionManager = sessionManager,
         )
