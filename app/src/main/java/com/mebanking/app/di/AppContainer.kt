@@ -42,6 +42,7 @@ interface AppContainer {
     val otpCodeDao: OtpCodeDao
     val flightDao: com.mebanking.app.data.local.dao.lifestyle.FlightDao
     val hotelDao: com.mebanking.app.data.local.dao.lifestyle.HotelDao
+    val cinemaDao: com.mebanking.app.data.local.dao.lifestyle.CinemaDao
     val passwordHasher: PasswordHasher
 
     val accountRepository: AccountRepository
@@ -52,6 +53,7 @@ interface AppContainer {
     val chatbotRepository: ChatbotRepository
     val flightRepository: com.mebanking.app.data.repository.lifestyle.FlightRepository
     val hotelRepository: com.mebanking.app.data.repository.lifestyle.HotelRepository
+    val cinemaRepository: com.mebanking.app.data.repository.lifestyle.CinemaRepository
 
     val sessionManager: SessionManager
     val authService: AuthService

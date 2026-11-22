@@ -26,6 +26,15 @@ interface CinemaDao {
     @Query("SELECT seat_number FROM cinema_bookings WHERE showtime_id = :showtimeId AND status = 'PAID'")
     suspend fun getBookedSeats(showtimeId: Long): List<String>
 
+    @Query("SELECT seat_number FROM cinema_bookings WHERE showtime_id = :showtimeId AND status = 'PAID'")
+    fun getBookedSeatsFlow(showtimeId: Long): Flow<List<String>>
+
+    @Query("SELECT * FROM cinema_bookings WHERE id = :bookingId")
+    suspend fun getBookingById(bookingId: Long): CinemaBookingEntity?
+
+    @Query("UPDATE cinema_bookings SET status = :status WHERE id = :bookingId")
+    suspend fun updateBookingStatus(bookingId: Long, status: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMovies(movies: List<MovieEntity>)
 
