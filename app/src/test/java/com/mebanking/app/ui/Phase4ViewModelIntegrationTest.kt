@@ -15,6 +15,7 @@ import com.mebanking.app.domain.service.DefaultSessionManager
 import com.mebanking.app.domain.service.DefaultSimulatorService
 import com.mebanking.app.domain.service.DefaultTransactionAuthenticationPolicy
 import com.mebanking.app.domain.service.DefaultTransactionService
+import com.mebanking.app.domain.service.DefaultFaceRecognitionService
 import com.mebanking.app.ui.auth.LoginViewModel
 import com.mebanking.app.ui.bills.BillPaymentViewModel
 import com.mebanking.app.ui.transfer.TransferViewModel
@@ -57,6 +58,7 @@ class Phase4ViewModelIntegrationTest {
     private lateinit var authService: DefaultAuthService
     private lateinit var transactionService: DefaultTransactionService
     private lateinit var simulatorService: DefaultSimulatorService
+    private lateinit var faceService: DefaultFaceRecognitionService
 
     @Before
     fun setUp() {
@@ -80,7 +82,8 @@ class Phase4ViewModelIntegrationTest {
         )
         sessionManager = DefaultSessionManager(db.userDao(), PasswordHasher)
         authService = DefaultAuthService(sessionManager, authRepository, PasswordHasher)
-        val policy = DefaultTransactionAuthenticationPolicy(faceRecognitionService = null)
+        faceService = DefaultFaceRecognitionService(ApplicationProvider.getApplicationContext())
+        val policy = DefaultTransactionAuthenticationPolicy(faceRecognitionService = faceService)
         transactionService = DefaultTransactionService(
             transactionRepository = transactionRepository,
             accountRepository = accountRepository,
@@ -220,6 +223,72 @@ class Phase4ViewModelIntegrationTest {
         awaitCondition("session error") { viewModel.uiState.value.errorMessage != null }
 
         assertEquals("Phiên đăng nhập đã hết hạn", viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun transfer_highValue_notEnrolled_showsEkycRequiredMessage() = runBlocking {
+        authenticate()
+        val viewModel = TransferViewModel(transactionService, accountRepository, sessionManager, faceRecognitionService = faceService)
+        awaitCondition("accounts loaded") { !viewModel.uiState.value.isLoading && viewModel.uiState.value.accounts.isNotEmpty() }
+
+        viewModel.onToAccountNumberChanged("200123456789")
+        viewModel.onAmountChanged("25000000") // 25M > 10M threshold
+        viewModel.beginAuthenticationChallenge()
+        awaitCondition("ekyc required message") { viewModel.uiState.value.errorMessage != null }
+
+        assertTrue(viewModel.uiState.value.errorMessage!!.contains("chưa đăng ký sinh trắc học eKYC"))
+        assertFalse(viewModel.uiState.value.showFaceVerificationDialog)
+        assertEquals(50_000_000L, db.accountDao().getById(1L)?.balance)
+    }
+
+    @Test
+    fun transfer_highValue_enrolledAndFaceMatched_executesTransferSuccessfully() = runBlocking {
+        authenticate()
+        val customer = sessionManager.currentSession!!
+        faceService.enrollFace(customer.userId, "clear_face".toByteArray(Charsets.ISO_8859_1))
+
+        val viewModel = TransferViewModel(transactionService, accountRepository, sessionManager, faceRecognitionService = faceService)
+        awaitCondition("accounts loaded") { !viewModel.uiState.value.isLoading && viewModel.uiState.value.accounts.isNotEmpty() }
+
+        viewModel.onToAccountNumberChanged("200123456789")
+        viewModel.onAmountChanged("25000000")
+        viewModel.beginAuthenticationChallenge()
+        awaitCondition("face dialog shown") { viewModel.uiState.value.showFaceVerificationDialog }
+
+        val clearFaceBytes = "clear_face".toByteArray(Charsets.ISO_8859_1)
+        viewModel.verifyFaceAndSubmit(clearFaceBytes)
+        awaitCondition("transfer completed") {
+            viewModel.uiState.value.successMessage != null || viewModel.uiState.value.errorMessage != null
+        }
+
+        val state = viewModel.uiState.value
+        assertNull(state.errorMessage)
+        assertTrue(state.successMessage!!.contains("Chuyển khoản thành công"))
+        assertEquals(25_000_000L, db.accountDao().getById(1L)?.balance)
+        assertEquals(125_000_000L, db.accountDao().getById(2L)?.balance)
+    }
+
+    @Test
+    fun transfer_highValue_faceMismatch_showsRejectionMessageWithoutDebit() = runBlocking {
+        authenticate()
+        val customer = sessionManager.currentSession!!
+        faceService.enrollFace(customer.userId, "clear_face".toByteArray(Charsets.ISO_8859_1))
+
+        val viewModel = TransferViewModel(transactionService, accountRepository, sessionManager, faceRecognitionService = faceService)
+        awaitCondition("accounts loaded") { !viewModel.uiState.value.isLoading && viewModel.uiState.value.accounts.isNotEmpty() }
+
+        viewModel.onToAccountNumberChanged("200123456789")
+        viewModel.onAmountChanged("25000000")
+        viewModel.beginAuthenticationChallenge()
+        awaitCondition("face dialog shown") { viewModel.uiState.value.showFaceVerificationDialog }
+
+        val mismatchBytes = "mismatch_face".toByteArray(Charsets.ISO_8859_1)
+        viewModel.verifyFaceAndSubmit(mismatchBytes)
+        awaitCondition("rejection message") { viewModel.uiState.value.faceVerificationError != null }
+
+        assertTrue(viewModel.uiState.value.faceVerificationError!!.contains("không khớp"))
+        assertEquals(50_000_000L, db.accountDao().getById(1L)?.balance)
+        assertEquals(100_000_000L, db.accountDao().getById(2L)?.balance)
     }
 
     private fun authorizeTransfer(viewModel: TransferViewModel) {

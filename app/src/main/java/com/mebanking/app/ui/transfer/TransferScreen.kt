@@ -90,6 +90,8 @@ fun TransferScreen(
         onVerifyOtp = viewModel::verifyOtpAndSubmit,
         onCancelOtp = viewModel::cancelOtpChallenge,
         onRefreshOtp = viewModel::refreshOtpChallenge,
+        onVerifyFace = { viewModel.verifyFaceAndSubmit() },
+        onCancelFace = viewModel::onFaceVerificationCancelled,
         modifier = modifier,
     )
 }
@@ -108,6 +110,8 @@ fun TransferContent(
     onVerifyOtp: () -> Unit = {},
     onCancelOtp: () -> Unit = {},
     onRefreshOtp: () -> Unit = {},
+    onVerifyFace: () -> Unit = {},
+    onCancelFace: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(uiState.showOtpDialog) {
@@ -289,6 +293,65 @@ fun TransferContent(
             },
             confirmButton = { TextButton(onClick = onVerifyOtp, enabled = uiState.otpInput.length == 6) { Text("Xác nhận") } },
             dismissButton = { TextButton(onClick = onCancelOtp) { Text("Hủy") } },
+        )
+    }
+
+    if (uiState.showFaceVerificationDialog) {
+        AlertDialog(
+            onDismissRequest = onCancelFace,
+            title = { Text("Xác thực khuôn mặt (Sinh trắc học)") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        "Theo Quyết định 2345/QĐ-NHNN, giao dịch trên 10.000.000 VND bắt buộc xác thực sinh trắc học khuôn mặt.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        ),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text("👤", style = MaterialTheme.typography.displayMedium)
+                            Text("Khung nhận diện khuôn mặt", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    if (uiState.isFaceVerifying) {
+                        CircularProgressIndicator(modifier = Modifier.padding(8.dp))
+                        Text("Đang đối soát đặc trưng sinh trắc học...")
+                    }
+                    uiState.faceVerificationError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = onVerifyFace,
+                    enabled = !uiState.isFaceVerifying,
+                ) {
+                    Text("Xác nhận khuôn mặt")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = onCancelFace,
+                    enabled = !uiState.isFaceVerifying,
+                ) {
+                    Text("Hủy")
+                }
+            },
         )
     }
 }

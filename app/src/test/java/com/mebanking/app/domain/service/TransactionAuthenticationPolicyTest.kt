@@ -166,4 +166,67 @@ class TransactionAuthenticationPolicyTest {
         )
         assertTrue(decision is AuthenticationDecision.Rejected)
     }
+
+    @Test
+    fun evaluateWithBiometrics_afterApproval_authorizesSubsequentEvaluateAndConsumesGrant() = runTest {
+        var currentTime = 10_000L
+        val timedPolicy = DefaultTransactionAuthenticationPolicy(
+            faceRecognitionService = faceService,
+            clock = { currentTime },
+        )
+        val template = FloatArray(128) { 0.5f }
+        faceService.registerFaceTemplate(customerSession.userId, template)
+
+        val request = TransferRequest(
+            fromAccountId = 1L,
+            toAccountId = 2L,
+            amount = 25_000_000L,
+            idempotencyKey = "HV-GRANT-01",
+        )
+
+        // Before biometric verification: evaluate returns PendingPolicy
+        assertEquals(AuthenticationDecision.PendingPolicy, timedPolicy.evaluate(request, customerSession))
+
+        // Biometric verification succeeds
+        val clearFaceBytes = "clear_face_lighting_ok".toByteArray(Charsets.ISO_8859_1)
+        val bioDecision = timedPolicy.evaluateWithBiometrics(request, customerSession, clearFaceBytes, template)
+        assertEquals(AuthenticationDecision.Approved, bioDecision)
+
+        // Now evaluate returns Approved (consuming the grant)
+        val evalDecision = timedPolicy.evaluate(request, customerSession)
+        assertEquals(AuthenticationDecision.Approved, evalDecision)
+
+        // Next evaluation without new biometric verification returns PendingPolicy again
+        val nextDecision = timedPolicy.evaluate(request, customerSession)
+        assertEquals(AuthenticationDecision.PendingPolicy, nextDecision)
+    }
+
+    @Test
+    fun evaluateWithBiometrics_expiredGrant_returnsPendingPolicy() = runTest {
+        var currentTime = 10_000L
+        val timedPolicy = DefaultTransactionAuthenticationPolicy(
+            faceRecognitionService = faceService,
+            clock = { currentTime },
+        )
+        val template = FloatArray(128) { 0.5f }
+        faceService.registerFaceTemplate(customerSession.userId, template)
+
+        val request = TransferRequest(
+            fromAccountId = 1L,
+            toAccountId = 2L,
+            amount = 30_000_000L,
+            idempotencyKey = "HV-EXPIRE-01",
+        )
+
+        val clearFaceBytes = "clear_face_lighting_ok".toByteArray(Charsets.ISO_8859_1)
+        val bioDecision = timedPolicy.evaluateWithBiometrics(request, customerSession, clearFaceBytes, template)
+        assertEquals(AuthenticationDecision.Approved, bioDecision)
+
+        // Advance clock past 60s grant lifetime
+        currentTime += 65_000L
+
+        // Expired grant must be rejected as PendingPolicy
+        val evalDecision = timedPolicy.evaluate(request, customerSession)
+        assertEquals(AuthenticationDecision.PendingPolicy, evalDecision)
+    }
 }

@@ -15,6 +15,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -36,9 +37,22 @@ fun OfficerDashboardScreen(onBack: () -> Unit) {
     val factory = (context.applicationContext as MEbankingApplication).container.viewModelFactory
     val viewModel: OfficerDashboardViewModel = viewModel(factory = factory)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    OfficerDashboardContent(state, onBack, viewModel::onQueryChanged, viewModel::selectCustomer, viewModel::newCustomer,
-        viewModel::onUsernameChanged, viewModel::onPasswordChanged, viewModel::onFullNameChanged, viewModel::onEmailChanged,
-        viewModel::onPhoneChanged, viewModel::onNationalIdChanged, viewModel::onKycChanged, viewModel::save)
+    OfficerDashboardContent(
+        state = state,
+        onBack = onBack,
+        onQueryChanged = viewModel::onQueryChanged,
+        onSelect = viewModel::selectCustomer,
+        onNew = viewModel::newCustomer,
+        onUsername = viewModel::onUsernameChanged,
+        onPassword = viewModel::onPasswordChanged,
+        onName = viewModel::onFullNameChanged,
+        onEmail = viewModel::onEmailChanged,
+        onPhone = viewModel::onPhoneChanged,
+        onNationalId = viewModel::onNationalIdChanged,
+        onKyc = viewModel::onKycChanged,
+        onSave = viewModel::save,
+        onEnrollFace = { customerId -> viewModel.enrollFaceBiometrics(customerId) },
+    )
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -57,6 +71,7 @@ private fun OfficerDashboardContent(
     onNationalId: (String) -> Unit,
     onKyc: (Boolean) -> Unit,
     onSave: () -> Unit,
+    onEnrollFace: (Long) -> Unit = {},
 ) {
     Scaffold(topBar = { TopAppBar(title = { Text("Quản lý khách hàng") }, navigationIcon = { TextButton(onClick = onBack) { Text("‹ Quay lại") } }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -90,6 +105,17 @@ private fun OfficerDashboardContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = state.kycVerified, onCheckedChange = onKyc)
                     Text("Đã xác minh KYC")
+                }
+            }
+            if (!state.isCreating && state.selectedCustomer != null) {
+                item {
+                    OutlinedButton(
+                        onClick = { onEnrollFace(state.selectedCustomer.id) },
+                        enabled = !state.isLoading,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("👤 Thu thập sinh trắc học khuôn mặt eKYC")
+                    }
                 }
             }
             state.successMessage?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }

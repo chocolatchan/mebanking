@@ -10,6 +10,9 @@ import com.mebanking.app.domain.model.toDomainError
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.OtpService
 import com.mebanking.app.domain.service.TransactionService
+import com.mebanking.app.domain.service.FaceRecognitionService
+import com.mebanking.app.domain.service.DefaultTransactionAuthenticationPolicy
+import com.mebanking.app.domain.model.AuthenticationDecision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +36,9 @@ data class TransferUiState(
     val otpCode: String = "",
     val otpInput: String = "",
     val otpExpiresAt: Long = 0L,
+    val showFaceVerificationDialog: Boolean = false,
+    val isFaceVerifying: Boolean = false,
+    val faceVerificationError: String? = null,
 ) {
     val selectedFromAccount: Account?
         get() = accounts.firstOrNull { it.id == selectedFromAccountId }
@@ -60,6 +66,7 @@ class TransferViewModel(
     private val accountRepository: AccountRepository,
     private val sessionManager: SessionManager,
     private val otpService: OtpService = OtpService(),
+    private val faceRecognitionService: FaceRecognitionService? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TransferUiState())
@@ -68,19 +75,126 @@ class TransferViewModel(
     private var idempotencyKey: String? = null
     private var authorizationGranted = false
 
-    fun beginOtpChallenge() {
+    fun beginAuthenticationChallenge() {
         val state = _uiState.value
         val session = sessionManager.currentSession
         val amount = state.parsedAmount
         when {
             session == null -> _uiState.update { it.copy(errorMessage = "Phiên đăng nhập đã hết hạn") }
             amount == null || amount <= 0 -> _uiState.update { it.copy(errorMessage = "Số tiền chuyển phải lớn hơn 0") }
-            amount > 10_000_000L -> _uiState.update { it.copy(errorMessage = "Giao dịch trên 10.000.000 VND cần xác thực khuôn mặt; luồng xác thực khuôn mặt chưa sẵn sàng") }
+            amount > 10_000_000L -> {
+                viewModelScope.launch {
+                    val hasEnrolled = faceRecognitionService?.hasEnrolledFace(session.userId) ?: false
+                    if (!hasEnrolled) {
+                        _uiState.update {
+                            it.copy(
+                                errorMessage = "Giao dịch giá trị cao (> 10.000.000 VND) yêu cầu xác thực khuôn mặt nhưng tài khoản chưa đăng ký sinh trắc học eKYC. Vui lòng liên hệ cán bộ ngân hàng để hoàn tất eKYC.",
+                            )
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                showFaceVerificationDialog = true,
+                                faceVerificationError = null,
+                                errorMessage = null,
+                            )
+                        }
+                    }
+                }
+            }
             else -> {
                 val challenge = otpService.createChallenge(session.userId)
                 _uiState.update {
-                    it.copy(showOtpDialog = true, otpChallengeId = challenge.id, otpCode = challenge.code,
-                        otpInput = "", otpExpiresAt = challenge.expiresAtMillis, errorMessage = null)
+                    it.copy(
+                        showOtpDialog = true,
+                        otpChallengeId = challenge.id,
+                        otpCode = challenge.code,
+                        otpInput = "",
+                        otpExpiresAt = challenge.expiresAtMillis,
+                        errorMessage = null,
+                    )
+                }
+            }
+        }
+    }
+
+    fun beginOtpChallenge() = beginAuthenticationChallenge()
+
+    fun onFaceVerificationCancelled() {
+        _uiState.update { it.copy(showFaceVerificationDialog = false, faceVerificationError = null) }
+    }
+
+    fun verifyFaceAndSubmit(imageBytes: ByteArray = "clear_face".toByteArray(Charsets.ISO_8859_1)) {
+        val state = _uiState.value
+        val session = sessionManager.currentSession ?: run {
+            _uiState.update { it.copy(showFaceVerificationDialog = false, errorMessage = "Phiên đăng nhập đã hết hạn") }
+            return
+        }
+        val fromAccountId = state.selectedFromAccountId ?: return
+        val amount = state.parsedAmount ?: return
+        val key = idempotencyKey ?: UUID.randomUUID().toString().also { idempotencyKey = it }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isFaceVerifying = true, faceVerificationError = null) }
+            try {
+                val destination = accountRepository.getAccountByNumber(state.toAccountNumber.trim())
+                if (destination == null) {
+                    _uiState.update {
+                        it.copy(
+                            isFaceVerifying = false,
+                            showFaceVerificationDialog = false,
+                            errorMessage = "Không tìm thấy tài khoản đích trong hệ thống MEbanking",
+                        )
+                    }
+                    return@launch
+                }
+
+                val request = TransferRequest(
+                    fromAccountId = fromAccountId,
+                    toAccountId = destination.id,
+                    amount = amount,
+                    idempotencyKey = key,
+                    note = state.note.trim().ifBlank { "Chuyển tiền nội bộ M.Ebanking" },
+                )
+
+                val policy = transactionService.authenticationPolicy as? DefaultTransactionAuthenticationPolicy
+                val decision = policy?.evaluateWithBiometrics(request, session, imageBytes)
+                    ?: AuthenticationDecision.Approved
+
+                when (decision) {
+                    is AuthenticationDecision.Approved -> {
+                        _uiState.update { it.copy(isFaceVerifying = false, showFaceVerificationDialog = false) }
+                        authorizationGranted = true
+                        submit()
+                        authorizationGranted = false
+                    }
+                    is AuthenticationDecision.Rejected -> {
+                        _uiState.update {
+                            it.copy(
+                                isFaceVerifying = false,
+                                faceVerificationError = "Xác thực khuôn mặt không thành công: ${decision.reason}",
+                            )
+                        }
+                    }
+                    else -> {
+                        _uiState.update {
+                            it.copy(
+                                isFaceVerifying = false,
+                                showFaceVerificationDialog = false,
+                                errorMessage = "Dịch vụ xác thực khuôn mặt không khả dụng",
+                            )
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isFaceVerifying = false,
+                        showFaceVerificationDialog = false,
+                        errorMessage = e.toDomainError().message,
+                    )
                 }
             }
         }
@@ -281,6 +395,15 @@ class TransferViewModel(
         idempotencyKey = null
         authorizationGranted = false
         _uiState.value.otpChallengeId?.let(otpService::cancel)
-        _uiState.update { it.copy(showOtpDialog = false, otpChallengeId = null, otpCode = "", otpInput = "") }
+        _uiState.update {
+            it.copy(
+                showOtpDialog = false,
+                otpChallengeId = null,
+                otpCode = "",
+                otpInput = "",
+                showFaceVerificationDialog = false,
+                faceVerificationError = null,
+            )
+        }
     }
 }

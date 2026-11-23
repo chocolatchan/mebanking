@@ -45,6 +45,7 @@ class ViewModelFactory(
                     accountRepository = container.accountRepository,
                     sessionManager = container.sessionManager,
                     otpService = container.otpService,
+                    faceRecognitionService = container.faceRecognitionService,
                 ) as T
             }
             modelClass.isAssignableFrom(DepositViewModel::class.java) -> {
@@ -60,7 +61,11 @@ class ViewModelFactory(
                 TransactionDetailViewModel(container.transactionRepository, container.sessionManager) as T
             }
             modelClass.isAssignableFrom(OfficerDashboardViewModel::class.java) -> {
-                OfficerDashboardViewModel(container.officerCustomerService, container.sessionManager) as T
+                OfficerDashboardViewModel(
+                    customerService = container.officerCustomerService,
+                    sessionManager = container.sessionManager,
+                    faceRecognitionService = container.faceRecognitionService,
+                ) as T
             }
             modelClass.isAssignableFrom(BillPaymentViewModel::class.java) -> {
                 BillPaymentViewModel(

@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+import com.mebanking.app.domain.service.FaceRecognitionService
+
 data class OfficerDashboardUiState(
     val isLoading: Boolean = false,
     val customers: List<User> = emptyList(),
@@ -35,10 +37,12 @@ data class OfficerDashboardUiState(
 class OfficerDashboardViewModel(
     private val customerService: OfficerCustomerService,
     private val sessionManager: SessionManager,
+    private val faceRecognitionService: FaceRecognitionService? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(OfficerDashboardUiState())
     val uiState: StateFlow<OfficerDashboardUiState> = _uiState.asStateFlow()
     private var searchJob: Job? = null
+    private var saveJob: Job? = null
 
     init { search("") }
 
@@ -59,24 +63,81 @@ class OfficerDashboardViewModel(
 
     fun newCustomer() { _uiState.update { it.copy(selectedCustomer = null, username = "", password = "", fullName = "", email = "", phone = "", nationalId = "", kycVerified = false, errorMessage = null, successMessage = null) } }
 
-    fun save() {
+    fun enrollFaceBiometrics(customerId: Long, imageBytes: ByteArray = "clear_face".toByteArray(Charsets.ISO_8859_1)) {
         val session = sessionManager.currentSession
-        if (session?.role != Role.OFFICER) { _uiState.update { it.copy(errorMessage = "Chỉ nhân viên ngân hàng được quản lý khách hàng") }; return }
-        val state = _uiState.value
-        if (state.isLoading) return
-        if (state.isCreating && !Regex("^[0-9]{12}$").matches(state.nationalId)) {
-            _uiState.update { it.copy(errorMessage = "CCCD phải gồm đúng 12 chữ số") }
+        if (session?.role != Role.OFFICER) {
+            _uiState.update { it.copy(errorMessage = "Chỉ cán bộ ngân hàng được thực hiện eKYC cho khách hàng") }
+            return
+        }
+        val faceService = faceRecognitionService ?: run {
+            _uiState.update { it.copy(errorMessage = "Dịch vụ sinh trắc học không khả dụng") }
             return
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
             try {
-                val result = state.selectedCustomer?.let { customer ->
-                    customerService.updateCustomerProfile(customer.id, state.fullName, state.email, state.phone, state.kycVerified, state.nationalId)
-                } ?: customerService.createCustomer(state.username, state.password, state.fullName, state.email, state.phone, state.kycVerified, state.nationalId).map { Unit }
+                val enrollResult = faceService.enrollFace(customerId, imageBytes)
+                enrollResult.fold(
+                    onSuccess = {
+                        val state = _uiState.value
+                        customerService.updateCustomerProfile(
+                            targetUserId = customerId,
+                            fullName = state.fullName,
+                            email = state.email,
+                            phone = state.phone,
+                            kycVerified = true,
+                            nationalId = state.nationalId,
+                        )
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                kycVerified = true,
+                                successMessage = "Đã thu thập sinh trắc học và hoàn tất xác minh eKYC cho khách hàng",
+                            )
+                        }
+                        search(_uiState.value.query)
+                    },
+                    onFailure = { error ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = "Lỗi thu thập sinh trắc học: ${error.message}",
+                            )
+                        }
+                    },
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Không thể hoàn tất đăng ký sinh trắc học: ${e.message}",
+                    )
+                }
+            }
+        }
+    }
+
+    fun save() {
+        val session = sessionManager.currentSession
+        if (session?.role != Role.OFFICER) { _uiState.update { it.copy(errorMessage = "Chỉ nhân viên ngân hàng được quản lý khách hàng") }; return }
+        if (saveJob?.isActive == true) return
+        val state = _uiState.value
+        if (state.isCreating && !Regex("^[0-9]{12}$").matches(state.nationalId)) {
+            _uiState.update { it.copy(errorMessage = "CCCD phải gồm đúng 12 chữ số") }
+            return
+        }
+        saveJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+            try {
+                val currentState = _uiState.value
+                val result = currentState.selectedCustomer?.let { customer ->
+                    customerService.updateCustomerProfile(customer.id, currentState.fullName, currentState.email, currentState.phone, currentState.kycVerified, currentState.nationalId)
+                } ?: customerService.createCustomer(currentState.username, currentState.password, currentState.fullName, currentState.email, currentState.phone, currentState.kycVerified, currentState.nationalId).map { Unit }
                 result.fold(
                     onSuccess = {
-                        _uiState.update { it.copy(isLoading = false, successMessage = if (state.isCreating) "Đã tạo hồ sơ khách hàng và tài khoản thanh toán" else "Đã cập nhật hồ sơ khách hàng", password = "") }
+                        _uiState.update { it.copy(isLoading = false, successMessage = if (currentState.isCreating) "Đã tạo hồ sơ khách hàng và tài khoản thanh toán" else "Đã cập nhật hồ sơ khách hàng", password = "") }
                         search(_uiState.value.query)
                     },
                     onFailure = { error -> _uiState.update { it.copy(isLoading = false, errorMessage = error.message ?: "Không thể lưu hồ sơ") } },
