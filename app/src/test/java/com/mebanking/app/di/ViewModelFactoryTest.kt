@@ -52,6 +52,11 @@ class ViewModelFactoryTest {
         assertNotNull(factory.create(BillPaymentViewModel::class.java))
         assertNotNull(factory.create(ChatbotViewModel::class.java))
         assertNotNull(factory.create(AccountDetailViewModel::class.java))
+        assertNotNull(factory.create(com.mebanking.app.ui.lifestyle.FlightBookingViewModel::class.java))
+        assertNotNull(factory.create(com.mebanking.app.ui.lifestyle.HotelBookingViewModel::class.java))
+        assertNotNull(factory.create(com.mebanking.app.ui.lifestyle.CinemaBookingViewModel::class.java))
+        assertNotNull(factory.create(com.mebanking.app.ui.lifestyle.ShopViewModel::class.java))
+        assertNotNull(factory.create(com.mebanking.app.ui.lifestyle.TopupViewModel::class.java))
     }
 
     @Test

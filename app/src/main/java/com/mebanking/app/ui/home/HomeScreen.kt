@@ -58,6 +58,11 @@ fun HomeScreen(
     onNavigateToBills: () -> Unit = {},
     onNavigateToChatbot: () -> Unit = {},
     onNavigateToAccountDetail: (Long) -> Unit = {},
+    onNavigateToFlights: () -> Unit = {},
+    onNavigateToHotels: () -> Unit = {},
+    onNavigateToCinema: () -> Unit = {},
+    onNavigateToShop: () -> Unit = {},
+    onNavigateToTopup: () -> Unit = {},
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
 ) {
@@ -75,6 +80,11 @@ fun HomeScreen(
         onNavigateToBills = onNavigateToBills,
         onNavigateToChatbot = onNavigateToChatbot,
         onNavigateToAccountDetail = onNavigateToAccountDetail,
+        onNavigateToFlights = onNavigateToFlights,
+        onNavigateToHotels = onNavigateToHotels,
+        onNavigateToCinema = onNavigateToCinema,
+        onNavigateToShop = onNavigateToShop,
+        onNavigateToTopup = onNavigateToTopup,
         onLogout = onLogout,
         isCustomer = isCustomer,
         modifier = modifier,
@@ -96,6 +106,11 @@ fun HomeScreen(
     onNavigateToBills: () -> Unit = {},
     onNavigateToChatbot: () -> Unit = {},
     onNavigateToAccountDetail: (Long) -> Unit = {},
+    onNavigateToFlights: () -> Unit = {},
+    onNavigateToHotels: () -> Unit = {},
+    onNavigateToCinema: () -> Unit = {},
+    onNavigateToShop: () -> Unit = {},
+    onNavigateToTopup: () -> Unit = {},
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
 ) {
@@ -131,6 +146,11 @@ fun HomeScreen(
                 onNavigateToBills = onNavigateToBills,
                 onNavigateToChatbot = onNavigateToChatbot,
                 onNavigateToAccountDetail = onNavigateToAccountDetail,
+                onNavigateToFlights = onNavigateToFlights,
+                onNavigateToHotels = onNavigateToHotels,
+                onNavigateToCinema = onNavigateToCinema,
+                onNavigateToShop = onNavigateToShop,
+                onNavigateToTopup = onNavigateToTopup,
                 isCustomer = isCustomer,
                 modifier = Modifier.padding(innerPadding),
             )
@@ -190,6 +210,11 @@ private fun AccountsContent(
     onNavigateToBills: () -> Unit,
     onNavigateToChatbot: () -> Unit,
     onNavigateToAccountDetail: (Long) -> Unit,
+    onNavigateToFlights: () -> Unit,
+    onNavigateToHotels: () -> Unit,
+    onNavigateToCinema: () -> Unit,
+    onNavigateToShop: () -> Unit,
+    onNavigateToTopup: () -> Unit,
     isCustomer: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -211,6 +236,11 @@ private fun AccountsContent(
                 onNavigateToBills = onNavigateToBills,
                 onNavigateToChatbot = onNavigateToChatbot,
                 onNavigateToBranchLocator = onNavigateToBranchLocator,
+                onNavigateToFlights = onNavigateToFlights,
+                onNavigateToHotels = onNavigateToHotels,
+                onNavigateToCinema = onNavigateToCinema,
+                onNavigateToShop = onNavigateToShop,
+                onNavigateToTopup = onNavigateToTopup,
                 isCustomer = isCustomer,
             )
         }
@@ -252,6 +282,11 @@ private fun QuickActions(
     onNavigateToBills: () -> Unit,
     onNavigateToChatbot: () -> Unit,
     onNavigateToBranchLocator: () -> Unit,
+    onNavigateToFlights: () -> Unit,
+    onNavigateToHotels: () -> Unit,
+    onNavigateToCinema: () -> Unit,
+    onNavigateToShop: () -> Unit,
+    onNavigateToTopup: () -> Unit,
     isCustomer: Boolean,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -295,6 +330,54 @@ private fun QuickActions(
                     modifier = Modifier.weight(1f),
                 )
             }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuickActionCard(
+                    emoji = "✈️",
+                    title = "Vé máy bay",
+                    subtitle = "Nội địa & Quốc tế",
+                    onClick = onNavigateToFlights,
+                    modifier = Modifier.weight(1f),
+                )
+                QuickActionCard(
+                    emoji = "🏨",
+                    title = "Khách sạn",
+                    subtitle = "Nghỉ dưỡng, ưu đãi",
+                    onClick = onNavigateToHotels,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuickActionCard(
+                    emoji = "🎬",
+                    title = "Vé xem phim",
+                    subtitle = "Sơ đồ chọn ghế",
+                    onClick = onNavigateToCinema,
+                    modifier = Modifier.weight(1f),
+                )
+                QuickActionCard(
+                    emoji = "🛍️",
+                    title = "Mua sắm",
+                    subtitle = "Đổi quà & Sản phẩm",
+                    onClick = onNavigateToShop,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuickActionCard(
+                    emoji = "📱",
+                    title = "Nạp ĐT & Tiện ích",
+                    subtitle = "Viettel, Vina, Mobi",
+                    onClick = onNavigateToTopup,
+                    modifier = Modifier.weight(1f),
+                )
+                QuickActionCard(
+                    emoji = "📍",
+                    title = "Chi nhánh & ATM",
+                    subtitle = "Chỉ đường đi bộ",
+                    onClick = onNavigateToBranchLocator,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             QuickActionCard(
@@ -304,13 +387,15 @@ private fun QuickActions(
                 onClick = onNavigateToChatbot,
                 modifier = Modifier.weight(1f),
             )
-            QuickActionCard(
-                emoji = "📍",
-                title = "Chi nhánh & ATM",
-                subtitle = "Chỉ đường đi bộ",
-                onClick = onNavigateToBranchLocator,
-                modifier = Modifier.weight(1f),
-            )
+            if (!isCustomer) {
+                QuickActionCard(
+                    emoji = "📍",
+                    title = "Chi nhánh & ATM",
+                    subtitle = "Chỉ đường đi bộ",
+                    onClick = onNavigateToBranchLocator,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         if (!isCustomer) {
             QuickActionCard(

@@ -11,6 +11,11 @@ import com.mebanking.app.ui.cash.WithdrawViewModel
 import com.mebanking.app.ui.home.HomeViewModel
 import com.mebanking.app.ui.history.TransactionDetailViewModel
 import com.mebanking.app.ui.history.TransactionHistoryViewModel
+import com.mebanking.app.ui.lifestyle.CinemaBookingViewModel
+import com.mebanking.app.ui.lifestyle.FlightBookingViewModel
+import com.mebanking.app.ui.lifestyle.HotelBookingViewModel
+import com.mebanking.app.ui.lifestyle.ShopViewModel
+import com.mebanking.app.ui.lifestyle.TopupViewModel
 import com.mebanking.app.ui.navigation.BranchLocatorViewModel
 import com.mebanking.app.ui.officer.OfficerDashboardViewModel
 import com.mebanking.app.ui.transfer.TransferViewModel
@@ -82,6 +87,35 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(AccountDetailViewModel::class.java) -> {
                 AccountDetailViewModel(
                     accountService = container.accountService,
+                    sessionManager = container.sessionManager,
+                ) as T
+            }
+            modelClass.isAssignableFrom(FlightBookingViewModel::class.java) -> {
+                FlightBookingViewModel(
+                    flightRepository = container.flightRepository,
+                    sessionManager = container.sessionManager,
+                ) as T
+            }
+            modelClass.isAssignableFrom(HotelBookingViewModel::class.java) -> {
+                HotelBookingViewModel(
+                    hotelRepository = container.hotelRepository,
+                    sessionManager = container.sessionManager,
+                ) as T
+            }
+            modelClass.isAssignableFrom(CinemaBookingViewModel::class.java) -> {
+                CinemaBookingViewModel(
+                    cinemaRepository = container.cinemaRepository,
+                    sessionManager = container.sessionManager,
+                ) as T
+            }
+            modelClass.isAssignableFrom(ShopViewModel::class.java) -> {
+                ShopViewModel(
+                    shopRepository = container.shopRepository,
+                    sessionManager = container.sessionManager,
+                ) as T
+            }
+            modelClass.isAssignableFrom(TopupViewModel::class.java) -> {
+                TopupViewModel(
                     sessionManager = container.sessionManager,
                 ) as T
             }

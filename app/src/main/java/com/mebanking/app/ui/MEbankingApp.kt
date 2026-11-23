@@ -23,6 +23,11 @@ import com.mebanking.app.ui.chatbot.ChatbotScreen
 import com.mebanking.app.ui.home.HomeScreen
 import com.mebanking.app.ui.history.TransactionHistoryScreen
 import com.mebanking.app.ui.history.TransactionDetailScreen
+import com.mebanking.app.ui.lifestyle.CinemaBookingScreen
+import com.mebanking.app.ui.lifestyle.FlightBookingScreen
+import com.mebanking.app.ui.lifestyle.HotelBookingScreen
+import com.mebanking.app.ui.lifestyle.ShopScreen
+import com.mebanking.app.ui.lifestyle.TopupScreen
 import com.mebanking.app.ui.navigation.BranchLocatorScreen
 import com.mebanking.app.ui.officer.OfficerDashboardScreen
 import com.mebanking.app.ui.transfer.TransferScreen
@@ -90,9 +95,49 @@ private fun AuthenticatedApp(
                 onNavigateToAccountDetail = { accountId ->
                     navController.navigate("account_detail/$accountId") { launchSingleTop = true }
                 },
+                onNavigateToFlights = {
+                    if (isCustomer) {
+                        navController.navigate("flight_booking") { launchSingleTop = true }
+                    }
+                },
+                onNavigateToHotels = {
+                    if (isCustomer) {
+                        navController.navigate("hotel_booking") { launchSingleTop = true }
+                    }
+                },
+                onNavigateToCinema = {
+                    if (isCustomer) {
+                        navController.navigate("cinema_booking") { launchSingleTop = true }
+                    }
+                },
+                onNavigateToShop = {
+                    if (isCustomer) {
+                        navController.navigate("shop") { launchSingleTop = true }
+                    }
+                },
+                onNavigateToTopup = {
+                    if (isCustomer) {
+                        navController.navigate("topup") { launchSingleTop = true }
+                    }
+                },
                 onLogout = onLogout,
                 isCustomer = isCustomer,
             )
+        }
+        composable("flight_booking") {
+            FlightBookingScreen(onBack = { navController.popBackStack() })
+        }
+        composable("hotel_booking") {
+            HotelBookingScreen(onBack = { navController.popBackStack() })
+        }
+        composable("cinema_booking") {
+            CinemaBookingScreen(onBack = { navController.popBackStack() })
+        }
+        composable("shop") {
+            ShopScreen(onBack = { navController.popBackStack() })
+        }
+        composable("topup") {
+            TopupScreen(onBack = { navController.popBackStack() })
         }
         composable("branch_locator") {
             BranchLocatorScreen(onBack = { navController.popBackStack() })
