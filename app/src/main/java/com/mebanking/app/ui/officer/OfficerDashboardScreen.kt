@@ -22,7 +22,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
+import com.mebanking.app.ui.ekyc.FaceCaptureDialog
 
 @Composable
 fun OfficerDashboardScreen(onBack: () -> Unit) {
@@ -51,7 +56,7 @@ fun OfficerDashboardScreen(onBack: () -> Unit) {
         onNationalId = viewModel::onNationalIdChanged,
         onKyc = viewModel::onKycChanged,
         onSave = viewModel::save,
-        onEnrollFace = { customerId -> viewModel.enrollFaceBiometrics(customerId) },
+        onEnrollFace = { customerId, frame -> viewModel.enrollFaceBiometrics(customerId, frame) },
     )
 }
 
@@ -71,8 +76,16 @@ private fun OfficerDashboardContent(
     onNationalId: (String) -> Unit,
     onKyc: (Boolean) -> Unit,
     onSave: () -> Unit,
-    onEnrollFace: (Long) -> Unit = {},
+    onEnrollFace: (Long, ByteArray) -> Unit = { _, _ -> },
 ) {
+    var enrollingCustomerId by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(state.successMessage) {
+        if (state.successMessage != null) {
+            enrollingCustomerId = null
+        }
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("Quản lý khách hàng") }, navigationIcon = { TextButton(onClick = onBack) { Text("‹ Quay lại") } }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
@@ -110,7 +123,7 @@ private fun OfficerDashboardContent(
             if (!state.isCreating && state.selectedCustomer != null) {
                 item {
                     OutlinedButton(
-                        onClick = { onEnrollFace(state.selectedCustomer.id) },
+                        onClick = { enrollingCustomerId = state.selectedCustomer.id },
                         enabled = !state.isLoading,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -121,5 +134,20 @@ private fun OfficerDashboardContent(
             state.successMessage?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
             item { Button(onClick = onSave, enabled = !state.isLoading, modifier = Modifier.fillMaxWidth()) { Text("Lưu hồ sơ") } }
         }
+    }
+
+    enrollingCustomerId?.let { customerId ->
+        FaceCaptureDialog(
+            title = "Thu thập sinh trắc học khuôn mặt eKYC",
+            subtitle = "Căn giữa khuôn mặt của khách hàng vào khung oval để hoàn tất đăng ký sinh trắc học.",
+            isProcessing = state.isLoading,
+            errorMessage = state.errorMessage,
+            onFrameCaptured = { frame ->
+                onEnrollFace(customerId, frame)
+            },
+            onDismiss = {
+                enrollingCustomerId = null
+            },
+        )
     }
 }

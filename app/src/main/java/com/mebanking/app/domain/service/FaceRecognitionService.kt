@@ -5,6 +5,9 @@ import com.mebanking.app.domain.model.AuthenticationDecision
 import com.mebanking.app.domain.model.FaceDetectionError
 import com.mebanking.app.domain.model.FaceRecognitionError
 import com.mebanking.app.domain.model.FaceRecognitionResult
+import com.mebanking.app.domain.service.face.FaceEmbeddingExtractor
+import com.mebanking.app.domain.service.face.FaceQualityValidator
+import com.mebanking.app.domain.service.face.MobileFaceNetEmbeddingExtractor
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.sqrt
@@ -75,10 +78,11 @@ interface FaceRecognitionService {
  */
 class DefaultFaceRecognitionService(
     private val context: Context? = null,
+    private val embeddingExtractor: FaceEmbeddingExtractor = MobileFaceNetEmbeddingExtractor(context),
 ) : FaceRecognitionService {
 
     companion object {
-        const val EMBEDDING_DIMENSION = 128
+        const val EMBEDDING_DIMENSION = FaceEmbeddingExtractor.EMBEDDING_DIMENSION
         const val COSINE_SIMILARITY_THRESHOLD = 0.70f
     }
 
@@ -86,36 +90,7 @@ class DefaultFaceRecognitionService(
     private val templateCipher = FaceTemplateCipher(context)
 
     override suspend fun detectFace(imageBytes: ByteArray?): Result<Unit> {
-        if (imageBytes == null || imageBytes.isEmpty()) {
-            return Result.failure(FaceDetectionError.NoFaceDetected())
-        }
-
-        val str = String(imageBytes, Charsets.ISO_8859_1)
-
-        val hasMultiple = str.contains("multiple", ignoreCase = true) ||
-            (imageBytes.size >= 2 && imageBytes[0] == 2.toByte() && imageBytes[1] == 2.toByte())
-        if (hasMultiple) {
-            return Result.failure(FaceDetectionError.MultipleFacesDetected())
-        }
-
-        val isCorrupt = str.contains("model_corrupt", ignoreCase = true) ||
-            (imageBytes.size >= 2 && imageBytes[0] == 9.toByte() && imageBytes[1] == 9.toByte())
-        if (isCorrupt) {
-            return Result.failure(FaceDetectionError.ModelUnavailable())
-        }
-
-        val isPermDenied = str.contains("permission_denied", ignoreCase = true) ||
-            (imageBytes.size == 1 && imageBytes[0] == 0.toByte())
-        if (isPermDenied) {
-            return Result.failure(FaceDetectionError.PermissionDenied())
-        }
-
-        val isLowLight = str.contains("low_light", ignoreCase = true)
-        if (isLowLight) {
-            return Result.failure(FaceDetectionError.LowQuality())
-        }
-
-        return Result.success(Unit)
+        return FaceQualityValidator.validateFrame(imageBytes)
     }
 
     override suspend fun verifyFace(
@@ -238,39 +213,11 @@ class DefaultFaceRecognitionService(
     // -------------------------------------------------------------------------
 
     private fun extractEmbedding(imageBytes: ByteArray): FloatArray {
-        val embedding = FloatArray(EMBEDDING_DIMENSION)
-        var seed = 0L
-        for (b in imageBytes) {
-            seed = 31L * seed + b.toLong()
-        }
-        val random = java.util.Random(seed)
-        var sumSq = 0f
-        for (i in 0 until EMBEDDING_DIMENSION) {
-            val v = random.nextFloat() * 2f - 1f
-            embedding[i] = v
-            sumSq += v * v
-        }
-        val norm = sqrt(sumSq)
-        if (norm > 0f) {
-            for (i in 0 until EMBEDDING_DIMENSION) {
-                embedding[i] /= norm
-            }
-        }
-        return embedding
+        return embeddingExtractor.extractEmbedding(imageBytes)
     }
 
     private fun computeCosineSimilarity(u: FloatArray, v: FloatArray): Float {
-        if (u.size != v.size || u.isEmpty()) return 0f
-        var dot = 0f
-        var normU = 0f
-        var normV = 0f
-        for (i in u.indices) {
-            dot += u[i] * v[i]
-            normU += u[i] * u[i]
-            normV += v[i] * v[i]
-        }
-        val denom = sqrt(normU) * sqrt(normV)
-        return if (denom > 0f) dot / denom else 0f
+        return embeddingExtractor.computeCosineSimilarity(u, v)
     }
 
     // -------------------------------------------------------------------------

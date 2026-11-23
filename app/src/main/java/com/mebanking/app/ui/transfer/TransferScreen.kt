@@ -48,6 +48,7 @@ import com.mebanking.app.ui.common.label
 import com.mebanking.app.ui.theme.MEbankingTheme
 import com.mebanking.app.ui.auth.DeviceAuthenticationResult
 import com.mebanking.app.ui.auth.DeviceAuthenticator
+import com.mebanking.app.ui.ekyc.FaceCaptureDialog
 import android.content.Context
 import android.content.ContextWrapper
 import kotlinx.coroutines.delay
@@ -90,7 +91,7 @@ fun TransferScreen(
         onVerifyOtp = viewModel::verifyOtpAndSubmit,
         onCancelOtp = viewModel::cancelOtpChallenge,
         onRefreshOtp = viewModel::refreshOtpChallenge,
-        onVerifyFace = { viewModel.verifyFaceAndSubmit() },
+        onVerifyFace = { frame -> viewModel.verifyFaceAndSubmit(frame) },
         onCancelFace = viewModel::onFaceVerificationCancelled,
         modifier = modifier,
     )
@@ -110,7 +111,7 @@ fun TransferContent(
     onVerifyOtp: () -> Unit = {},
     onCancelOtp: () -> Unit = {},
     onRefreshOtp: () -> Unit = {},
-    onVerifyFace: () -> Unit = {},
+    onVerifyFace: (ByteArray) -> Unit = {},
     onCancelFace: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -297,61 +298,13 @@ fun TransferContent(
     }
 
     if (uiState.showFaceVerificationDialog) {
-        AlertDialog(
-            onDismissRequest = onCancelFace,
-            title = { Text("Xác thực khuôn mặt (Sinh trắc học)") },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        "Theo Quyết định 2345/QĐ-NHNN, giao dịch trên 10.000.000 VND bắt buộc xác thực sinh trắc học khuôn mặt.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(160.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        ),
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text("👤", style = MaterialTheme.typography.displayMedium)
-                            Text("Khung nhận diện khuôn mặt", style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                    if (uiState.isFaceVerifying) {
-                        CircularProgressIndicator(modifier = Modifier.padding(8.dp))
-                        Text("Đang đối soát đặc trưng sinh trắc học...")
-                    }
-                    uiState.faceVerificationError?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = onVerifyFace,
-                    enabled = !uiState.isFaceVerifying,
-                ) {
-                    Text("Xác nhận khuôn mặt")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = onCancelFace,
-                    enabled = !uiState.isFaceVerifying,
-                ) {
-                    Text("Hủy")
-                }
-            },
+        FaceCaptureDialog(
+            title = "Xác thực khuôn mặt (Sinh trắc học)",
+            subtitle = "Theo Quyết định 2345/QĐ-NHNN, giao dịch trên 10.000.000 VND bắt buộc xác thực sinh trắc học khuôn mặt.",
+            isProcessing = uiState.isFaceVerifying,
+            errorMessage = uiState.faceVerificationError,
+            onFrameCaptured = onVerifyFace,
+            onDismiss = onCancelFace,
         )
     }
 }
