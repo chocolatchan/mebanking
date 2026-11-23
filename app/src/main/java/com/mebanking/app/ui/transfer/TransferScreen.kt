@@ -1,6 +1,10 @@
 package com.mebanking.app.ui.transfer
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,10 +13,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -20,11 +30,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -35,6 +47,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +57,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mebanking.app.ui.theme.SynchronizedStatusBar
+import com.mebanking.app.ui.theme.VcbGreenPrimary
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.model.Account
@@ -125,6 +141,8 @@ fun TransferContent(
             onRefreshOtp()
         }
     }
+    SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -216,6 +234,43 @@ fun TransferContent(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+
+                // Quick Amount Selection Chips (TCB & MoMo/ZaloPay feature)
+                if (uiState.successMessage == null) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(
+                                "100000" to "100.000đ",
+                                "200000" to "200.000đ",
+                                "500000" to "500.000đ",
+                                "1000000" to "1.000.000đ",
+                                "2000000" to "2.000.000đ",
+                                "5000000" to "5.000.000đ",
+                            ).forEach { (amountVal, label) ->
+                                Surface(
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (uiState.amountInput == amountVal) Color(0xFFE8F5E9) else Color(0xFFF1F5F9),
+                                    modifier = Modifier.clip(RoundedCornerShape(20.dp)),
+                                    onClick = { onAmountChanged(amountVal) },
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (uiState.amountInput == amountVal) VcbGreenPrimary else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 item {
                     OutlinedTextField(
                         value = uiState.note,
@@ -239,25 +294,69 @@ fun TransferContent(
                 if (uiState.successMessage != null) {
                     item {
                         Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFE8F5E9)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.CheckCircle,
+                                        contentDescription = "Thành công",
+                                        tint = VcbGreenPrimary,
+                                        modifier = Modifier.size(36.dp),
+                                    )
+                                }
+                                Spacer(Modifier.height(12.dp))
                                 Text(
-                                    text = uiState.successMessage,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    text = "Chuyển tiền thành công",
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                 )
-                                Spacer(Modifier.height(14.dp))
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = CurrencyFormatter.formatVnd(uiState.amountInput.toLongOrNull() ?: 0L),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = VcbGreenPrimary,
+                                )
+
+                                Spacer(Modifier.height(16.dp))
+                                HorizontalDivider(color = Color(0xFFF1F5F9))
+                                Spacer(Modifier.height(16.dp))
+
+                                // Digital Receipt Details (Techcombank Style)
+                                ReceiptDetailRow(label = "Tài khoản nguồn", value = uiState.selectedFromAccount?.accountNumber ?: "Tài khoản thanh toán")
+                                Spacer(Modifier.height(8.dp))
+                                ReceiptDetailRow(label = "Tài khoản thụ hưởng", value = uiState.toAccountNumber)
+                                Spacer(Modifier.height(8.dp))
+                                ReceiptDetailRow(label = "Phí giao dịch", value = "Miễn phí (0 VND)")
+                                if (uiState.note.isNotBlank()) {
+                                    Spacer(Modifier.height(8.dp))
+                                    ReceiptDetailRow(label = "Nội dung", value = uiState.note)
+                                }
+
+                                Spacer(Modifier.height(20.dp))
                                 Button(
                                     onClick = onBack,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(48.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                 ) {
-                                    Text("Về trang chủ")
+                                    Text("Về trang chủ", fontWeight = FontWeight.SemiBold)
                                 }
                             }
                         }
@@ -368,6 +467,27 @@ private fun SourceAccountRow(
                 Text("✓", style = MaterialTheme.typography.titleLarge)
             }
         }
+    }
+}
+
+@Composable
+private fun ReceiptDetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 

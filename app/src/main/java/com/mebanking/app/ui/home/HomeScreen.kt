@@ -256,14 +256,14 @@ fun HomeScreen(
                     currentBottomTab = tab
                     when (tab) {
                         0 -> {} // Home
-                        1 -> {
+                        1 -> onNavigateToHistory()
+                        2 -> showQrModal = true
+                        3 -> onNavigateToBills()
+                        4 -> {
                             val primaryId = uiState.accounts.firstOrNull()?.id?.toLongOrNull()
                             if (primaryId != null) onNavigateToAccountDetail(primaryId)
-                            else onNavigateToHistory()
+                            else if (!isCustomer) onNavigateToOfficerDashboard()
                         }
-                        2 -> showQrModal = true
-                        3 -> onNavigateToShop()
-                        4 -> onNavigateToChatbot()
                     }
                 },
             )
@@ -568,7 +568,7 @@ private fun HeaderCircleButton(icon: ImageVector, contentDescription: String, on
 }
 
 // -----------------------------------------------------------------------------
-// VIP Master Card (Metallic Finish with Chips & Vector Icons)
+// VIP Master Card (Techcombank Minimalist Obsidian Card with Geometric Emblem)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -583,12 +583,12 @@ private fun VipBankMasterCard(
     isCustomer: Boolean,
 ) {
     val primaryAccount = uiState.accounts.firstOrNull()
-    val accountNumber = primaryAccount?.iban ?: "1012 3456 7890"
+    val accountNumber = primaryAccount?.iban ?: "1001 2345 6789"
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(elevation = 12.dp, shape = RoundedCornerShape(22.dp)),
+            .shadow(elevation = 8.dp, shape = RoundedCornerShape(22.dp)),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
     ) {
@@ -598,14 +598,13 @@ private fun VipBankMasterCard(
                 .background(
                     Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFF0F1E19),
-                            Color(0xFF063B25),
-                            Color(0xFF0A2E20),
-                            Color(0xFF131D2D),
+                            Color(0xFF0F172A), // Obsidian Slate 900
+                            Color(0xFF1E293B), // Slate 800
+                            Color(0xFF111827), // Deep Graphite
                         ),
                     ),
                 )
-                .border(1.dp, Color(0x33F59E0B), RoundedCornerShape(22.dp))
+                .border(1.dp, Color(0x33E51937), RoundedCornerShape(22.dp))
                 .padding(20.dp),
         ) {
             Column {
@@ -615,22 +614,38 @@ private fun VipBankMasterCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = "MEBANKING",
-                        color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 16.sp,
-                        letterSpacing = 1.5.sp,
-                    )
-                    Text(
-                        text = "Tài khoản thanh toán",
-                        color = Color(0xFFA3D9BD),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(TcbRedPrimary),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "MEBANKING",
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp,
+                            letterSpacing = 1.5.sp,
+                        )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0x26E51937),
+                    ) {
+                        Text(
+                            text = if (isCustomer) "Tài khoản thanh toán" else "Tài khoản quản trị",
+                            color = Color(0xFFFECACA),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        )
+                    }
                 }
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // Account Number & Vector Copy Button
                 Row(
@@ -639,7 +654,7 @@ private fun VipBankMasterCard(
                 ) {
                     Text(
                         text = "STK: $accountNumber",
-                        color = Color(0xFFD1E7DD),
+                        color = Color(0xFFCBD5E1),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                     )
@@ -648,27 +663,27 @@ private fun VipBankMasterCard(
                             .clip(RoundedCornerShape(6.dp))
                             .background(Color(0x33FFFFFF))
                             .clickable { onCopyAccount(accountNumber) }
-                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                            .padding(horizontal = 7.dp, vertical = 3.dp),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "Sao chép",
                                 color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
                             )
                             Spacer(Modifier.width(4.dp))
                             Icon(
                                 imageVector = Icons.Filled.ContentCopy,
                                 contentDescription = "Sao chép số tài khoản",
                                 tint = Color.White,
-                                modifier = Modifier.size(11.dp),
+                                modifier = Modifier.size(12.dp),
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
 
                 // Balance with Vector Eye Toggle
                 Row(
@@ -679,7 +694,7 @@ private fun VipBankMasterCard(
                     Column {
                         Text(
                             text = "Số dư khả dụng",
-                            color = Color(0xFFA3D9BD),
+                            color = Color(0xFF94A3B8),
                             style = MaterialTheme.typography.labelMedium,
                         )
                         Spacer(Modifier.height(2.dp))
@@ -709,7 +724,7 @@ private fun VipBankMasterCard(
                     }
                 }
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(14.dp))
 
                 // Bottom row inside card: Transaction History Link
                 if (isCustomer) {
@@ -724,14 +739,14 @@ private fun VipBankMasterCard(
                         ) {
                             Text(
                                 text = "Lịch sử giao dịch",
-                                color = Color(0xFFC7ECD3),
+                                color = Color(0xFFE2E8F0),
                                 style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                             )
                             Icon(
                                 imageVector = Icons.Filled.ChevronRight,
                                 contentDescription = null,
-                                tint = Color(0xFFC7ECD3),
+                                tint = Color(0xFFE2E8F0),
                                 modifier = Modifier.size(16.dp),
                             )
                         }
@@ -777,8 +792,8 @@ private fun QuickActionsFourBar(
             CircleActionItem(
                 icon = Icons.Filled.QrCodeScanner,
                 title = "Quét QR",
-                bgColor = Color(0xFFFFF3E0),
-                tintColor = BankGoldDark,
+                bgColor = Color(0xFFFEE2E2),
+                tintColor = TcbRedPrimary,
                 onClick = onOpenQr,
             )
             CircleActionItem(
@@ -791,8 +806,8 @@ private fun QuickActionsFourBar(
             CircleActionItem(
                 icon = Icons.Filled.LocalAtm,
                 title = "Rút tiền",
-                bgColor = Color(0xFFFFEBEE),
-                tintColor = TcbRedPrimary,
+                bgColor = Color(0xFFFFF3E0),
+                tintColor = Color(0xFFE65100),
                 onClick = onWithdraw,
             )
         }
@@ -993,41 +1008,76 @@ private fun UtilityServicesGrid(
             Spacer(Modifier.height(14.dp))
 
             if (isCustomer) {
-                // Row 1: Core Financials
+                // Row 1: Bills & Travel Services (MoMo / ZaloPay / ShopeePay 4-column layout)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    UtilityGridItem(icon = Icons.Filled.Payments, label = "Chuyển tiền", onClick = onNavigateToTransfer)
-                    UtilityGridItem(icon = Icons.Filled.ReceiptLong, label = "Lịch sử GD", onClick = onNavigateToHistory)
-                    UtilityGridItem(icon = Icons.Filled.Receipt, label = "Hóa đơn", onClick = onNavigateToBills)
-                    UtilityGridItem(icon = Icons.Filled.PhoneAndroid, label = "Nạp ĐT", onClick = onNavigateToTopup)
+                    UtilityGridItem(
+                        icon = Icons.Filled.Receipt,
+                        label = "Hóa đơn",
+                        bgColor = Color(0xFFFFF3E0),
+                        tintColor = Color(0xFFE65100),
+                        onClick = onNavigateToBills,
+                    )
+                    UtilityGridItem(
+                        icon = Icons.Filled.PhoneAndroid,
+                        label = "Nạp ĐT",
+                        bgColor = Color(0xFFE3F2FD),
+                        tintColor = Color(0xFF1976D2),
+                        onClick = onNavigateToTopup,
+                    )
+                    UtilityGridItem(
+                        icon = Icons.Filled.Flight,
+                        label = "Vé máy bay",
+                        bgColor = Color(0xFFE0F7FA),
+                        tintColor = Color(0xFF00838F),
+                        onClick = onNavigateToFlights,
+                    )
+                    UtilityGridItem(
+                        icon = Icons.Filled.Hotel,
+                        label = "Khách sạn",
+                        bgColor = Color(0xFFFEF3C7),
+                        tintColor = Color(0xFFD97706),
+                        onClick = onNavigateToHotels,
+                    )
                 }
 
                 Spacer(Modifier.height(14.dp))
 
-                // Row 2: Lifestyle & Travel
+                // Row 2: Entertainment, Shopping & Support
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    UtilityGridItem(icon = Icons.Filled.Flight, label = "Vé máy bay", onClick = onNavigateToFlights)
-                    UtilityGridItem(icon = Icons.Filled.Hotel, label = "Khách sạn", onClick = onNavigateToHotels)
-                    UtilityGridItem(icon = Icons.Filled.Theaters, label = "Xem phim", onClick = onNavigateToCinema)
-                    UtilityGridItem(icon = Icons.Filled.ShoppingBag, label = "Mua sắm", onClick = onNavigateToShop)
-                }
-
-                Spacer(Modifier.height(14.dp))
-
-                // Row 3: Support, Branch & Cash
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    UtilityGridItem(icon = Icons.Filled.LocationOn, label = "ATM & PGD", onClick = onNavigateToBranchLocator)
-                    UtilityGridItem(icon = Icons.Filled.SmartToy, label = "Trợ lý ảo", onClick = onNavigateToChatbot)
-                    UtilityGridItem(icon = Icons.Filled.Add, label = "Nạp tiền", onClick = onNavigateToDeposit)
-                    UtilityGridItem(icon = Icons.Filled.LocalAtm, label = "Rút tiền ATM", onClick = onNavigateToWithdraw)
+                    UtilityGridItem(
+                        icon = Icons.Filled.Theaters,
+                        label = "Xem phim",
+                        bgColor = Color(0xFFF3E5F5),
+                        tintColor = Color(0xFF7B1FA2),
+                        onClick = onNavigateToCinema,
+                    )
+                    UtilityGridItem(
+                        icon = Icons.Filled.ShoppingBag,
+                        label = "Mua sắm",
+                        bgColor = Color(0xFFFCE4EC),
+                        tintColor = Color(0xFFC2185B),
+                        onClick = onNavigateToShop,
+                    )
+                    UtilityGridItem(
+                        icon = Icons.Filled.LocationOn,
+                        label = "ATM & PGD",
+                        bgColor = Color(0xFFE8F5E9),
+                        tintColor = Color(0xFF00796B),
+                        onClick = onNavigateToBranchLocator,
+                    )
+                    UtilityGridItem(
+                        icon = Icons.Filled.SmartToy,
+                        label = "Trợ lý AI",
+                        bgColor = Color(0xFFEDE7F6),
+                        tintColor = Color(0xFF512DA8),
+                        onClick = onNavigateToChatbot,
+                    )
                 }
             } else {
                 // Officer View
@@ -1035,10 +1085,10 @@ private fun UtilityServicesGrid(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    UtilityGridItem(icon = Icons.Filled.SupervisorAccount, label = "Quản lý hồ sơ", onClick = onNavigateToOfficerDashboard)
-                    UtilityGridItem(icon = Icons.Filled.Map, label = "Bản đồ PGD", onClick = onNavigateToBranchLocator)
-                    UtilityGridItem(icon = Icons.Filled.SupportAgent, label = "Trợ lý nội bộ", onClick = onNavigateToChatbot)
-                    UtilityGridItem(icon = Icons.Filled.Assessment, label = "Báo cáo GD", onClick = onNavigateToHistory)
+                    UtilityGridItem(icon = Icons.Filled.SupervisorAccount, label = "Quản lý hồ sơ", bgColor = Color(0xFFE8F5E9), tintColor = VcbGreenPrimary, onClick = onNavigateToOfficerDashboard)
+                    UtilityGridItem(icon = Icons.Filled.Map, label = "Bản đồ PGD", bgColor = Color(0xFFE0F7FA), tintColor = Color(0xFF00838F), onClick = onNavigateToBranchLocator)
+                    UtilityGridItem(icon = Icons.Filled.SupportAgent, label = "Trợ lý nội bộ", bgColor = Color(0xFFEDE7F6), tintColor = Color(0xFF512DA8), onClick = onNavigateToChatbot)
+                    UtilityGridItem(icon = Icons.Filled.Assessment, label = "Báo cáo GD", bgColor = Color(0xFFFFF3E0), tintColor = Color(0xFFE65100), onClick = onNavigateToHistory)
                 }
             }
         }
@@ -1049,6 +1099,8 @@ private fun UtilityServicesGrid(
 private fun UtilityGridItem(
     icon: ImageVector,
     label: String,
+    bgColor: Color = Color(0xFFF1F5F9),
+    tintColor: Color = VcbGreenPrimary,
     onClick: () -> Unit,
 ) {
     Column(
@@ -1063,13 +1115,13 @@ private fun UtilityGridItem(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFFF1F5F9)),
+                .background(bgColor),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = VcbGreenPrimary,
+                tint = tintColor,
                 modifier = Modifier.size(24.dp),
             )
         }
@@ -1078,9 +1130,11 @@ private fun UtilityGridItem(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -1196,8 +1250,8 @@ private fun ModernBankingBottomBar(
         )
 
         NavigationBarItem(
-            icon = { Icon(Icons.Filled.CreditCard, contentDescription = "Tài khoản") },
-            label = { Text("Tài khoản", fontWeight = FontWeight.SemiBold) },
+            icon = { Icon(Icons.Filled.History, contentDescription = "Lịch sử") },
+            label = { Text("Lịch sử", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 1,
             onClick = { onTabSelected(1) },
             colors = NavigationBarItemDefaults.colors(
@@ -1207,35 +1261,36 @@ private fun ModernBankingBottomBar(
             ),
         )
 
-        // Center highlighted QR Pay button
+        // Center highlighted QR Pay button (MoMo / ZaloPay / ShopeePay layout)
         NavigationBarItem(
             icon = {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(46.dp)
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
-                                listOf(VcbGreenPrimary, Color(0xFF047857)),
+                                listOf(TcbRedPrimary, Color(0xFFB91C1C)),
                             ),
-                        ),
+                        )
+                        .shadow(elevation = 4.dp, shape = CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.QrCodeScanner,
-                        contentDescription = "QR Pay",
+                        contentDescription = "Quét QR",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp),
                     )
                 }
             },
-            label = { Text("QR Pay", fontWeight = FontWeight.Bold, color = VcbGreenPrimary) },
+            label = { Text("Quét QR", fontWeight = FontWeight.Bold, color = TcbRedPrimary) },
             selected = selectedTab == 2,
             onClick = { onTabSelected(2) },
         )
 
         NavigationBarItem(
-            icon = { Icon(Icons.Filled.ShoppingBag, contentDescription = "Dịch vụ") },
+            icon = { Icon(Icons.Filled.Receipt, contentDescription = "Dịch vụ") },
             label = { Text("Dịch vụ", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 3,
             onClick = { onTabSelected(3) },
@@ -1247,8 +1302,8 @@ private fun ModernBankingBottomBar(
         )
 
         NavigationBarItem(
-            icon = { Icon(Icons.Filled.SmartToy, contentDescription = "Trợ lý") },
-            label = { Text("Trợ lý", fontWeight = FontWeight.SemiBold) },
+            icon = { Icon(Icons.Filled.Person, contentDescription = "Tài khoản") },
+            label = { Text("Tài khoản", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 4,
             onClick = { onTabSelected(4) },
             colors = NavigationBarItemDefaults.colors(

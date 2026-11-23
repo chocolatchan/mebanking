@@ -1,5 +1,6 @@
 package com.mebanking.app.ui.account
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -72,6 +73,8 @@ fun AccountDetailContent(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {

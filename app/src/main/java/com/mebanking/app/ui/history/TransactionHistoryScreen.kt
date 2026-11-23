@@ -2,6 +2,7 @@ package com.mebanking.app.ui.history
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -62,6 +63,8 @@ private fun TransactionHistoryContent(
     onOpenTransaction: (Long) -> Unit,
     onRetry: () -> Unit,
 ) {
+    com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Lịch sử giao dịch") },
