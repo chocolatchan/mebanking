@@ -14,6 +14,7 @@ class OtpServiceTest {
         assertTrue(initial.code.matches(Regex("\\d{6}")))
         assertTrue(service.verify(initial.id, 42L, initial.code))
         assertFalse(service.verify(initial.id, 99L, initial.code))
+        assertNotNull("Wrong-user verification must not consume the challenge", service.getCurrentChallenge(initial.id, 42L))
 
         now += OtpService.CODE_LIFETIME_MILLIS
         val rotated = service.getCurrentChallenge(initial.id, 42L)

@@ -41,8 +41,13 @@ class OtpService(
     @Synchronized
     fun getCurrentChallenge(challengeId: String, userId: Long): OtpChallenge? {
         val now = clock()
-        val current = challenges[challengeId]?.takeIf { it.userId == userId && now < it.expiresAtMillis }
-            ?: run { challenges.remove(challengeId); return null }
+        val current = challenges[challengeId] ?: return null
+        // A caller with the wrong user id must not invalidate another user's challenge.
+        if (current.userId != userId) return null
+        if (now >= current.expiresAtMillis) {
+            challenges.remove(challengeId)
+            return null
+        }
         if (now - current.codeIssuedAtMillis < CODE_LIFETIME_MILLIS) return current
         return current.copy(code = newCode(), codeIssuedAtMillis = now).also { challenges[challengeId] = it }
     }
