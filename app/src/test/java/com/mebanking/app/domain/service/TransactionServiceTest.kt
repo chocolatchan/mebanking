@@ -199,6 +199,47 @@ class TransactionServiceTest {
     }
 
     @Test
+    fun idempotency_afterProcessRestart_reinstantiatedServiceReturnsPersistedResultWithoutDoubleDebit() = runTest {
+        val request = TransferRequest(
+            fromAccountId = 1L,
+            toAccountId = 2L,
+            amount = 10_000_000L,
+            idempotencyKey = "IDEM-RESTART-01",
+        )
+
+        // Initial execution on first service instance
+        val firstResult = transactionService.executeTransfer(request, customerSession)
+        assertTrue(firstResult.isSuccess)
+        assertEquals(40_000_000L, accountDao.getById(1L)?.balance)
+        assertEquals(110_000_000L, accountDao.getById(2L)?.balance)
+
+        // Simulate process death and app restart by recreating repository and service instances from the same database
+        val newRepository = DefaultTransactionRepository(
+            transactionDao = transactionDao,
+            accountDao = accountDao,
+            database = db,
+        )
+        val restartedService = DefaultTransactionService(
+            transactionRepository = newRepository,
+            accountRepository = accountRepository,
+            accountDao = accountDao,
+            transactionDao = transactionDao,
+            authenticationPolicy = DefaultTransactionAuthenticationPolicy(),
+            sessionManager = sessionManager,
+        )
+
+        // Retry the exact same transfer request on the newly booted service
+        val retryResult = restartedService.executeTransfer(request, customerSession)
+        assertTrue("Retry after restart must succeed without error", retryResult.isSuccess)
+        assertEquals("Must return identical persisted transaction record", firstResult.getOrThrow().transactionId, retryResult.getOrThrow().transactionId)
+
+        // Assert balances are strictly preserved (no double-debit or double-credit)
+        assertEquals(40_000_000L, accountDao.getById(1L)?.balance)
+        assertEquals(110_000_000L, accountDao.getById(2L)?.balance)
+        assertEquals(1, transactionDao.count())
+    }
+
+    @Test
     fun idempotency_duplicateKeyWithConflictingPayload_failsWithInvalidData() = runTest {
         val request1 = TransferRequest(
             fromAccountId = 1L,
@@ -218,6 +259,42 @@ class TransactionServiceTest {
         val secondResult = transactionService.executeTransfer(request2, customerSession)
         assertTrue(secondResult.isFailure)
         assertTrue(secondResult.exceptionOrNull() is DomainError.InvalidData)
+    }
+
+    @Test
+    fun idempotency_depositAndWithdrawal_durableAcrossServiceRestart() = runTest {
+        // 1. Deposit with key
+        val depRes1 = transactionService.executeDeposit(1L, 5_000_000L, "DEP-DURABLE-01", customerSession)
+        assertTrue(depRes1.isSuccess)
+        assertEquals(55_000_000L, accountDao.getById(1L)?.balance)
+
+        // 2. Withdrawal with key
+        val wdrRes1 = transactionService.executeWithdrawal(1L, 3_000_000L, "WDR-DURABLE-01", customerSession)
+        assertTrue(wdrRes1.isSuccess)
+        assertEquals(52_000_000L, accountDao.getById(1L)?.balance)
+
+        // 3. Re-instantiate service from scratch
+        val newRepository = DefaultTransactionRepository(transactionDao, accountDao, db)
+        val restartedService = DefaultTransactionService(
+            transactionRepository = newRepository,
+            accountRepository = accountRepository,
+            accountDao = accountDao,
+            transactionDao = transactionDao,
+            authenticationPolicy = DefaultTransactionAuthenticationPolicy(),
+            sessionManager = sessionManager,
+        )
+
+        // 4. Retry deposit and withdrawal
+        val depRetry = restartedService.executeDeposit(1L, 5_000_000L, "DEP-DURABLE-01", customerSession)
+        assertTrue(depRetry.isSuccess)
+        assertEquals(depRes1.getOrThrow().transactionId, depRetry.getOrThrow().transactionId)
+
+        val wdrRetry = restartedService.executeWithdrawal(1L, 3_000_000L, "WDR-DURABLE-01", customerSession)
+        assertTrue(wdrRetry.isSuccess)
+        assertEquals(wdrRes1.getOrThrow().transactionId, wdrRetry.getOrThrow().transactionId)
+
+        // Balances must remain strictly unchanged
+        assertEquals(52_000_000L, accountDao.getById(1L)?.balance)
     }
 
     // =========================================================================
