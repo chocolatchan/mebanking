@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -90,8 +91,8 @@ fun RegisterScreen(
     // If Face Capture dialog is open
     if (uiState.isFaceCaptureOpen) {
         FaceCaptureDialog(
-            title = "Thu thập sinh trắc học khuôn mặt eKYC",
-            subtitle = "Căn giữa khuôn mặt trong khung oval. Dữ liệu khuôn mặt sẽ được mã hóa lưu trữ làm mẫu đối soát theo QĐ 2345/QĐ-NHNN.",
+            title = "Xác thực khuôn mặt",
+            subtitle = "Vui lòng giữ khuôn mặt trong khung hình để tiến hành nhận diện.",
             isProcessing = uiState.isSubmitting,
             errorMessage = uiState.errorMessage,
             onFrameCaptured = { frame ->
@@ -417,7 +418,7 @@ fun RegisterScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Notice badge on eKYC biometric requirement
+            // Notice on biometric requirement
             Surface(
                 color = Color(0xFFE8F5E9),
                 shape = RoundedCornerShape(12.dp),
@@ -429,13 +430,13 @@ fun RegisterScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Security,
+                        imageVector = Icons.Filled.Face,
                         contentDescription = null,
                         tint = VcbGreenPrimary,
                         modifier = Modifier.size(22.dp),
                     )
                     Text(
-                        text = "Theo Quyết định 2345/QĐ-NHNN, bước tiếp theo hệ thống sẽ quét khuôn mặt trực tiếp để lưu mẫu sinh trắc học bảo mật.",
+                        text = "Bước tiếp theo: Quét khuôn mặt để xác thực và kích hoạt tài khoản.",
                         style = MaterialTheme.typography.bodySmall,
                         color = VcbGreenDark,
                     )

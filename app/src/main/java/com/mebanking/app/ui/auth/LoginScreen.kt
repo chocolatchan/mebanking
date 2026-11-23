@@ -161,14 +161,7 @@ fun LoginContent(
                     letterSpacing = 2.sp,
                 )
 
-                Text(
-                    text = "Ngân hàng số thế hệ mới • Tiêu chuẩn bảo mật VCB/TCB",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFC7ECD3),
-                    textAlign = TextAlign.Center,
-                )
-
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(24.dp))
 
                 // Modern Floating Login Card
                 Card(
@@ -183,20 +176,13 @@ fun LoginContent(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = "ĐĂNG NHẬP",
+                            text = "Đăng nhập",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
 
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = "Vui lòng nhập tài khoản ngân hàng điện tử",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-
-                        Spacer(Modifier.height(22.dp))
+                        Spacer(Modifier.height(18.dp))
 
                         // Username Field with Vector Icon
                         OutlinedTextField(
@@ -319,7 +305,7 @@ fun LoginContent(
                                 )
                             } else {
                                 Text(
-                                    text = "ĐĂNG NHẬP AN TOÀN",
+                                    text = "Đăng nhập",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
                                 )
@@ -355,7 +341,7 @@ fun LoginContent(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    "Đăng nhập bằng Sinh trắc học (Face ID)",
+                                    "Đăng nhập bằng sinh trắc học",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold,
                                 )

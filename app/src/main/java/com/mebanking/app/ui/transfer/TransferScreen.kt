@@ -263,13 +263,6 @@ fun TransferContent(
                         }
                     }
                 }
-                item {
-                    Text(
-                        text = "Giao dịch sẽ được xác thực theo chính sách bảo mật đang áp dụng trước khi ghi nhận.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
         }
     }
@@ -299,8 +292,8 @@ fun TransferContent(
 
     if (uiState.showFaceVerificationDialog) {
         FaceCaptureDialog(
-            title = "Xác thực khuôn mặt (Sinh trắc học)",
-            subtitle = "Theo Quyết định 2345/QĐ-NHNN, giao dịch trên 10.000.000 VND bắt buộc xác thực sinh trắc học khuôn mặt.",
+            title = "Xác thực khuôn mặt",
+            subtitle = "Giao dịch giá trị lớn yêu cầu xác thực khuôn mặt để tiếp tục.",
             isProcessing = uiState.isFaceVerifying,
             errorMessage = uiState.faceVerificationError,
             onFrameCaptured = onVerifyFace,
