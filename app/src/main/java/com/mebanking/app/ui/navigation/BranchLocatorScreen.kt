@@ -17,12 +17,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -184,7 +189,11 @@ private fun TopControlsOverlay(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 IconButton(onClick = onBack) {
-                    Text("←", style = MaterialTheme.typography.titleLarge)
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Quay lại",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
 
                 OutlinedTextField(
@@ -194,12 +203,22 @@ private fun TopControlsOverlay(
                     placeholder = { Text("Tìm chi nhánh, ATM...") },
                     singleLine = true,
                     leadingIcon = {
-                        Text("🔍", style = MaterialTheme.typography.bodyLarge)
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = "Tìm kiếm",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
+                        )
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { onSearchQueryChanged("") }) {
-                                Text("✕", style = MaterialTheme.typography.bodyMedium)
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Xóa",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
                             }
                         }
                     },

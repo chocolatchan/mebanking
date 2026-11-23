@@ -6,12 +6,19 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -65,9 +72,17 @@ private fun CashTransactionContent(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(title = { Text(title) }, navigationIcon = {
-                TextButton(onClick = onBack) { Text("‹ Quay lại") }
-            })
+            TopAppBar(
+                title = { Text(title) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Quay lại",
+                        )
+                    }
+                },
+            )
         },
     ) { padding ->
         when {
@@ -110,10 +125,30 @@ private fun CashTransactionContent(
                     item { Text("Số tiền rút không được vượt quá số dư khả dụng.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 state.errorMessage?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
-                state.successMessage?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.primary) } }
-                item {
-                    Button(onClick = onRequestConfirmation, enabled = state.canSubmit, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (state.isSubmitting) "Đang xử lý…" else "Tiếp tục")
+                state.successMessage?.let { message ->
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(message, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                androidx.compose.foundation.layout.Spacer(Modifier.height(12.dp))
+                                Button(
+                                    onClick = onBack,
+                                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                                ) {
+                                    Text("Về trang chủ")
+                                }
+                            }
+                        }
+                    }
+                }
+                if (state.successMessage == null) {
+                    item {
+                        Button(onClick = onRequestConfirmation, enabled = state.canSubmit, modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                            Text(if (state.isSubmitting) "Đang xử lý…" else "Tiếp tục")
+                        }
                     }
                 }
             }

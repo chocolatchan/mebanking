@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -18,6 +20,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -127,7 +131,12 @@ fun TransferContent(
             TopAppBar(
                 title = { Text("Chuyển tiền nội bộ") },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text("‹ Quay lại") }
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Quay lại",
+                        )
+                    }
                 },
             )
         },
@@ -235,31 +244,44 @@ fun TransferContent(
                             ),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(
-                                text = uiState.successMessage,
-                                modifier = Modifier.padding(16.dp),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = uiState.successMessage,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Spacer(Modifier.height(14.dp))
+                                Button(
+                                    onClick = onBack,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp),
+                                ) {
+                                    Text("Về trang chủ")
+                                }
+                            }
                         }
                     }
                 }
 
-                item {
-                    Spacer(Modifier.height(4.dp))
-                    Button(
-                        onClick = onSubmit,
-                        enabled = uiState.canSubmit && uiState.accounts.isNotEmpty(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                    ) {
-                        if (uiState.isSubmitting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.height(22.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Text("Xác nhận chuyển khoản")
+                if (uiState.successMessage == null) {
+                    item {
+                        Spacer(Modifier.height(4.dp))
+                        Button(
+                            onClick = onSubmit,
+                            enabled = uiState.canSubmit && uiState.accounts.isNotEmpty(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                        ) {
+                            if (uiState.isSubmitting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.height(22.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Text("Xác nhận chuyển khoản")
+                            }
                         }
                     }
                 }

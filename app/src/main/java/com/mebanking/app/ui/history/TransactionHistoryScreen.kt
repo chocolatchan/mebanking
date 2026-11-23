@@ -13,9 +13,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -58,9 +63,17 @@ private fun TransactionHistoryContent(
     onRetry: () -> Unit,
 ) {
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Lịch sử giao dịch") }, navigationIcon = {
-            TextButton(onClick = onBack) { Text("‹ Quay lại") }
-        })
+        TopAppBar(
+            title = { Text("Lịch sử giao dịch") },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Quay lại",
+                    )
+                }
+            },
+        )
     }) { padding ->
         when {
             state.isLoading -> Column(Modifier.fillMaxSize().padding(padding), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -122,17 +135,31 @@ fun TransactionDetailScreen(transactionId: Long, onBack: () -> Unit) {
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionDetailContent(state: TransactionDetailUiState, onBack: () -> Unit) {
-    Scaffold(topBar = { TopAppBar(title = { Text("Chi tiết giao dịch") }, navigationIcon = { TextButton(onClick = onBack) { Text("‹ Quay lại") } }) }) { padding ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Chi tiết giao dịch") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Quay lại",
+                        )
+                    }
+                },
+            )
+        },
+    ) { padding ->
         when {
             state.isLoading -> Column(Modifier.fillMaxSize().padding(padding), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) { CircularProgressIndicator() }
             state.transaction == null -> Text(state.errorMessage ?: "Không tìm thấy giao dịch", Modifier.padding(padding).padding(24.dp), color = MaterialTheme.colorScheme.error)
-            else -> TransactionDetailFields(state.transaction, Modifier.fillMaxSize().padding(padding).padding(20.dp))
+            else -> TransactionDetailFields(state.transaction, onBack, Modifier.fillMaxSize().padding(padding).padding(20.dp))
         }
     }
 }
 
 @Composable
-private fun TransactionDetailFields(transaction: TransactionEntity, modifier: Modifier = Modifier) {
+private fun TransactionDetailFields(transaction: TransactionEntity, onBack: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(transaction.type.displayName(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         DetailLine("Mã giao dịch", transaction.id.toString())
@@ -144,6 +171,13 @@ private fun TransactionDetailFields(transaction: TransactionEntity, modifier: Mo
         transaction.toAccountNo?.let { DetailLine("Số tài khoản nhận", it) }
         transaction.externalBankId?.let { DetailLine("Ngân hàng nhận", it.toString()) }
         transaction.note?.let { DetailLine("Nội dung", it) }
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+        ) {
+            Text("Quay lại")
+        }
     }
 }
 
