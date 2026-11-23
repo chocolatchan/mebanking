@@ -66,6 +66,7 @@ import com.mebanking.app.ui.theme.VcbGreenPrimary
 @Composable
 fun LoginScreen(
     modifier: Modifier = Modifier,
+    onNavigateToRegister: () -> Unit = {},
     viewModel: LoginViewModel = viewModel(
         factory = (LocalContext.current.applicationContext as MEbankingApplication).container.viewModelFactory,
     ),
@@ -77,6 +78,7 @@ fun LoginScreen(
         onUsernameChanged = viewModel::onUsernameChanged,
         onPasswordChanged = viewModel::onPasswordChanged,
         onLogin = viewModel::login,
+        onNavigateToRegister = onNavigateToRegister,
         modifier = modifier,
     )
 }
@@ -87,6 +89,7 @@ fun LoginContent(
     onUsernameChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onLogin: () -> Unit,
+    onNavigateToRegister: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
@@ -307,6 +310,34 @@ fun LoginContent(
                                     "Đăng nhập bằng Sinh trắc học (Face ID)",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // Open New eKYC Account Button
+                        Button(
+                            onClick = onNavigateToRegister,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFE8F5E9),
+                                contentColor = VcbGreenPrimary,
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                            ) {
+                                Text("✨", fontSize = 16.sp)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "Mở tài khoản trực tuyến (eKYC)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
                                 )
                             }
                         }

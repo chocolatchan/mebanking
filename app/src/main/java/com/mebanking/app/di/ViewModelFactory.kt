@@ -33,6 +33,11 @@ class ViewModelFactory(
                     awaitDatabaseReady = { container.databaseReady.await() },
                 ) as T
             }
+            modelClass.isAssignableFrom(com.mebanking.app.ui.auth.RegisterViewModel::class.java) -> {
+                com.mebanking.app.ui.auth.RegisterViewModel(
+                    registrationService = container.customerRegistrationService,
+                ) as T
+            }
             modelClass.isAssignableFrom(HomeViewModel::class.java) -> {
                 HomeViewModel(
                     repository = container.accountRepository,

@@ -60,6 +60,7 @@ interface AppContainer {
 
     val sessionManager: SessionManager
     val authService: AuthService
+    val customerRegistrationService: com.mebanking.app.domain.service.CustomerRegistrationService
     val officerCustomerService: OfficerCustomerService
     val accountService: AccountService
     val faceRecognitionService: FaceRecognitionService

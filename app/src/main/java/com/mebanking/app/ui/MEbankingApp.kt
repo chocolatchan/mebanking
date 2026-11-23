@@ -5,6 +5,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -16,6 +19,7 @@ import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.SessionState
 import com.mebanking.app.ui.account.AccountDetailScreen
 import com.mebanking.app.ui.auth.LoginScreen
+import com.mebanking.app.ui.auth.RegisterScreen
 import com.mebanking.app.ui.cash.DepositScreen
 import com.mebanking.app.ui.cash.WithdrawScreen
 import com.mebanking.app.ui.bills.BillPaymentScreen
@@ -44,6 +48,7 @@ import com.mebanking.app.ui.transfer.TransferScreen
 fun MEbankingApp() {
     val container = (LocalContext.current.applicationContext as MEbankingApplication).container
     val sessionState by container.authService.sessionState.collectAsStateWithLifecycle()
+    var showRegisterScreen by remember { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -54,7 +59,17 @@ fun MEbankingApp() {
                 isCustomer = state.user.role == Role.CUSTOMER,
                 onLogout = { container.sessionManager.logout() },
             )
-            else -> LoginScreen()
+            else -> {
+                if (showRegisterScreen) {
+                    RegisterScreen(
+                        onNavigateBackToLogin = { showRegisterScreen = false },
+                    )
+                } else {
+                    LoginScreen(
+                        onNavigateToRegister = { showRegisterScreen = true },
+                    )
+                }
+            }
         }
     }
 }

@@ -126,6 +126,16 @@ class DefaultAppContainer(
         )
     }
 
+    override val customerRegistrationService: com.mebanking.app.domain.service.CustomerRegistrationService by lazy {
+        com.mebanking.app.domain.service.DefaultCustomerRegistrationService(
+            userDao = userDao,
+            accountDao = accountDao,
+            faceRecognitionService = faceRecognitionService,
+            passwordHasher = passwordHasher,
+            nationalIdProtector = AndroidKeystoreNationalIdProtector(),
+        )
+    }
+
     override val officerCustomerService: OfficerCustomerService by lazy {
         DefaultOfficerCustomerService(
             userDao = userDao,
