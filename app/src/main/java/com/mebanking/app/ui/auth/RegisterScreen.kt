@@ -195,6 +195,8 @@ fun RegisterScreen(
         )
     }
 
+    com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = false)
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {

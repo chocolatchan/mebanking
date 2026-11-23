@@ -1,9 +1,11 @@
 package com.mebanking.app.ui.navigation
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,14 +14,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.NearMe
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -30,11 +38,13 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,8 +60,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
 import com.mebanking.app.domain.model.navigation.BranchDistance
 import com.mebanking.app.domain.model.navigation.BranchFilter
+import com.mebanking.app.ui.theme.SynchronizedStatusBar
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -86,28 +108,39 @@ fun BranchLocatorContent(
     onNavigateToBranch: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+
+    var isGoogleMapsMode by remember { mutableStateOf(true) }
     var zoom by remember { mutableFloatStateOf(1.0f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 1. Central vector map view
-        OfflineMapView(
-            userLocation = uiState.userLocation,
-            roadGraph = uiState.roadGraph,
-            branches = uiState.branches,
-            selectedBranch = uiState.selectedBranch,
-            currentRoute = uiState.currentRoute,
-            onBranchClick = onBranchSelected,
-            zoom = zoom,
-            panOffset = panOffset,
-            onTransform = { zChange, pChange ->
-                zoom = (zoom * zChange).coerceIn(MapProjection.MIN_ZOOM, MapProjection.MAX_ZOOM)
-                panOffset += pChange
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
+        // 1. Central Map View (Google Maps with fallback / toggle to Vector Canvas Map)
+        if (isGoogleMapsMode) {
+            GoogleMapsContainer(
+                uiState = uiState,
+                onBranchSelected = onBranchSelected,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            OfflineMapView(
+                userLocation = uiState.userLocation,
+                roadGraph = uiState.roadGraph,
+                branches = uiState.branches,
+                selectedBranch = uiState.selectedBranch,
+                currentRoute = uiState.currentRoute,
+                onBranchClick = onBranchSelected,
+                zoom = zoom,
+                panOffset = panOffset,
+                onTransform = { zChange, pChange ->
+                    zoom = (zoom * zChange).coerceIn(MapProjection.MIN_ZOOM, MapProjection.MAX_ZOOM)
+                    panOffset += pChange
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
-        // 2. Top search bar and filter chips
+        // 2. Top search bar and filter chips (Padded under system status bar, zero overlap)
         TopControlsOverlay(
             searchQuery = uiState.searchQuery,
             onSearchQueryChanged = onSearchQueryChanged,
@@ -117,11 +150,14 @@ fun BranchLocatorContent(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(16.dp),
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
-        // 3. Floating map controls (Zoom in, Zoom out, Recenter)
+        // 3. Floating map controls & Mode Switcher
         FloatingMapControls(
+            isGoogleMapsMode = isGoogleMapsMode,
+            onToggleMapMode = { isGoogleMapsMode = !isGoogleMapsMode },
             onZoomIn = {
                 zoom = (zoom * 1.3f).coerceIn(MapProjection.MIN_ZOOM, MapProjection.MAX_ZOOM)
             },
@@ -146,7 +182,7 @@ fun BranchLocatorContent(
             )
         }
 
-        // 5. Selected / Nearest Branch details bottom sheet / card
+        // 5. Selected / Nearest Branch details bottom sheet / card (Padded above navigation bar)
         AnimatedVisibility(
             visible = uiState.selectedBranch != null,
             enter = fadeIn(),
@@ -154,6 +190,7 @@ fun BranchLocatorContent(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(16.dp),
         ) {
             uiState.selectedBranch?.let { selected ->
@@ -162,6 +199,97 @@ fun BranchLocatorContent(
                     onNavigate = { onNavigateToBranch(selected.branch.id) },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun GoogleMapsContainer(
+    uiState: BranchLocatorUiState,
+    onBranchSelected: (BranchDistance) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val initialLatLng = remember(uiState.userLocation) {
+        LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)
+    }
+
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(initialLatLng, 15f)
+    }
+
+    // Animate camera to focus on selected branch when chosen
+    LaunchedEffect(uiState.selectedBranch) {
+        uiState.selectedBranch?.let { b ->
+            val targetLatLng = LatLng(b.branch.latitude, b.branch.longitude)
+            try {
+                cameraPositionState.animate(
+                    CameraUpdateFactory.newLatLngZoom(targetLatLng, 15.5f),
+                    1000,
+                )
+            } catch (_: Exception) {}
+        }
+    }
+
+    GoogleMap(
+        modifier = modifier,
+        cameraPositionState = cameraPositionState,
+        uiSettings = MapUiSettings(
+            zoomControlsEnabled = false,
+            myLocationButtonEnabled = false,
+            mapToolbarEnabled = false,
+        ),
+        properties = MapProperties(
+            isMyLocationEnabled = false,
+        ),
+    ) {
+        // 1. User Location Pin (Azure marker)
+        Marker(
+            state = MarkerState(position = LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)),
+            title = "Vị trí của bạn",
+            snippet = "Điểm xuất phát",
+            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE),
+        )
+
+        // 2. Pre-marked bank markers (Vietcombank, Techcombank, BIDV, Agribank, etc.)
+        for (bDist in uiState.branches) {
+            val b = bDist.branch
+            val isSelected = uiState.selectedBranch?.branch?.id == b.id
+            val isAtm = b.name.contains("ATM", ignoreCase = true) || b.type.equals("ATM", ignoreCase = true)
+            val markerColor = when {
+                isSelected -> BitmapDescriptorFactory.HUE_ORANGE
+                isAtm -> BitmapDescriptorFactory.HUE_CYAN
+                else -> BitmapDescriptorFactory.HUE_RED
+            }
+
+            Marker(
+                state = MarkerState(position = LatLng(b.latitude, b.longitude)),
+                title = b.name,
+                snippet = "${formatDistance(bDist.directDistanceMeters)} • ${bDist.estimatedMinutes} phút",
+                icon = BitmapDescriptorFactory.defaultMarker(markerColor),
+                onClick = {
+                    onBranchSelected(bDist)
+                    false
+                },
+            )
+        }
+
+        // 3. Distance line / Polyline to selected bank
+        uiState.selectedBranch?.let { selected ->
+            val userLatLng = LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)
+            val branchLatLng = LatLng(selected.branch.latitude, selected.branch.longitude)
+
+            val polylinePoints = if (uiState.currentRoute != null && uiState.currentRoute.nodes.size >= 2) {
+                uiState.currentRoute.nodes.map { LatLng(it.latitude, it.longitude) }
+            } else {
+                listOf(userLatLng, branchLatLng)
+            }
+
+            Polyline(
+                points = polylinePoints,
+                color = Color(0xFF1A73E8), // Google Maps Blue
+                width = 12f,
+                geodesic = true,
+            )
         }
     }
 }
@@ -200,7 +328,7 @@ private fun TopControlsOverlay(
                     value = searchQuery,
                     onValueChange = onSearchQueryChanged,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Tìm chi nhánh, ATM...") },
+                    placeholder = { Text("Tìm chi nhánh, ATM ngân hàng...") },
                     singleLine = true,
                     leadingIcon = {
                         Icon(
@@ -238,7 +366,7 @@ private fun TopControlsOverlay(
                 FilterChip(
                     selected = currentFilter == BranchFilter.ALL,
                     onClick = { onFilterSelected(BranchFilter.ALL) },
-                    label = { Text("Tất cả") },
+                    label = { Text("Tất cả ngân hàng") },
                 )
                 FilterChip(
                     selected = currentFilter == BranchFilter.BRANCH_ONLY,
@@ -257,6 +385,8 @@ private fun TopControlsOverlay(
 
 @Composable
 private fun FloatingMapControls(
+    isGoogleMapsMode: Boolean,
+    onToggleMapMode: () -> Unit,
     onZoomIn: () -> Unit,
     onZoomOut: () -> Unit,
     onRecenter: () -> Unit,
@@ -267,6 +397,19 @@ private fun FloatingMapControls(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.End,
     ) {
+        // Toggle Map View (Google Maps / Offline Vector)
+        SmallFloatingActionButton(
+            onClick = onToggleMapMode,
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ) {
+            Icon(
+                imageVector = if (isGoogleMapsMode) Icons.Filled.Map else Icons.Filled.Public,
+                contentDescription = if (isGoogleMapsMode) "Chuyển bản đồ ngoại tuyến" else "Chuyển Google Maps",
+                modifier = Modifier.size(20.dp),
+            )
+        }
+
         SmallFloatingActionButton(
             onClick = onZoomIn,
             containerColor = MaterialTheme.colorScheme.surface,
@@ -290,7 +433,11 @@ private fun FloatingMapControls(
             shape = CircleShape,
             modifier = Modifier.size(48.dp),
         ) {
-            Text("📍", style = MaterialTheme.typography.titleMedium)
+            Icon(
+                imageVector = Icons.Filled.NearMe,
+                contentDescription = "Vị trí của bạn",
+                modifier = Modifier.size(22.dp),
+            )
         }
     }
 }
@@ -301,6 +448,7 @@ private fun BranchDetailsCard(
     onNavigate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val b = branchDistance.branch
     val isAtm = b.name.contains("ATM", ignoreCase = true) || b.type.equals("ATM", ignoreCase = true)
 
@@ -397,9 +545,9 @@ private fun BranchDetailsCard(
                 if (branchDistance.routeResult != null) {
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "(Đã tính lộ trình)",
+                        text = "(Đã vạch đường)",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFFF6D00),
+                        color = Color(0xFF1A73E8),
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
@@ -407,16 +555,55 @@ private fun BranchDetailsCard(
 
             Spacer(Modifier.height(14.dp))
 
-            // "Đi đến" / Navigate button
-            Button(
-                onClick = onNavigate,
+            // Dual Action Buttons: "Vạch lộ trình" & "Google Maps"
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(
-                    text = if (branchDistance.routeResult != null) "Cập nhật lộ trình" else "Đi đến",
-                    fontWeight = FontWeight.SemiBold,
-                )
+                Button(
+                    onClick = onNavigate,
+                    modifier = Modifier.weight(1.2f),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Navigation,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = if (branchDistance.routeResult != null) "Cập nhật vạch đường" else "Vạch đường đi",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        val uri = Uri.parse("google.navigation:q=${b.latitude},${b.longitude}&mode=w")
+                        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                            setPackage("com.google.android.apps.maps")
+                        }
+                        try {
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}")
+                            context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Public,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Google Maps",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
     }

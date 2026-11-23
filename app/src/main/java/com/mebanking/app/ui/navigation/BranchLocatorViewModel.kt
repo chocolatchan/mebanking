@@ -45,6 +45,9 @@ class BranchLocatorViewModel(
             val entities = repository.searchBranches(
                 query = _uiState.value.searchQuery,
                 filter = _uiState.value.filter,
+            ) + com.mebanking.app.domain.model.navigation.NearbyBanksProvider.searchNearby(
+                query = _uiState.value.searchQuery,
+                filter = _uiState.value.filter,
             )
             val userLoc = _uiState.value.userLocation
             val branchDistances = entities.map { b ->
@@ -94,12 +97,34 @@ class BranchLocatorViewModel(
         return refreshBranches()
     }
 
-    fun onBranchSelected(branch: BranchDistance) {
+    fun onBranchSelected(branch: BranchDistance): Job {
         _uiState.update {
             it.copy(
                 selectedBranch = branch,
                 currentRoute = branch.routeResult,
             )
+        }
+        return viewModelScope.launch {
+            if (branch.routeResult == null) {
+                try {
+                    val route = repository.calculateRouteToBranch(
+                        userLocation = _uiState.value.userLocation,
+                        branchId = branch.branch.id,
+                    )
+                    if (route != null && _uiState.value.selectedBranch?.branch?.id == branch.branch.id) {
+                        _uiState.update { state ->
+                            val updatedBranches = state.branches.map { b ->
+                                if (b.branch.id == branch.branch.id) b.copy(routeResult = route) else b
+                            }
+                            state.copy(
+                                currentRoute = route,
+                                branches = updatedBranches,
+                                selectedBranch = state.selectedBranch?.copy(routeResult = route),
+                            )
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -149,6 +174,9 @@ class BranchLocatorViewModel(
         try {
             val currentState = _uiState.value
             val entities = repository.searchBranches(
+                query = currentState.searchQuery,
+                filter = currentState.filter,
+            ) + com.mebanking.app.domain.model.navigation.NearbyBanksProvider.searchNearby(
                 query = currentState.searchQuery,
                 filter = currentState.filter,
             )

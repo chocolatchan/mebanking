@@ -154,7 +154,9 @@ class BranchNavigationRepository(
         userLocation: GeoPoint,
         branchId: Long,
     ): RouteResult? = withContext(ioDispatcher) {
-        val branch = branchDao.getById(branchId) ?: return@withContext null
+        val branch = branchDao.getById(branchId)
+            ?: com.mebanking.app.domain.model.navigation.NearbyBanksProvider.getById(branchId)
+            ?: return@withContext null
         val graph = getRoadGraph()
         val startNode = GeoDistanceCalculator.findNearestNode(graph, userLocation) ?: return@withContext null
         val branchPoint = GeoPoint(branch.latitude, branch.longitude)

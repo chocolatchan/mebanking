@@ -70,6 +70,8 @@ fun MEbankingTheme(
         else -> LightColorScheme
     }
 
+    SynchronizedStatusBar(darkIcons = !darkTheme)
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,

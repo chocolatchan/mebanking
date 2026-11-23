@@ -128,11 +128,11 @@ fun OfflineMapView(
             }
         }
 
-        // 3. Highlighted walking route polyline
-        if (currentRoute != null && currentRoute.nodes.size >= 2) {
-            val routeColor = Color(0xFFFF6D00) // High-contrast prominent orange
-            val routeStrokeW = 8.0f * effectiveZoom.coerceIn(0.8f, 2.5f)
+        // 3. Highlighted walking route polyline or direct distance line
+        val routeColor = Color(0xFF1A73E8) // Google Maps Navigation Blue
+        val routeStrokeW = 7.0f * effectiveZoom.coerceIn(0.8f, 2.5f)
 
+        if (currentRoute != null && currentRoute.nodes.size >= 2) {
             for (i in 0 until currentRoute.nodes.size - 1) {
                 val n1 = currentRoute.nodes[i]
                 val n2 = currentRoute.nodes[i + 1]
@@ -157,6 +157,17 @@ fun OfflineMapView(
                     center = p2,
                 )
             }
+        } else if (selectedBranch != null) {
+            // Immediately draw direct distance line from user location to selected branch
+            val pStart = projection.toScreen(userLocation.latitude, userLocation.longitude)
+            val pEnd = projection.toScreen(selectedBranch.branch.latitude, selectedBranch.branch.longitude)
+            drawLine(
+                color = routeColor,
+                start = pStart,
+                end = pEnd,
+                strokeWidth = routeStrokeW,
+                cap = StrokeCap.Round,
+            )
         }
 
         // 4. Branch & ATM location pins
