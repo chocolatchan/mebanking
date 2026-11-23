@@ -18,6 +18,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Pin
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -25,13 +40,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -42,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -58,9 +72,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.ekyc.FaceCaptureDialog
-import com.mebanking.app.ui.theme.BankGoldPrimary
 import com.mebanking.app.ui.theme.VcbGreenDark
-import com.mebanking.app.ui.theme.VcbGreenLight
 import com.mebanking.app.ui.theme.VcbGreenPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,7 +117,12 @@ fun RegisterScreen(
                             .background(Color(0xFFE8F5E9)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("🎉", fontSize = 32.sp)
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = "Success",
+                            tint = VcbGreenPrimary,
+                            modifier = Modifier.size(36.dp),
+                        )
                     }
                     Spacer(Modifier.height(12.dp))
                     Text(
@@ -146,7 +163,21 @@ fun RegisterScreen(
                             Spacer(Modifier.height(6.dp))
 
                             Text("Định danh sinh trắc học:", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                            Text("Đã thu thập & kích hoạt eKYC ✔️", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = VcbGreenPrimary)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.Verified,
+                                    contentDescription = null,
+                                    tint = VcbGreenPrimary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "Đã thu thập & kích hoạt eKYC",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = VcbGreenPrimary,
+                                )
+                            }
                         }
                     }
                 }
@@ -183,8 +214,12 @@ fun RegisterScreen(
                     }
                 },
                 navigationIcon = {
-                    TextButton(onClick = onNavigateBackToLogin) {
-                        Text("‹ Đăng nhập", color = Color.White, fontWeight = FontWeight.Bold)
+                    IconButton(onClick = onNavigateBackToLogin) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Quay lại đăng nhập",
+                            tint = Color.White,
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -238,7 +273,14 @@ fun RegisterScreen(
                         value = uiState.fullName,
                         onValueChange = viewModel::onFullNameChanged,
                         label = { Text("Họ và tên (như trên CCCD)") },
-                        leadingIcon = { Text("🪪", fontSize = 16.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Badge,
+                                contentDescription = null,
+                                tint = VcbGreenPrimary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
@@ -248,7 +290,14 @@ fun RegisterScreen(
                         value = uiState.nationalId,
                         onValueChange = viewModel::onNationalIdChanged,
                         label = { Text("Số CCCD (12 chữ số)") },
-                        leadingIcon = { Text("🔢", fontSize = 16.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Pin,
+                                contentDescription = null,
+                                tint = VcbGreenPrimary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
@@ -259,7 +308,14 @@ fun RegisterScreen(
                         value = uiState.username,
                         onValueChange = viewModel::onUsernameChanged,
                         label = { Text("Tên đăng nhập (4-32 ký tự)") },
-                        leadingIcon = { Text("👤", fontSize = 16.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Person,
+                                contentDescription = null,
+                                tint = VcbGreenPrimary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
@@ -269,13 +325,25 @@ fun RegisterScreen(
                         value = uiState.password,
                         onValueChange = viewModel::onPasswordChanged,
                         label = { Text("Mật khẩu (tối thiểu 8 ký tự)") },
-                        leadingIcon = { Text("🔒", fontSize = 16.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = VcbGreenPrimary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
                         singleLine = true,
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
                         trailingIcon = {
-                            TextButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Text(if (passwordVisible) "Ẩn" else "Hiện")
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp),
+                                )
                             }
                         },
                         shape = RoundedCornerShape(12.dp),
@@ -286,7 +354,14 @@ fun RegisterScreen(
                         value = uiState.phone,
                         onValueChange = viewModel::onPhoneChanged,
                         label = { Text("Số điện thoại (10 số, bắt đầu bằng 0)") },
-                        leadingIcon = { Text("📱", fontSize = 16.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Phone,
+                                contentDescription = null,
+                                tint = VcbGreenPrimary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
@@ -297,7 +372,14 @@ fun RegisterScreen(
                         value = uiState.email,
                         onValueChange = viewModel::onEmailChanged,
                         label = { Text("Email liên hệ") },
-                        leadingIcon = { Text("✉️", fontSize = 16.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Email,
+                                contentDescription = null,
+                                tint = VcbGreenPrimary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
@@ -313,12 +395,23 @@ fun RegisterScreen(
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(
-                        text = "⚠️ ${uiState.errorMessage}",
-                        color = Color(0xFFC62828),
-                        style = MaterialTheme.typography.bodySmall,
+                    Row(
                         modifier = Modifier.padding(12.dp),
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFC62828),
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = uiState.errorMessage ?: "",
+                            color = Color(0xFFC62828),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             }
 
@@ -333,9 +426,14 @@ fun RegisterScreen(
                 Row(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("🛡️", fontSize = 20.sp)
+                    Icon(
+                        imageVector = Icons.Filled.Security,
+                        contentDescription = null,
+                        tint = VcbGreenPrimary,
+                        modifier = Modifier.size(22.dp),
+                    )
                     Text(
                         text = "Theo Quyết định 2345/QĐ-NHNN, bước tiếp theo hệ thống sẽ quét khuôn mặt trực tiếp để lưu mẫu sinh trắc học bảo mật.",
                         style = MaterialTheme.typography.bodySmall,
@@ -366,10 +464,17 @@ fun RegisterScreen(
                         color = Color.White,
                     )
                 } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
                         Text("TIẾP TỤC: CHỤP KHUÔN MẶT eKYC", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Spacer(Modifier.width(6.dp))
-                        Text("📷")
+                        Spacer(Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Filled.PhotoCamera,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
                     }
                 }
             }

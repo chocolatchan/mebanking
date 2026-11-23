@@ -20,11 +20,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -122,7 +134,7 @@ fun LoginContent(
             ) {
                 Spacer(Modifier.height(16.dp))
 
-                // Brand Emblem Header
+                // Clean Vector Brand Emblem Header
                 Box(
                     modifier = Modifier
                         .size(68.dp)
@@ -131,7 +143,12 @@ fun LoginContent(
                         .border(2.dp, BankGoldPrimary, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(text = "🏛️", fontSize = 32.sp)
+                    Icon(
+                        imageVector = Icons.Filled.AccountBalance,
+                        contentDescription = "MEbanking Brand",
+                        tint = BankGoldPrimary,
+                        modifier = Modifier.size(34.dp),
+                    )
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -181,12 +198,19 @@ fun LoginContent(
 
                         Spacer(Modifier.height(22.dp))
 
-                        // Username Field with Icon
+                        // Username Field with Vector Icon
                         OutlinedTextField(
                             value = uiState.username,
                             onValueChange = onUsernameChanged,
                             label = { Text("Tên đăng nhập") },
-                            leadingIcon = { Text("👤", fontSize = 16.sp) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Person,
+                                    contentDescription = null,
+                                    tint = VcbGreenPrimary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            },
                             singleLine = true,
                             enabled = !uiState.isSubmitting,
                             shape = RoundedCornerShape(14.dp),
@@ -203,12 +227,19 @@ fun LoginContent(
 
                         Spacer(Modifier.height(14.dp))
 
-                        // Password Field with Eye Toggle
+                        // Password Field with Vector Icons
                         OutlinedTextField(
                             value = uiState.password,
                             onValueChange = onPasswordChanged,
                             label = { Text("Mật khẩu") },
-                            leadingIcon = { Text("🔒", fontSize = 16.sp) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Lock,
+                                    contentDescription = null,
+                                    tint = VcbGreenPrimary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            },
                             singleLine = true,
                             enabled = !uiState.isSubmitting,
                             shape = RoundedCornerShape(14.dp),
@@ -222,11 +253,12 @@ fun LoginContent(
                                 imeAction = ImeAction.Done,
                             ),
                             trailingIcon = {
-                                TextButton(onClick = { passwordVisible = !passwordVisible }) {
-                                    Text(
-                                        text = if (passwordVisible) "Ẩn 👁️‍🗨️" else "Hiện 👁️",
-                                        color = VcbGreenPrimary,
-                                        fontWeight = FontWeight.SemiBold,
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        imageVector = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                        contentDescription = if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp),
                                     )
                                 }
                             },
@@ -244,12 +276,23 @@ fun LoginContent(
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text(
-                                    text = "⚠️ ${uiState.errorMessage}",
-                                    color = Color(0xFFC62828),
-                                    style = MaterialTheme.typography.bodySmall,
+                                Row(
                                     modifier = Modifier.padding(10.dp),
-                                )
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Warning,
+                                        contentDescription = null,
+                                        tint = Color(0xFFC62828),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Text(
+                                        text = uiState.errorMessage,
+                                        color = Color(0xFFC62828),
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
                             }
                         }
 
@@ -285,7 +328,7 @@ fun LoginContent(
 
                         Spacer(Modifier.height(14.dp))
 
-                        // Quick Biometric Simulation Button
+                        // Clean Vector Biometric Button
                         OutlinedButton(
                             onClick = {
                                 if (!uiState.canSubmit) {
@@ -304,7 +347,12 @@ fun LoginContent(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center,
                             ) {
-                                Text("🧬", fontSize = 18.sp)
+                                Icon(
+                                    imageVector = Icons.Filled.Fingerprint,
+                                    contentDescription = null,
+                                    tint = VcbGreenPrimary,
+                                    modifier = Modifier.size(20.dp),
+                                )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     "Đăng nhập bằng Sinh trắc học (Face ID)",
@@ -332,8 +380,13 @@ fun LoginContent(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center,
                             ) {
-                                Text("✨", fontSize = 16.sp)
-                                Spacer(Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Filled.PersonAdd,
+                                    contentDescription = null,
+                                    tint = VcbGreenPrimary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(8.dp))
                                 Text(
                                     "Mở tài khoản trực tuyến (eKYC)",
                                     fontWeight = FontWeight.Bold,
@@ -430,7 +483,16 @@ private fun DemoQuickCredentialsCard(
                         .clickable { onSelect("customer1", "Password@123") },
                 ) {
                     Column(Modifier.padding(10.dp)) {
-                        Text("👤 Khách hàng", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = VcbGreenPrimary)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Person,
+                                contentDescription = null,
+                                tint = VcbGreenPrimary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Khách hàng", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = VcbGreenPrimary)
+                        }
                         Text("customer1", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -443,7 +505,16 @@ private fun DemoQuickCredentialsCard(
                         .clickable { onSelect("officer1", "Password@123") },
                 ) {
                     Column(Modifier.padding(10.dp)) {
-                        Text("💼 Cán bộ ngân hàng", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFB45309))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Badge,
+                                contentDescription = null,
+                                tint = Color(0xFFB45309),
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Cán bộ", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFB45309))
+                        }
                         Text("officer1", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

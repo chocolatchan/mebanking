@@ -10,10 +10,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -86,7 +94,19 @@ private fun OfficerDashboardContent(
         }
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Quản lý khách hàng") }, navigationIcon = { TextButton(onClick = onBack) { Text("‹ Quay lại") } }) }) { padding ->
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Text("Quản lý khách hàng") },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Quay lại",
+                    )
+                }
+            },
+        )
+    }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 OutlinedTextField(value = state.query, onValueChange = onQueryChanged, modifier = Modifier.fillMaxWidth(), label = { Text("Tìm theo CCCD hoặc họ tên") }, singleLine = true)
@@ -127,7 +147,15 @@ private fun OfficerDashboardContent(
                         enabled = !state.isLoading,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("👤 Thu thập sinh trắc học khuôn mặt eKYC")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Face,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Thu thập sinh trắc học khuôn mặt eKYC")
+                        }
                     }
                 }
             }

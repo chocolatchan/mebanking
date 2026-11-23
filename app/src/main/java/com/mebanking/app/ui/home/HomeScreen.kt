@@ -1,7 +1,6 @@
 package com.mebanking.app.ui.home
 
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -29,6 +28,47 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Contactless
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Flight
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Hotel
+import androidx.compose.material.icons.filled.LocalAtm
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.SupervisorAccount
+import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.Theaters
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -37,11 +77,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -61,6 +101,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -261,7 +302,7 @@ fun HomeScreen(
 }
 
 // -----------------------------------------------------------------------------
-// Modern Accounts Content (VCB & Techcombank Style)
+// Modern Accounts Content (Clean Material Icons)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -347,7 +388,7 @@ private fun ModernAccountsContent(
             }
         }
 
-        // 5. Utility Services Grid (VCB / Techcombank 4x3 Grid)
+        // 5. Utility Services Grid (Standard 4x3 Grid)
         item {
             Spacer(Modifier.height(20.dp))
             UtilityServicesGrid(
@@ -440,7 +481,7 @@ private fun ModernAccountsContent(
 }
 
 // -----------------------------------------------------------------------------
-// Header Component (Vietcombank & Techcombank Top Section)
+// Header Component (Vector Icons)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -469,7 +510,7 @@ private fun BankingTopHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Left: Avatar + Greeting + Tier
+            // Left: User Vector Avatar + Greeting + Tier
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -482,9 +523,11 @@ private fun BankingTopHeader(
                         .border(2.dp, BankGoldPrimary, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = if (isCustomer) "👤" else "💼",
-                        fontSize = 22.sp,
+                    Icon(
+                        imageVector = if (isCustomer) Icons.Filled.Person else Icons.Filled.Badge,
+                        contentDescription = "User Avatar",
+                        tint = BankGoldPrimary,
+                        modifier = Modifier.size(24.dp),
                     )
                 }
 
@@ -519,18 +562,18 @@ private fun BankingTopHeader(
                 }
             }
 
-            // Right: Utility icon buttons
+            // Right: Utility vector buttons
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HeaderCircleButton(emoji = "📍", onClick = onLocatorClick)
-                HeaderCircleButton(emoji = "💬", onClick = onChatbotClick)
-                HeaderCircleButton(emoji = "🚪", onClick = onLogoutClick)
+                HeaderCircleButton(icon = Icons.Filled.LocationOn, contentDescription = "Chi nhánh", onClick = onLocatorClick)
+                HeaderCircleButton(icon = Icons.Filled.SupportAgent, contentDescription = "Trợ lý", onClick = onChatbotClick)
+                HeaderCircleButton(icon = Icons.Filled.Logout, contentDescription = "Đăng xuất", onClick = onLogoutClick)
             }
         }
     }
 }
 
 @Composable
-private fun HeaderCircleButton(emoji: String, onClick: () -> Unit) {
+private fun HeaderCircleButton(icon: ImageVector, contentDescription: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(38.dp)
@@ -539,12 +582,17 @@ private fun HeaderCircleButton(emoji: String, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = emoji, fontSize = 16.sp)
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = Color.White,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
 // -----------------------------------------------------------------------------
-// VIP Master Card (Metallic Finish with Chips & Quick Toggles)
+// VIP Master Card (Metallic Finish with Chips & Vector Icons)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -585,7 +633,7 @@ private fun VipBankMasterCard(
                 .padding(20.dp),
         ) {
             Column {
-                // Top Row: Brand & EMV Chip
+                // Top Row: Brand & EMV Chip Vectors
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -608,13 +656,29 @@ private fun VipBankMasterCard(
                         )
                     }
 
-                    // Contactless Wave symbol
-                    Text(text = "📶 💳", fontSize = 18.sp)
+                    // Contactless Wave and Chip symbols
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Contactless,
+                            contentDescription = "Contactless",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.CreditCard,
+                            contentDescription = "Card Chip",
+                            tint = BankGoldPrimary,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(18.dp))
 
-                // Account Number & Copy
+                // Account Number & Vector Copy Button
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -630,20 +694,29 @@ private fun VipBankMasterCard(
                             .clip(RoundedCornerShape(6.dp))
                             .background(Color(0x33FFFFFF))
                             .clickable { onCopyAccount(accountNumber) }
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
                     ) {
-                        Text(
-                            text = "Sao chép 📋",
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Sao chép",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Filled.ContentCopy,
+                                contentDescription = "Sao chép số tài khoản",
+                                tint = Color.White,
+                                modifier = Modifier.size(11.dp),
+                            )
+                        }
                     }
                 }
 
                 Spacer(Modifier.height(10.dp))
 
-                // Balance with Eye Toggle
+                // Balance with Vector Eye Toggle
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -664,7 +737,7 @@ private fun VipBankMasterCard(
                         )
                     }
 
-                    // Eye button
+                    // Vector Eye button
                     Box(
                         modifier = Modifier
                             .size(38.dp)
@@ -673,9 +746,11 @@ private fun VipBankMasterCard(
                             .clickable(onClick = onToggleBalanceVisibility),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = if (isBalanceHidden) "👁️‍🗨️" else "👁️",
-                            fontSize = 18.sp,
+                        Icon(
+                            imageVector = if (isBalanceHidden) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            contentDescription = if (isBalanceHidden) "Hiện số dư" else "Ẩn số dư",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 }
@@ -689,8 +764,13 @@ private fun VipBankMasterCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "✨", fontSize = 14.sp)
-                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Filled.AutoAwesome,
+                            contentDescription = null,
+                            tint = BankGoldPrimary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
                         Text(
                             text = "Sinh lời tự động 4.2%/năm",
                             color = BankGoldPrimary,
@@ -700,13 +780,23 @@ private fun VipBankMasterCard(
                     }
 
                     if (isCustomer) {
-                        Text(
-                            text = "Chi tiết biến động ›",
-                            color = Color(0xFFC7ECD3),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.clickable(onClick = onHistory),
-                        )
+                        ) {
+                            Text(
+                                text = "Biến động số dư",
+                                color = Color(0xFFC7ECD3),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = Color(0xFFC7ECD3),
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -715,7 +805,7 @@ private fun VipBankMasterCard(
 }
 
 // -----------------------------------------------------------------------------
-// Quick Actions Bar (Techcombank 4 Primary Circular Actions)
+// Quick Actions Bar (Techcombank 4 Primary Circular Actions with Vector Icons)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -740,28 +830,28 @@ private fun QuickActionsFourBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CircleActionItem(
-                emoji = "↗️",
+                icon = Icons.Filled.Send,
                 title = "Chuyển tiền",
                 bgColor = Color(0xFFE8F5E9),
                 tintColor = VcbGreenPrimary,
                 onClick = onTransfer,
             )
             CircleActionItem(
-                emoji = "📲",
+                icon = Icons.Filled.QrCodeScanner,
                 title = "Quét QR",
                 bgColor = Color(0xFFFFF3E0),
                 tintColor = BankGoldDark,
                 onClick = onOpenQr,
             )
             CircleActionItem(
-                emoji = "+",
+                icon = Icons.Filled.AddCircle,
                 title = "Nạp tiền",
                 bgColor = Color(0xFFE3F2FD),
                 tintColor = Color(0xFF1976D2),
                 onClick = onDeposit,
             )
             CircleActionItem(
-                emoji = "🏧",
+                icon = Icons.Filled.LocalAtm,
                 title = "Rút tiền",
                 bgColor = Color(0xFFFFEBEE),
                 tintColor = TcbRedPrimary,
@@ -773,7 +863,7 @@ private fun QuickActionsFourBar(
 
 @Composable
 private fun CircleActionItem(
-    emoji: String,
+    icon: ImageVector,
     title: String,
     bgColor: Color,
     tintColor: Color,
@@ -793,7 +883,12 @@ private fun CircleActionItem(
                 .background(bgColor),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = emoji, fontSize = 22.sp)
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = tintColor,
+                modifier = Modifier.size(24.dp),
+            )
         }
         Spacer(Modifier.height(6.dp))
         Text(
@@ -806,7 +901,7 @@ private fun CircleActionItem(
 }
 
 // -----------------------------------------------------------------------------
-// Recent Recipients (Quick Transfer Carousel)
+// Recent Recipients (Clean Avatar Circles)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -825,13 +920,23 @@ private fun RecentRecipientsSection(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
-            Text(
-                text = "Xem danh bạ ›",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clickable(onClick = onRecipientClick),
-            )
+            ) {
+                Text(
+                    text = "Xem danh bạ",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
 
         Spacer(Modifier.height(10.dp))
@@ -842,12 +947,12 @@ private fun RecentRecipientsSection(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            RecipientAvatarItem(name = "Lan Anh", bank = "VCB", emoji = "👩‍💼", onClick = onRecipientClick)
-            RecipientAvatarItem(name = "Văn Bình", bank = "TCB", emoji = "👨‍💻", onClick = onRecipientClick)
-            RecipientAvatarItem(name = "Điện lực EVN", bank = "EVN", emoji = "⚡", onClick = onRecipientClick)
-            RecipientAvatarItem(name = "Hoàng Yến", bank = "MB", emoji = "👩‍🎨", onClick = onRecipientClick)
-            RecipientAvatarItem(name = "Quang Huy", bank = "ACB", emoji = "👨‍🔬", onClick = onRecipientClick)
-            RecipientAvatarItem(name = "Thêm mới", bank = "24/7", emoji = "➕", isAdd = true, onClick = onRecipientClick)
+            RecipientAvatarItem(name = "Lan Anh", bank = "VCB", initials = "LA", onClick = onRecipientClick)
+            RecipientAvatarItem(name = "Văn Bình", bank = "TCB", initials = "VB", onClick = onRecipientClick)
+            RecipientAvatarItem(name = "EVN HCMC", bank = "Điện", icon = Icons.Filled.Bolt, onClick = onRecipientClick)
+            RecipientAvatarItem(name = "Hoàng Yến", bank = "MB", initials = "HY", onClick = onRecipientClick)
+            RecipientAvatarItem(name = "Quang Huy", bank = "ACB", initials = "QH", onClick = onRecipientClick)
+            RecipientAvatarItem(name = "Thêm mới", bank = "24/7", icon = Icons.Filled.Add, isAdd = true, onClick = onRecipientClick)
         }
     }
 }
@@ -856,7 +961,8 @@ private fun RecentRecipientsSection(
 private fun RecipientAvatarItem(
     name: String,
     bank: String,
-    emoji: String,
+    initials: String? = null,
+    icon: ImageVector? = null,
     isAdd: Boolean = false,
     onClick: () -> Unit,
 ) {
@@ -879,7 +985,21 @@ private fun RecipientAvatarItem(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = emoji, fontSize = 22.sp)
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = name,
+                    tint = if (isAdd) MaterialTheme.colorScheme.primary else VcbGreenPrimary,
+                    modifier = Modifier.size(24.dp),
+                )
+            } else if (initials != null) {
+                Text(
+                    text = initials,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = VcbGreenPrimary,
+                )
+            }
         }
         Spacer(Modifier.height(4.dp))
         Text(
@@ -899,7 +1019,7 @@ private fun RecipientAvatarItem(
 }
 
 // -----------------------------------------------------------------------------
-// Comprehensive Utility Services Grid (4 Columns)
+// Comprehensive Utility Services Grid (4 Columns with Clean Vector Icons)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -935,41 +1055,41 @@ private fun UtilityServicesGrid(
             Spacer(Modifier.height(14.dp))
 
             if (isCustomer) {
-                // Row 1: Tài chính cơ bản
+                // Row 1: Core Financials
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    UtilityGridItem(emoji = "↗️", label = "Chuyển tiền", badge = "24/7", onClick = onNavigateToTransfer)
-                    UtilityGridItem(emoji = "📜", label = "Lịch sử GD", onClick = onNavigateToHistory)
-                    UtilityGridItem(emoji = "🧾", label = "Hóa đơn", badge = "Tự động", onClick = onNavigateToBills)
-                    UtilityGridItem(emoji = "📱", label = "Nạp ĐT/Data", badge = "-3%", onClick = onNavigateToTopup)
+                    UtilityGridItem(icon = Icons.Filled.Payments, label = "Chuyển tiền", badge = "24/7", onClick = onNavigateToTransfer)
+                    UtilityGridItem(icon = Icons.Filled.ReceiptLong, label = "Lịch sử GD", onClick = onNavigateToHistory)
+                    UtilityGridItem(icon = Icons.Filled.Receipt, label = "Hóa đơn", badge = "Tự động", onClick = onNavigateToBills)
+                    UtilityGridItem(icon = Icons.Filled.PhoneAndroid, label = "Nạp ĐT/Data", badge = "-3%", onClick = onNavigateToTopup)
                 }
 
                 Spacer(Modifier.height(14.dp))
 
-                // Row 2: Phong cách sống & Du lịch
+                // Row 2: Lifestyle & Travel
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    UtilityGridItem(emoji = "✈️", label = "Vé máy bay", badge = "Rẻ", onClick = onNavigateToFlights)
-                    UtilityGridItem(emoji = "🏨", label = "Khách sạn", badge = "-15%", onClick = onNavigateToHotels)
-                    UtilityGridItem(emoji = "🎬", label = "Vé xem phim", onClick = onNavigateToCinema)
-                    UtilityGridItem(emoji = "🛍️", label = "Mua sắm", badge = "Voucher", onClick = onNavigateToShop)
+                    UtilityGridItem(icon = Icons.Filled.Flight, label = "Vé máy bay", badge = "Rẻ", onClick = onNavigateToFlights)
+                    UtilityGridItem(icon = Icons.Filled.Hotel, label = "Khách sạn", badge = "-15%", onClick = onNavigateToHotels)
+                    UtilityGridItem(icon = Icons.Filled.Theaters, label = "Vé xem phim", onClick = onNavigateToCinema)
+                    UtilityGridItem(icon = Icons.Filled.ShoppingBag, label = "Mua sắm", badge = "Voucher", onClick = onNavigateToShop)
                 }
 
                 Spacer(Modifier.height(14.dp))
 
-                // Row 3: Hỗ trợ & ATM
+                // Row 3: Support, Branch & Cash
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    UtilityGridItem(emoji = "📍", label = "ATM & Chi nhánh", onClick = onNavigateToBranchLocator)
-                    UtilityGridItem(emoji = "🤖", label = "Trợ lý ME-Bot", badge = "AI", onClick = onNavigateToChatbot)
-                    UtilityGridItem(emoji = "+", label = "Nạp tiền", onClick = onNavigateToDeposit)
-                    UtilityGridItem(emoji = "🏧", label = "Rút tiền ATM", onClick = onNavigateToWithdraw)
+                    UtilityGridItem(icon = Icons.Filled.LocationOn, label = "ATM & PGD", onClick = onNavigateToBranchLocator)
+                    UtilityGridItem(icon = Icons.Filled.SmartToy, label = "Trợ lý ME-Bot", badge = "AI", onClick = onNavigateToChatbot)
+                    UtilityGridItem(icon = Icons.Filled.Add, label = "Nạp tiền", onClick = onNavigateToDeposit)
+                    UtilityGridItem(icon = Icons.Filled.LocalAtm, label = "Rút tiền ATM", onClick = onNavigateToWithdraw)
                 }
             } else {
                 // Officer View
@@ -977,10 +1097,10 @@ private fun UtilityServicesGrid(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    UtilityGridItem(emoji = "👥", label = "Quản lý khách", badge = "Cán bộ", onClick = onNavigateToOfficerDashboard)
-                    UtilityGridItem(emoji = "📍", label = "Bản đồ PGD", onClick = onNavigateToBranchLocator)
-                    UtilityGridItem(emoji = "🤖", label = "Trợ lý nội bộ", onClick = onNavigateToChatbot)
-                    UtilityGridItem(emoji = "📊", label = "Báo cáo GD", onClick = onNavigateToHistory)
+                    UtilityGridItem(icon = Icons.Filled.SupervisorAccount, label = "Quản lý khách", badge = "Cán bộ", onClick = onNavigateToOfficerDashboard)
+                    UtilityGridItem(icon = Icons.Filled.Map, label = "Bản đồ PGD", onClick = onNavigateToBranchLocator)
+                    UtilityGridItem(icon = Icons.Filled.SupportAgent, label = "Trợ lý nội bộ", onClick = onNavigateToChatbot)
+                    UtilityGridItem(icon = Icons.Filled.Assessment, label = "Báo cáo GD", onClick = onNavigateToHistory)
                 }
             }
         }
@@ -989,7 +1109,7 @@ private fun UtilityServicesGrid(
 
 @Composable
 private fun UtilityGridItem(
-    emoji: String,
+    icon: ImageVector,
     label: String,
     badge: String? = null,
     onClick: () -> Unit,
@@ -1010,7 +1130,12 @@ private fun UtilityGridItem(
                     .background(Color(0xFFF1F5F9)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = emoji, fontSize = 24.sp)
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = VcbGreenPrimary,
+                    modifier = Modifier.size(24.dp),
+                )
             }
 
             if (badge != null) {
@@ -1043,7 +1168,7 @@ private fun UtilityGridItem(
 }
 
 // -----------------------------------------------------------------------------
-// Promotions & Financial Insights Carousel
+// Promotions & Financial Growth Carousel (Vector Icons)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -1062,13 +1187,23 @@ private fun PromotionsCarouselSection(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
-            Text(
-                text = "Tất cả ưu đãi ›",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clickable(onClick = onPromoClick),
-            )
+            ) {
+                Text(
+                    text = "Tất cả ưu đãi",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
 
         Spacer(Modifier.height(10.dp))
@@ -1083,21 +1218,21 @@ private fun PromotionsCarouselSection(
                 title = "Sinh lời tự động Techcombank",
                 desc = "Tích lũy linh hoạt mỗi ngày • Lợi suất hấp dẫn tới 4.5%/năm",
                 gradient = listOf(Color(0xFF881337), Color(0xFFBE123C), Color(0xFFE11D48)),
-                emoji = "📈",
+                icon = Icons.Filled.TrendingUp,
                 onClick = onPromoClick,
             )
             PromoCard(
                 title = "VCB Digibank 0 Đồng Phí",
                 desc = "Miễn 100% phí chuyển tiền 24/7 và phí quản lý tài khoản",
                 gradient = listOf(Color(0xFF064E3B), Color(0xFF047857), Color(0xFF059669)),
-                emoji = "🎁",
+                icon = Icons.Filled.CardGiftcard,
                 onClick = onPromoClick,
             )
             PromoCard(
                 title = "Xác thực eKYC QĐ 2345/QĐ-NHNN",
                 desc = "Bảo vệ sinh trắc học khuôn mặt cho mọi giao dịch trên 10 triệu",
                 gradient = listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF334155)),
-                emoji = "🛡️",
+                icon = Icons.Filled.Shield,
                 onClick = onPromoClick,
             )
         }
@@ -1109,7 +1244,7 @@ private fun PromoCard(
     title: String,
     desc: String,
     gradient: List<Color>,
-    emoji: String,
+    icon: ImageVector,
     onClick: () -> Unit,
 ) {
     Card(
@@ -1148,14 +1283,19 @@ private fun PromoCard(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                Text(text = emoji, fontSize = 32.sp)
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.size(36.dp),
+                )
             }
         }
     }
 }
 
 // -----------------------------------------------------------------------------
-// Individual Account Item in Account List
+// Individual Account Item in Account List (Vector Icon)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -1191,7 +1331,12 @@ private fun ModernAccountItem(
                         .background(Color(0xFFE8F5E9)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(text = "💳", fontSize = 20.sp)
+                    Icon(
+                        imageVector = Icons.Filled.AccountBalance,
+                        contentDescription = "Tài khoản",
+                        tint = VcbGreenPrimary,
+                        modifier = Modifier.size(22.dp),
+                    )
                 }
 
                 Column {
@@ -1215,18 +1360,26 @@ private fun ModernAccountItem(
                     fontWeight = FontWeight.ExtraBold,
                     color = VcbGreenPrimary,
                 )
-                Text(
-                    text = "Khả dụng ›",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Khả dụng",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
             }
         }
     }
 }
 
 // -----------------------------------------------------------------------------
-// Security Footer (NHNN Regulation & Offline Verification)
+// Security Footer (NHNN Regulation & Vector Shield Icon)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -1239,9 +1392,14 @@ private fun SecurityFooterBanner(modifier: Modifier = Modifier) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(text = "🛡️", fontSize = 20.sp)
+            Icon(
+                imageVector = Icons.Filled.Security,
+                contentDescription = null,
+                tint = VcbGreenPrimary,
+                modifier = Modifier.size(24.dp),
+            )
             Column {
                 Text(
                     text = "Bảo vệ bởi Ngân hàng Nhà nước & Tiêu chuẩn eKYC",
@@ -1260,7 +1418,7 @@ private fun SecurityFooterBanner(modifier: Modifier = Modifier) {
 }
 
 // -----------------------------------------------------------------------------
-// Bottom Navigation Bar (Techcombank & Vietcombank Style)
+// Bottom Navigation Bar (Clean Vector Icons)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -1274,23 +1432,25 @@ private fun ModernBankingBottomBar(
         modifier = Modifier.shadow(elevation = 16.dp),
     ) {
         NavigationBarItem(
-            icon = { Text("🏠", fontSize = 20.sp) },
+            icon = { Icon(Icons.Filled.Home, contentDescription = "Trang chủ") },
             label = { Text("Trang chủ", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 0,
             onClick = { onTabSelected(0) },
             colors = NavigationBarItemDefaults.colors(
                 indicatorColor = Color(0xFFE8F5E9),
+                selectedIconColor = VcbGreenPrimary,
                 selectedTextColor = VcbGreenPrimary,
             ),
         )
 
         NavigationBarItem(
-            icon = { Text("💳", fontSize = 20.sp) },
+            icon = { Icon(Icons.Filled.CreditCard, contentDescription = "Tài khoản") },
             label = { Text("Tài khoản", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 1,
             onClick = { onTabSelected(1) },
             colors = NavigationBarItemDefaults.colors(
                 indicatorColor = Color(0xFFE8F5E9),
+                selectedIconColor = VcbGreenPrimary,
                 selectedTextColor = VcbGreenPrimary,
             ),
         )
@@ -1309,7 +1469,12 @@ private fun ModernBankingBottomBar(
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("📲", fontSize = 22.sp)
+                    Icon(
+                        imageVector = Icons.Filled.QrCodeScanner,
+                        contentDescription = "QR Pay",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
                 }
             },
             label = { Text("QR Pay", fontWeight = FontWeight.Bold, color = VcbGreenPrimary) },
@@ -1318,23 +1483,25 @@ private fun ModernBankingBottomBar(
         )
 
         NavigationBarItem(
-            icon = { Text("🎁", fontSize = 20.sp) },
+            icon = { Icon(Icons.Filled.CardGiftcard, contentDescription = "Ưu đãi") },
             label = { Text("Ưu đãi", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 3,
             onClick = { onTabSelected(3) },
             colors = NavigationBarItemDefaults.colors(
                 indicatorColor = Color(0xFFE8F5E9),
+                selectedIconColor = VcbGreenPrimary,
                 selectedTextColor = VcbGreenPrimary,
             ),
         )
 
         NavigationBarItem(
-            icon = { Text("🤖", fontSize = 20.sp) },
+            icon = { Icon(Icons.Filled.SmartToy, contentDescription = "Trợ lý") },
             label = { Text("Trợ lý", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 4,
             onClick = { onTabSelected(4) },
             colors = NavigationBarItemDefaults.colors(
                 indicatorColor = Color(0xFFE8F5E9),
+                selectedIconColor = VcbGreenPrimary,
                 selectedTextColor = VcbGreenPrimary,
             ),
         )
@@ -1342,7 +1509,7 @@ private fun ModernBankingBottomBar(
 }
 
 // -----------------------------------------------------------------------------
-// VietQR & VNPay Modal Dialog
+// VietQR & VNPay Modal Dialog (Vector Camera & QR Canvas)
 // -----------------------------------------------------------------------------
 
 @Composable
@@ -1431,7 +1598,12 @@ private fun QrPayModalDialog(
                         }
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("📷", fontSize = 36.sp)
+                            Icon(
+                                imageVector = Icons.Filled.CameraAlt,
+                                contentDescription = "Camera",
+                                tint = Color.White,
+                                modifier = Modifier.size(42.dp),
+                            )
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 "Hướng camera về mã VietQR",
@@ -1460,13 +1632,28 @@ private fun QrPayModalDialog(
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("🏁 MEBANKING VIETQR", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = VcbGreenPrimary)
-                            Spacer(Modifier.height(8.dp))
-                            Text("⬛⬛⬜⬛⬜⬛⬛", fontSize = 20.sp, letterSpacing = 2.sp)
-                            Text("⬛⬜⬜⬜⬜⬜⬛", fontSize = 20.sp, letterSpacing = 2.sp)
-                            Text("⬜⬛⬛⬜⬛⬛⬜", fontSize = 20.sp, letterSpacing = 2.sp)
-                            Text("⬛⬜⬜⬜⬜⬜⬛", fontSize = 20.sp, letterSpacing = 2.sp)
-                            Text("⬛⬛⬜⬛⬜⬛⬛", fontSize = 20.sp, letterSpacing = 2.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.AccountBalance,
+                                    contentDescription = null,
+                                    tint = VcbGreenPrimary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "MEBANKING VIETQR",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = VcbGreenPrimary,
+                                )
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Icon(
+                                imageVector = Icons.Filled.QrCode,
+                                contentDescription = "Mã QR",
+                                tint = Color.Black,
+                                modifier = Modifier.size(110.dp),
+                            )
                             Spacer(Modifier.height(8.dp))
                             Text(account?.iban ?: "1012 3456 7890", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
