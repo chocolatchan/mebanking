@@ -10,7 +10,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview as CameraPreview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.view.PreviewView
+import com.mebanking.app.domain.util.VietQrParser
+import com.mebanking.app.ui.home.QrCodeAnalyzer
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -154,7 +158,7 @@ fun HomeScreen(
         factory = (LocalContext.current.applicationContext as? MEbankingApplication)?.container?.viewModelFactory,
     ),
     onNavigateToBranchLocator: () -> Unit = {},
-    onNavigateToTransfer: (String?, String?) -> Unit = { _, _ -> },
+    onNavigateToTransfer: (String?, String?, String?, String?) -> Unit = { _, _, _, _ -> },
     onNavigateToDeposit: () -> Unit = {},
     onNavigateToWithdraw: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
@@ -204,7 +208,7 @@ fun HomeScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     onNavigateToBranchLocator: () -> Unit = {},
-    onNavigateToTransfer: (String?, String?) -> Unit = { _, _ -> },
+    onNavigateToTransfer: (String?, String?, String?, String?) -> Unit = { _, _, _, _ -> },
     onNavigateToDeposit: () -> Unit = {},
     onNavigateToWithdraw: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
@@ -284,9 +288,9 @@ fun HomeScreen(
         QrPayModalDialog(
             account = uiState.accounts.firstOrNull(),
             onDismiss = { showQrModal = false },
-            onTransferTo = {
+            onTransferTo = { account, name, amount, note ->
                 showQrModal = false
-                onNavigateToTransfer(null, null)
+                onNavigateToTransfer(account, name, amount?.toString(), note)
             },
         )
     }
@@ -368,7 +372,7 @@ private fun ModernAccountsContent(
     onOpenQr: () -> Unit,
     onLogoutClick: () -> Unit,
     onNavigateToBranchLocator: () -> Unit,
-    onNavigateToTransfer: (String?, String?) -> Unit,
+    onNavigateToTransfer: (String?, String?, String?, String?) -> Unit,
     onNavigateToDeposit: () -> Unit,
     onNavigateToWithdraw: () -> Unit,
     onNavigateToHistory: () -> Unit,
@@ -411,7 +415,7 @@ private fun ModernAccountsContent(
                     isBalanceHidden = isBalanceHidden,
                     onToggleBalanceVisibility = onToggleBalanceVisibility,
                     onCopyAccount = onCopyAccount,
-                    onTransfer = { onNavigateToTransfer(null, null) },
+                    onTransfer = { onNavigateToTransfer(null, null, null, null) },
                     onDeposit = onNavigateToDeposit,
                     onHistory = onNavigateToHistory,
                     isCustomer = isCustomer,
@@ -424,7 +428,7 @@ private fun ModernAccountsContent(
             item {
                 Spacer(Modifier.height(16.dp))
                 QuickActionsFourBar(
-                    onTransfer = { onNavigateToTransfer(null, null) },
+                    onTransfer = { onNavigateToTransfer(null, null, null, null) },
                     onOpenQr = onOpenQr,
                     onDeposit = onNavigateToDeposit,
                     onWithdraw = onNavigateToWithdraw,
@@ -436,7 +440,7 @@ private fun ModernAccountsContent(
             item {
                 Spacer(Modifier.height(20.dp))
                 RecentRecipientsSection(
-                    onRecipientClick = { account, name -> onNavigateToTransfer(account, name) },
+                    onRecipientClick = { account, name -> onNavigateToTransfer(account, name, null, null) },
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
@@ -446,7 +450,7 @@ private fun ModernAccountsContent(
         item {
             Spacer(Modifier.height(20.dp))
             UtilityServicesGrid(
-                onNavigateToTransfer = { onNavigateToTransfer(null, null) },
+                onNavigateToTransfer = { onNavigateToTransfer(null, null, null, null) },
                 onNavigateToDeposit = onNavigateToDeposit,
                 onNavigateToWithdraw = onNavigateToWithdraw,
                 onNavigateToHistory = onNavigateToHistory,
@@ -1378,11 +1382,14 @@ private fun ModernBankingBottomBar(
 private fun QrPayModalDialog(
     account: Account?,
     onDismiss: () -> Unit,
-    onTransferTo: () -> Unit,
+    onTransferTo: (account: String?, name: String?, amount: Long?, note: String?) -> Unit,
 ) {
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var selectedQrTab by remember { mutableIntStateOf(0) }
+    var plainTextInput by remember { mutableStateOf("") }
+    var parsedPreview by remember { mutableStateOf<VietQrParser.ParsedQrResult?>(null) }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -1426,8 +1433,9 @@ private fun QrPayModalDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             Column(
                 modifier = Modifier
@@ -1441,7 +1449,7 @@ private fun QrPayModalDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Quét mã QR / VietQR",
+                        text = "Quét & Đọc mã QR / VietQR",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
@@ -1453,200 +1461,368 @@ private fun QrPayModalDialog(
                     }
                 }
 
+                Spacer(Modifier.height(8.dp))
+
                 TabRow(
                     selectedTabIndex = selectedQrTab,
                     containerColor = Color.Transparent,
-                    contentColor = VcbGreenPrimary,
+                    contentColor = MaterialTheme.colorScheme.primary,
                 ) {
                     Tab(
                         selected = selectedQrTab == 0,
                         onClick = { selectedQrTab = 0 },
-                        text = { Text("Quét mã QR") },
+                        text = { Text("Quét Camera", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
                     )
                     Tab(
                         selected = selectedQrTab == 1,
                         onClick = { selectedQrTab = 1 },
-                        text = { Text("Mã QR của tôi") },
+                        text = { Text("Nhập văn bản", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    )
+                    Tab(
+                        selected = selectedQrTab == 2,
+                        onClick = { selectedQrTab = 2 },
+                        text = { Text("QR của tôi", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
                     )
                 }
 
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(16.dp))
 
-                if (selectedQrTab == 0) {
-                    // Live Camera Viewfinder & QR Scanner
-                    Box(
-                        modifier = Modifier
-                            .size(240.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(Color(0xFF111827)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (hasCameraPermission) {
-                            AndroidView(
-                                modifier = Modifier.fillMaxSize(),
-                                factory = { ctx ->
-                                    val previewView = PreviewView(ctx).apply {
-                                        scaleType = PreviewView.ScaleType.FILL_CENTER
-                                        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                                    }
-                                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                                    cameraProviderFuture.addListener({
-                                        try {
-                                            if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                                                val cameraProvider = cameraProviderFuture.get()
-                                                val preview = CameraPreview.Builder().build().also {
-                                                    it.setSurfaceProvider(previewView.surfaceProvider)
-                                                }
-                                                val cameraSelector = when {
-                                                    cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
-                                                    cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
-                                                    else -> null
-                                                }
-                                                if (cameraSelector != null) {
-                                                    cameraProvider.unbindAll()
-                                                    cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview)
-                                                }
-                                            }
-                                        } catch (_: Throwable) {
-                                            // Fallback for tests/emulators
+                when (selectedQrTab) {
+                    0 -> {
+                        // Tab 0: Live Camera Viewfinder & QR Scanner with ZXing ImageAnalysis
+                        Box(
+                            modifier = Modifier
+                                .size(240.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF111827)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (hasCameraPermission) {
+                                AndroidView(
+                                    modifier = Modifier.fillMaxSize(),
+                                    factory = { ctx ->
+                                        val previewView = PreviewView(ctx).apply {
+                                            scaleType = PreviewView.ScaleType.FILL_CENTER
+                                            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                                         }
-                                    }, ContextCompat.getMainExecutor(ctx))
-                                    previewView
-                                },
-                            )
-                        } else {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.CameraAlt,
-                                    contentDescription = null,
-                                    tint = Color.Gray,
-                                    modifier = Modifier.size(36.dp),
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Cần quyền Máy ảnh để quét QR",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.LightGray,
-                                    textAlign = TextAlign.Center,
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(
-                                        onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = VcbGreenPrimary),
-                                    ) {
-                                        Text("Cấp quyền", fontSize = 12.sp)
-                                    }
-                                    OutlinedButton(
-                                        onClick = {
+                                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                                        cameraProviderFuture.addListener({
                                             try {
-                                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                                    data = Uri.fromParts("package", context.packageName, null)
-                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                                    val cameraProvider = cameraProviderFuture.get()
+                                                    val preview = CameraPreview.Builder().build().also {
+                                                        it.setSurfaceProvider(previewView.surfaceProvider)
+                                                    }
+
+                                                    val imageAnalysis = ImageAnalysis.Builder()
+                                                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                                        .build()
+
+                                                    val qrAnalyzer = QrCodeAnalyzer { scannedText ->
+                                                        val parsed = VietQrParser.parse(scannedText)
+                                                        if (parsed != null) {
+                                                            onTransferTo(
+                                                                parsed.accountNumber,
+                                                                parsed.recipientName ?: parsed.bankName,
+                                                                parsed.amount,
+                                                                parsed.note,
+                                                            )
+                                                        } else {
+                                                            val digits = scannedText.filter { it.isDigit() }
+                                                            if (digits.length in 6..24) {
+                                                                onTransferTo(digits, null, null, null)
+                                                            }
+                                                        }
+                                                    }
+                                                    imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(ctx), qrAnalyzer)
+
+                                                    val cameraSelector = when {
+                                                        cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
+                                                        cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
+                                                        else -> null
+                                                    }
+                                                    if (cameraSelector != null) {
+                                                        cameraProvider.unbindAll()
+                                                        cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis)
+                                                    }
                                                 }
-                                                context.startActivity(intent)
-                                            } catch (_: Throwable) {}
-                                        },
-                                    ) {
-                                        Text("Cài đặt", fontSize = 12.sp)
+                                            } catch (_: Throwable) {
+                                                // Fallback for tests/emulators
+                                            }
+                                        }, ContextCompat.getMainExecutor(ctx))
+                                        previewView
+                                    },
+                                )
+                            } else {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(16.dp),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.CameraAlt,
+                                        contentDescription = null,
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(36.dp),
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Cần quyền Máy ảnh để quét QR",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.LightGray,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                        ) {
+                                            Text("Cấp quyền", fontSize = 12.sp)
+                                        }
+                                        OutlinedButton(
+                                            onClick = {
+                                                try {
+                                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                        data = Uri.fromParts("package", context.packageName, null)
+                                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    }
+                                                    context.startActivity(intent)
+                                                } catch (_: Throwable) {}
+                                            },
+                                        ) {
+                                            Text("Cài đặt", fontSize = 12.sp)
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        // Scanning viewfinder corners and laser overlay
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val laserPos = size.height * laserY
-                            drawLine(
-                                color = Color(0xFF10B981),
-                                start = Offset(24f, laserPos),
-                                end = Offset(size.width - 24f, laserPos),
-                                strokeWidth = 3.dp.toPx(),
-                            )
-                        }
-
-                        // Corner border indicators (QR target frame)
-                        Box(
-                            modifier = Modifier
-                                .size(180.dp)
-                                .border(2.dp, Color(0x80FFFFFF), RoundedCornerShape(12.dp)),
-                        )
-
-                        // Bottom label
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 8.dp)
-                                .background(Color(0x99000000), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 10.dp, vertical = 4.dp),
-                        ) {
-                            Text(
-                                "Hướng camera về mã VietQR",
-                                color = Color.White,
-                                style = MaterialTheme.typography.labelSmall,
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-                    Button(
-                        onClick = onTransferTo,
-                        colors = ButtonDefaults.buttonColors(containerColor = VcbGreenPrimary),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Nhập thông tin chuyển khoản trực tiếp")
-                    }
-                } else {
-                    // My QR Code (Receive Money)
-                    Box(
-                        modifier = Modifier
-                            .size(220.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color.White)
-                            .border(2.dp, VcbGreenPrimary, RoundedCornerShape(16.dp)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Filled.AccountBalance,
-                                    contentDescription = null,
-                                    tint = VcbGreenPrimary,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "MEBANKING VIETQR",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    color = VcbGreenPrimary,
+                            // Scanning viewfinder corners and laser overlay
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val laserPos = size.height * laserY
+                                drawLine(
+                                    color = Color(0xFF7C5CBF),
+                                    start = Offset(24f, laserPos),
+                                    end = Offset(size.width - 24f, laserPos),
+                                    strokeWidth = 3.dp.toPx(),
                                 )
                             }
-                            Spacer(Modifier.height(12.dp))
-                            Icon(
-                                imageVector = Icons.Filled.QrCode,
-                                contentDescription = "Mã QR",
-                                tint = Color.Black,
-                                modifier = Modifier.size(110.dp),
+
+                            // Corner border indicators (QR target frame)
+                            Box(
+                                modifier = Modifier
+                                    .size(180.dp)
+                                    .border(2.dp, Color(0x80FFFFFF), RoundedCornerShape(12.dp)),
                             )
-                            Spacer(Modifier.height(8.dp))
-                            Text(account?.iban ?: "1012 3456 7890", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+
+                            // Bottom label
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 8.dp)
+                                    .background(Color(0x99000000), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Text(
+                                    "Tự động nhận diện mã VietQR / QR",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+
+                        OutlinedButton(
+                            onClick = { selectedQrTab = 1 },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text("Chuyển sang nhập văn bản / Dán mã")
                         }
                     }
 
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = "Quét để chuyển tiền miễn phí tới tài khoản của bạn",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
+                    1 -> {
+                        // Tab 1: Plaintext & VietQR Manual Input / Paste Mode
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Nhập văn bản, số tài khoản hoặc chuỗi VietQR:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(6.dp))
+
+                            OutlinedTextField(
+                                value = plainTextInput,
+                                onValueChange = {
+                                    plainTextInput = it
+                                    parsedPreview = VietQrParser.parse(it)
+                                },
+                                placeholder = {
+                                    Text(
+                                        "Dán mã VietQR (000201...), link hoặc gõ STK (ví dụ: 100123456789)...",
+                                        fontSize = 12.sp,
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(110.dp),
+                                shape = RoundedCornerShape(10.dp),
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val clipText = clipboardManager.getText()?.text ?: ""
+                                        if (clipText.isNotBlank()) {
+                                            plainTextInput = clipText
+                                            parsedPreview = VietQrParser.parse(clipText)
+                                            Toast.makeText(context, "Đã dán từ bộ nhớ tạm", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Bộ nhớ tạm trống", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                ) {
+                                    Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Dán từ bộ nhớ tạm", fontSize = 11.sp)
+                                }
+
+                                TextButton(
+                                    onClick = {
+                                        val demoVietQr = "00020101021238560010A0000007270126000697043601121001234567890208QRIBFTTA53037045405500005802VN5914NGUYEN LAN ANH62160812Tien an trua6304ABCD"
+                                        plainTextInput = demoVietQr
+                                        parsedPreview = VietQrParser.parse(demoVietQr)
+                                    },
+                                ) {
+                                    Text("Mẫu VietQR", fontSize = 11.sp)
+                                }
+                            }
+
+                            Spacer(Modifier.height(10.dp))
+
+                            // Parsed Result Preview Card
+                            val preview = parsedPreview
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (preview != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    if (preview != null) {
+                                        Text(
+                                            text = "Thông tin nhận diện được:",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Text("STK nhận: ${preview.accountNumber}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                        if (preview.bankName != null) {
+                                            Text("Ngân hàng: ${preview.bankName}", fontSize = 12.sp)
+                                        }
+                                        if (preview.recipientName != null) {
+                                            Text("Người nhận: ${preview.recipientName}", fontSize = 12.sp)
+                                        }
+                                        if (preview.amount != null) {
+                                            Text("Số tiền: ${CurrencyFormatter.formatVnd(preview.amount)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                        if (preview.note != null) {
+                                            Text("Nội dung: ${preview.note}", fontSize = 12.sp)
+                                        }
+                                    } else {
+                                        Text(
+                                            text = if (plainTextInput.isBlank()) "Chưa có thông tin chuyển tiền." else "Chưa nhận diện được VietQR hợp lệ. Nhập số tài khoản hoặc chuỗi VietQR.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp,
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(14.dp))
+
+                            Button(
+                                onClick = {
+                                    val result = parsedPreview
+                                    if (result != null) {
+                                        onTransferTo(result.accountNumber, result.recipientName ?: result.bankName, result.amount, result.note)
+                                    } else {
+                                        val digits = plainTextInput.filter { it.isDigit() }
+                                        if (digits.length in 6..24) {
+                                            onTransferTo(digits, null, null, null)
+                                        } else {
+                                            Toast.makeText(context, "Vui lòng nhập số tài khoản hoặc mã VietQR hợp lệ", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                enabled = parsedPreview != null || plainTextInput.filter { it.isDigit() }.length in 6..24,
+                            ) {
+                                Text("Xác nhận & Chuyển tiền")
+                            }
+                        }
+                    }
+
+                    2 -> {
+                        // Tab 2: My QR Code (Receive Money)
+                        Box(
+                            modifier = Modifier
+                                .size(220.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Filled.AccountBalance,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        "MEBANKING VIETQR",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                                Spacer(Modifier.height(12.dp))
+                                Icon(
+                                    imageVector = Icons.Filled.QrCode,
+                                    contentDescription = "Mã QR",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(110.dp),
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(account?.iban ?: "1012 3456 7890", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Quét để chuyển tiền miễn phí tới tài khoản của bạn",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
         }

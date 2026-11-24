@@ -278,13 +278,21 @@ class TransferViewModel(
         }
     }
 
-    fun setRecipient(accountNumber: String, recipientName: String? = null, lockAccount: Boolean = true) {
+    fun setRecipient(
+        accountNumber: String,
+        recipientName: String? = null,
+        lockAccount: Boolean = true,
+        amount: Long? = null,
+        note: String? = null,
+    ) {
         resetIdempotency()
         _uiState.update {
             it.copy(
                 toAccountNumber = accountNumber,
                 recipientName = recipientName,
                 isRecipientLocked = lockAccount,
+                amountInput = amount?.toString() ?: it.amountInput,
+                note = note ?: it.note,
                 errorMessage = null,
                 successMessage = null,
             )

@@ -20,10 +20,21 @@ import kotlinx.coroutines.launch
 data class AccountDetailUiState(
     val isLoading: Boolean = true,
     val account: Account? = null,
+    val userSession: UserSession? = null,
     val mortgageDetails: MortgageAccountDetails? = null,
     val savingProfit: Long? = null,
     val formulaNotice: String? = null,
     val errorMessage: String? = null,
+    val dailyLimit: Long = 500_000_000L,
+    val singleLimit: Long = 100_000_000L,
+    val atmLimit: Long = 50_000_000L,
+    val holdBalance: Long = 0L,
+    val branchName: String = "Chi nhánh TP. Hồ Chí Minh",
+    val openDate: String = "15/01/2023",
+    val currency: String = "VND (Đồng Việt Nam)",
+    val authMethod: String = "Smart OTP & Sinh trắc học",
+    val isOttEnabled: Boolean = true,
+    val isBiometricEnabled: Boolean = true,
 )
 
 /**
@@ -65,6 +76,7 @@ class AccountDetailViewModel(
                             it.copy(
                                 isLoading = false,
                                 account = account,
+                                userSession = session,
                                 mortgageDetails = mortgage,
                                 errorMessage = null,
                             )
@@ -124,5 +136,13 @@ class AccountDetailViewModel(
                 it.copy(formulaNotice = e.toDomainError().message)
             }
         }
+    }
+
+    fun toggleOtt() {
+        _uiState.update { it.copy(isOttEnabled = !it.isOttEnabled) }
+    }
+
+    fun toggleBiometric() {
+        _uiState.update { it.copy(isBiometricEnabled = !it.isBiometricEnabled) }
     }
 }

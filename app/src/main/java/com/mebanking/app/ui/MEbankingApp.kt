@@ -1,5 +1,6 @@
 package com.mebanking.app.ui
 
+import android.net.Uri
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -93,10 +94,14 @@ private fun AuthenticatedApp(
                 onNavigateToBranchLocator = {
                     navController.navigate("branch_locator") { launchSingleTop = true }
                 },
-                onNavigateToTransfer = { account, name ->
+                onNavigateToTransfer = { account, name, amount, note ->
                     if (isCustomer) {
                         if (!account.isNullOrBlank()) {
-                            navController.navigate("transfer?targetAccount=$account&targetName=${name ?: ""}") { launchSingleTop = true }
+                            val encAcc = Uri.encode(account)
+                            val encName = Uri.encode(name ?: "")
+                            val encAmt = Uri.encode(amount ?: "")
+                            val encNote = Uri.encode(note ?: "")
+                            navController.navigate("transfer?targetAccount=$encAcc&targetName=$encName&targetAmount=$encAmt&targetNote=$encNote") { launchSingleTop = true }
                         } else {
                             navController.navigate("transfer") { launchSingleTop = true }
                         }
@@ -170,7 +175,7 @@ private fun AuthenticatedApp(
             BranchLocatorScreen(onBack = { navController.popBackStack() })
         }
         composable(
-            route = "transfer?targetAccount={targetAccount}&targetName={targetName}",
+            route = "transfer?targetAccount={targetAccount}&targetName={targetName}&targetAmount={targetAmount}&targetNote={targetNote}",
             arguments = listOf(
                 navArgument("targetAccount") {
                     type = NavType.StringType
@@ -182,13 +187,27 @@ private fun AuthenticatedApp(
                     nullable = true
                     defaultValue = null
                 },
+                navArgument("targetAmount") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("targetNote") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
             ),
         ) { backStackEntry ->
             val targetAccount = backStackEntry.arguments?.getString("targetAccount")
             val targetName = backStackEntry.arguments?.getString("targetName")
+            val targetAmount = backStackEntry.arguments?.getString("targetAmount")
+            val targetNote = backStackEntry.arguments?.getString("targetNote")
             TransferScreen(
                 targetAccount = targetAccount,
                 targetName = targetName,
+                targetAmount = targetAmount,
+                targetNote = targetNote,
                 onBack = { navController.popBackStack() },
             )
         }

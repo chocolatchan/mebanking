@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -98,6 +99,12 @@ fun BranchLocatorScreen(
     )
 }
 
+enum class MapViewMode {
+    INTERACTIVE,      // Real street tiles, markers & distance polyline (works everywhere, offline & online)
+    GOOGLE_MAPS,     // Native Google Maps SDK
+    OFFLINE_VECTOR,  // Vector canvas map
+}
+
 @Composable
 fun BranchLocatorContent(
     uiState: BranchLocatorUiState,
@@ -110,34 +117,46 @@ fun BranchLocatorContent(
 ) {
     SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
 
-    var isGoogleMapsMode by remember { mutableStateOf(true) }
+    var mapMode by remember { mutableStateOf(MapViewMode.INTERACTIVE) }
     var zoom by remember { mutableFloatStateOf(1.0f) }
     var panOffset by remember { mutableStateOf(Offset.Zero) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 1. Central Map View (Google Maps with fallback / toggle to Vector Canvas Map)
-        if (isGoogleMapsMode) {
-            GoogleMapsContainer(
-                uiState = uiState,
-                onBranchSelected = onBranchSelected,
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            OfflineMapView(
-                userLocation = uiState.userLocation,
-                roadGraph = uiState.roadGraph,
-                branches = uiState.branches,
-                selectedBranch = uiState.selectedBranch,
-                currentRoute = uiState.currentRoute,
-                onBranchClick = onBranchSelected,
-                zoom = zoom,
-                panOffset = panOffset,
-                onTransform = { zChange, pChange ->
-                    zoom = (zoom * zChange).coerceIn(MapProjection.MIN_ZOOM, MapProjection.MAX_ZOOM)
-                    panOffset += pChange
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
+        // 1. Central Map View (Interactive Live Map by default, with toggles for SDK & Vector)
+        when (mapMode) {
+            MapViewMode.INTERACTIVE -> {
+                InteractiveMapView(
+                    userLocation = uiState.userLocation,
+                    branches = uiState.branches,
+                    selectedBranch = uiState.selectedBranch,
+                    onBranchClick = onBranchSelected,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            MapViewMode.GOOGLE_MAPS -> {
+                GoogleMapsContainer(
+                    uiState = uiState,
+                    onBranchSelected = onBranchSelected,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            MapViewMode.OFFLINE_VECTOR -> {
+                OfflineMapView(
+                    userLocation = uiState.userLocation,
+                    roadGraph = uiState.roadGraph,
+                    branches = uiState.branches,
+                    selectedBranch = uiState.selectedBranch,
+                    currentRoute = uiState.currentRoute,
+                    onBranchClick = onBranchSelected,
+                    zoom = zoom,
+                    panOffset = panOffset,
+                    onTransform = { zChange, pChange ->
+                        zoom = (zoom * zChange).coerceIn(MapProjection.MIN_ZOOM, MapProjection.MAX_ZOOM)
+                        panOffset += pChange
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
 
         // 2. Top search bar and filter chips (Padded under system status bar, zero overlap)
@@ -156,8 +175,14 @@ fun BranchLocatorContent(
 
         // 3. Floating map controls & Mode Switcher
         FloatingMapControls(
-            isGoogleMapsMode = isGoogleMapsMode,
-            onToggleMapMode = { isGoogleMapsMode = !isGoogleMapsMode },
+            currentMode = mapMode,
+            onToggleMapMode = {
+                mapMode = when (mapMode) {
+                    MapViewMode.INTERACTIVE -> MapViewMode.GOOGLE_MAPS
+                    MapViewMode.GOOGLE_MAPS -> MapViewMode.OFFLINE_VECTOR
+                    MapViewMode.OFFLINE_VECTOR -> MapViewMode.INTERACTIVE
+                }
+            },
             onZoomIn = {
                 zoom = (zoom * 1.3f).coerceIn(MapProjection.MIN_ZOOM, MapProjection.MAX_ZOOM)
             },
@@ -305,9 +330,10 @@ private fun TopControlsOverlay(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        tonalElevation = 6.dp,
-        shadowElevation = 8.dp,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -385,7 +411,7 @@ private fun TopControlsOverlay(
 
 @Composable
 private fun FloatingMapControls(
-    isGoogleMapsMode: Boolean,
+    currentMode: MapViewMode,
     onToggleMapMode: () -> Unit,
     onZoomIn: () -> Unit,
     onZoomOut: () -> Unit,
@@ -397,15 +423,19 @@ private fun FloatingMapControls(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.End,
     ) {
-        // Toggle Map View (Google Maps / Offline Vector)
+        // Toggle Map View
         SmallFloatingActionButton(
             onClick = onToggleMapMode,
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ) {
             Icon(
-                imageVector = if (isGoogleMapsMode) Icons.Filled.Map else Icons.Filled.Public,
-                contentDescription = if (isGoogleMapsMode) "Chuyển bản đồ ngoại tuyến" else "Chuyển Google Maps",
+                imageVector = when (currentMode) {
+                    MapViewMode.INTERACTIVE -> Icons.Filled.Public
+                    MapViewMode.GOOGLE_MAPS -> Icons.Filled.Map
+                    MapViewMode.OFFLINE_VECTOR -> Icons.Filled.NearMe
+                },
+                contentDescription = "Chuyển chế độ bản đồ",
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -454,8 +484,9 @@ private fun BranchDetailsCard(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(18.dp)) {

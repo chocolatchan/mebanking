@@ -99,6 +99,8 @@ fun TransferScreen(
     onBack: () -> Unit,
     targetAccount: String? = null,
     targetName: String? = null,
+    targetAmount: String? = null,
+    targetNote: String? = null,
     modifier: Modifier = Modifier,
     viewModel: TransferViewModel = viewModel(
         factory = (LocalContext.current.applicationContext as MEbankingApplication).container.viewModelFactory,
@@ -109,12 +111,15 @@ fun TransferScreen(
     val activity = remember(context) { context.findFragmentActivity() }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(targetAccount, targetName) {
+    LaunchedEffect(targetAccount, targetName, targetAmount, targetNote) {
         if (!targetAccount.isNullOrBlank()) {
+            val parsedAmt = targetAmount?.filter { it.isDigit() }?.toLongOrNull()
             viewModel.setRecipient(
                 accountNumber = targetAccount,
                 recipientName = targetName?.takeIf { it.isNotBlank() },
                 lockAccount = true,
+                amount = parsedAmt,
+                note = targetNote?.takeIf { it.isNotBlank() },
             )
         }
     }
