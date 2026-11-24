@@ -455,7 +455,7 @@ private fun MyCinemaTicketsContent(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(bookings, key = { it.id }) { booking ->
+            items(bookings.distinctBy { it.id }, key = { "cinema-booking-${it.id}" }) { booking ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),

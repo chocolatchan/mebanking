@@ -265,7 +265,7 @@ private fun FlightSearchAndBookContent(
             }
         }
 
-        items(uiState.flights, key = { it.id }) { flight ->
+        items(uiState.flights.distinctBy { it.id }, key = { "flight-${it.id}" }) { flight ->
             val isSelected = uiState.selectedFlight?.id == flight.id
             Card(
                 modifier = Modifier
@@ -452,7 +452,7 @@ private fun MyBookingsContent(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(bookings, key = { it.id }) { booking ->
+            items(bookings.distinctBy { it.id }, key = { "flight-booking-${it.id}" }) { booking ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),

@@ -491,7 +491,7 @@ private fun TopupHistoryContent(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(history, key = { it.id }) { tx ->
+            items(history.distinctBy { it.id }, key = { "topup-history-${it.id}" }) { tx ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),

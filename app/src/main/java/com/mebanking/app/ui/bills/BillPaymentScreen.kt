@@ -131,13 +131,34 @@ fun BillPaymentContent(
                 }
                 if (uiState.unpaidBills.isEmpty()) {
                     item {
-                        Text(
-                            text = "Không có hóa đơn nào cần thanh toán",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.CheckCircle,
+                                    contentDescription = null,
+                                    tint = VcbGreenPrimary,
+                                    modifier = Modifier.size(32.dp),
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    text = "Hiện không có hóa đơn nào cần thanh toán.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
                     }
                 } else {
-                    items(uiState.unpaidBills, key = { it.id }) { bill ->
+                    items(uiState.unpaidBills.distinctBy { it.id }, key = { "unpaid-bill-${it.id}" }) { bill ->
                         BillRow(
                             bill = bill,
                             selected = uiState.selectedBillId == bill.id,
@@ -150,7 +171,7 @@ fun BillPaymentContent(
                     Spacer(Modifier.height(4.dp))
                     Text("Tài khoản thanh toán", style = MaterialTheme.typography.titleMedium)
                 }
-                items(uiState.accounts, key = { it.id }) { account ->
+                items(uiState.accounts.distinctBy { it.id }, key = { "pay-account-${it.id}" }) { account ->
                     AccountRow(
                         account = account,
                         selected = uiState.selectedAccountId == account.id,
@@ -261,7 +282,7 @@ fun BillPaymentContent(
                         Spacer(Modifier.height(8.dp))
                         Text("Lịch sử đã thanh toán", style = MaterialTheme.typography.titleMedium)
                     }
-                    items(uiState.paidBills, key = { "paid-${it.id}" }) { bill ->
+                    items(uiState.paidBills.distinctBy { it.id }, key = { "paid-bill-${it.id}" }) { bill ->
                         PaidBillRow(bill)
                     }
                 }

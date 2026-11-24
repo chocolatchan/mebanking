@@ -34,6 +34,7 @@ import com.mebanking.app.ui.lifestyle.ShopScreen
 import com.mebanking.app.ui.lifestyle.TopupScreen
 import com.mebanking.app.ui.navigation.BranchLocatorScreen
 import com.mebanking.app.ui.officer.OfficerDashboardScreen
+import com.mebanking.app.ui.services.ServicesScreen
 import com.mebanking.app.ui.transfer.TransferScreen
 
 /**
@@ -102,6 +103,11 @@ private fun AuthenticatedApp(
                 onNavigateToBills = {
                     if (isCustomer) {
                         navController.navigate("bills") { launchSingleTop = true }
+                    }
+                },
+                onNavigateToServices = {
+                    if (isCustomer) {
+                        navController.navigate("services") { launchSingleTop = true }
                     }
                 },
                 onNavigateToChatbot = {
@@ -177,6 +183,20 @@ private fun AuthenticatedApp(
         }
         composable("bills") {
             BillPaymentScreen(onBack = { navController.popBackStack() })
+        }
+        composable("services") {
+            ServicesScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToBills = { navController.navigate("bills") { launchSingleTop = true } },
+                onNavigateToTopup = { navController.navigate("topup") { launchSingleTop = true } },
+                onNavigateToFlights = { navController.navigate("flight_booking") { launchSingleTop = true } },
+                onNavigateToHotels = { navController.navigate("hotel_booking") { launchSingleTop = true } },
+                onNavigateToCinema = { navController.navigate("cinema_booking") { launchSingleTop = true } },
+                onNavigateToShop = { navController.navigate("shop") { launchSingleTop = true } },
+                onNavigateToBranchLocator = { navController.navigate("branch_locator") { launchSingleTop = true } },
+                onNavigateToChatbot = { navController.navigate("chatbot") { launchSingleTop = true } },
+                onNavigateToTransfer = { navController.navigate("transfer") { launchSingleTop = true } },
+            )
         }
         composable("chatbot") {
             ChatbotScreen(

@@ -143,6 +143,7 @@ fun HomeScreen(
     onNavigateToHistory: () -> Unit = {},
     onNavigateToOfficerDashboard: () -> Unit = {},
     onNavigateToBills: () -> Unit = {},
+    onNavigateToServices: () -> Unit = onNavigateToBills,
     onNavigateToChatbot: () -> Unit = {},
     onNavigateToAccountDetail: (Long) -> Unit = {},
     onNavigateToFlights: () -> Unit = {},
@@ -165,6 +166,7 @@ fun HomeScreen(
         onNavigateToHistory = onNavigateToHistory,
         onNavigateToOfficerDashboard = onNavigateToOfficerDashboard,
         onNavigateToBills = onNavigateToBills,
+        onNavigateToServices = onNavigateToServices,
         onNavigateToChatbot = onNavigateToChatbot,
         onNavigateToAccountDetail = onNavigateToAccountDetail,
         onNavigateToFlights = onNavigateToFlights,
@@ -191,6 +193,7 @@ fun HomeScreen(
     onNavigateToHistory: () -> Unit = {},
     onNavigateToOfficerDashboard: () -> Unit = {},
     onNavigateToBills: () -> Unit = {},
+    onNavigateToServices: () -> Unit = onNavigateToBills,
     onNavigateToChatbot: () -> Unit = {},
     onNavigateToAccountDetail: (Long) -> Unit = {},
     onNavigateToFlights: () -> Unit = {},
@@ -258,7 +261,7 @@ fun HomeScreen(
                         0 -> {} // Home
                         1 -> onNavigateToHistory()
                         2 -> showQrModal = true
-                        3 -> onNavigateToBills()
+                        3 -> onNavigateToServices()
                         4 -> {
                             val primaryId = uiState.accounts.firstOrNull()?.id?.toLongOrNull()
                             if (primaryId != null) onNavigateToAccountDetail(primaryId)
@@ -457,7 +460,7 @@ private fun ModernAccountsContent(
                 }
             }
         } else {
-            items(uiState.accounts, key = { it.id }) { account ->
+            items(uiState.accounts.distinctBy { it.id }, key = { "account-${it.id}" }) { account ->
                 ModernAccountItem(
                     account = account,
                     isBalanceHidden = isBalanceHidden,

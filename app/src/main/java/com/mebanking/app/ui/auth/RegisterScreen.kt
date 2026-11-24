@@ -127,7 +127,7 @@ fun RegisterScreen(
                     }
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        text = "Mở tài khoản eKYC thành công!",
+                        text = "Mở tài khoản thành công!",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
@@ -173,7 +173,7 @@ fun RegisterScreen(
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
-                                    "Đã thu thập & kích hoạt eKYC",
+                                    "Đã kích hoạt xác thực khuôn mặt",
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = VcbGreenPrimary,
@@ -204,13 +204,13 @@ fun RegisterScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Mở tài khoản eKYC",
+                            text = "Mở tài khoản mới",
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = "Chuẩn định danh sinh trắc học quốc gia",
+                            text = "Đăng ký tài khoản thanh toán trực tuyến",
                             color = Color(0xFFC7ECD3),
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -250,12 +250,12 @@ fun RegisterScreen(
             ) {
                 StepChip(number = "1", label = "Thông tin cá nhân", isActive = true)
                 Text("───", color = Color.Gray)
-                StepChip(number = "2", label = "Khuôn mặt eKYC", isActive = false)
+                StepChip(number = "2", label = "Xác thực khuôn mặt", isActive = false)
             }
 
             Spacer(Modifier.height(8.dp))
 
-            // Quick Demo Fill Card for easy eKYC testing
+            // Quick Demo Fill Card for testing
             Surface(
                 onClick = viewModel::fillDemoData,
                 color = Color(0xFFF1F8E9),
@@ -280,7 +280,7 @@ fun RegisterScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "⚡ Điền nhanh thông tin mẫu để thử nghiệm eKYC",
+                            text = "⚡ Điền nhanh thông tin mẫu để thử nghiệm",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = VcbGreenDark,
@@ -333,6 +333,25 @@ fun RegisterScreen(
                     )
 
                     OutlinedTextField(
+                        value = uiState.phone,
+                        onValueChange = viewModel::onPhoneChanged,
+                        label = { Text("Số điện thoại (dùng làm tên đăng nhập)") },
+                        supportingText = { Text("10 số bắt đầu bằng 0 (dùng để đăng nhập vào ứng dụng)") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Phone,
+                                contentDescription = null,
+                                tint = VcbGreenPrimary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    OutlinedTextField(
                         value = uiState.nationalId,
                         onValueChange = viewModel::onNationalIdChanged,
                         label = { Text("Số CCCD (12 chữ số)") },
@@ -346,24 +365,6 @@ fun RegisterScreen(
                             )
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    OutlinedTextField(
-                        value = uiState.username,
-                        onValueChange = viewModel::onUsernameChanged,
-                        label = { Text("Tên đăng nhập (4-32 ký tự)") },
-                        supportingText = { Text("4-32 ký tự chữ, số hoặc gạch dưới") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Person,
-                                contentDescription = null,
-                                tint = VcbGreenPrimary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
@@ -395,25 +396,6 @@ fun RegisterScreen(
                                 )
                             }
                         },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    OutlinedTextField(
-                        value = uiState.phone,
-                        onValueChange = viewModel::onPhoneChanged,
-                        label = { Text("Số điện thoại (10 số, bắt đầu bằng 0)") },
-                        supportingText = { Text("10 chữ số (ví dụ: 0987654321)") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Phone,
-                                contentDescription = null,
-                                tint = VcbGreenPrimary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
-                        singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -519,7 +501,7 @@ fun RegisterScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
                     ) {
-                        Text("TIẾP TỤC: CHỤP KHUÔN MẶT eKYC", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("TIẾP TỤC: XÁC THỰC KHUÔN MẶT", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         Spacer(Modifier.width(8.dp))
                         Icon(
                             imageVector = Icons.Filled.PhotoCamera,

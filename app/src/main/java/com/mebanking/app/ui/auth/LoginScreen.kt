@@ -26,13 +26,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
+import com.mebanking.app.ui.ekyc.FaceCaptureDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -88,11 +92,28 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    if (uiState.isBiometricDialogOpen) {
+        FaceCaptureDialog(
+            title = "Xác thực khuôn mặt",
+            subtitle = "Vui lòng giữ thẳng khuôn mặt để đăng nhập.",
+            isProcessing = uiState.isSubmitting,
+            errorMessage = uiState.errorMessage,
+            onFrameCaptured = { frame ->
+                viewModel.loginWithBiometrics(frame)
+            },
+            onDismiss = {
+                viewModel.closeBiometricDialog()
+            },
+        )
+    }
+
     LoginContent(
         uiState = uiState,
         onUsernameChanged = viewModel::onUsernameChanged,
         onPasswordChanged = viewModel::onPasswordChanged,
         onLogin = viewModel::login,
+        onClearRememberedCustomer = viewModel::clearRememberedCustomer,
+        onOpenBiometricDialog = viewModel::openBiometricDialog,
         onNavigateToRegister = onNavigateToRegister,
         modifier = modifier,
     )
@@ -104,10 +125,13 @@ fun LoginContent(
     onUsernameChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onLogin: () -> Unit,
+    onClearRememberedCustomer: () -> Unit = {},
+    onOpenBiometricDialog: () -> Unit = {},
     onNavigateToRegister: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
+    val isRemembered = uiState.rememberedCustomer != null
 
     com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = false)
 
@@ -184,45 +208,91 @@ fun LoginContent(
                         modifier = Modifier.padding(22.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(
-                            text = "Đăng nhập",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-
-                        Spacer(Modifier.height(18.dp))
-
-                        // Username Field with Vector Icon
-                        OutlinedTextField(
-                            value = uiState.username,
-                            onValueChange = onUsernameChanged,
-                            label = { Text("Tên đăng nhập") },
-                            leadingIcon = {
+                        if (isRemembered) {
+                            // -------------------------------------------------------------
+                            // Case 1: Remembered Customer State (Greeting + Face ID + Password)
+                            // -------------------------------------------------------------
+                            Box(
+                                modifier = Modifier
+                                    .size(60.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE8F5E9)),
+                                contentAlignment = Alignment.Center,
+                            ) {
                                 Icon(
                                     imageVector = Icons.Filled.Person,
                                     contentDescription = null,
                                     tint = VcbGreenPrimary,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(36.dp),
                                 )
-                            },
-                            singleLine = true,
-                            enabled = !uiState.isSubmitting,
-                            shape = RoundedCornerShape(14.dp),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Text,
-                                imeAction = ImeAction.Next,
-                            ),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = VcbGreenPrimary,
-                                focusedLabelColor = VcbGreenPrimary,
-                            ),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                            }
 
-                        Spacer(Modifier.height(14.dp))
+                            Spacer(Modifier.height(10.dp))
 
-                        // Password Field with Vector Icons
+                            Text(
+                                text = "Xin chào,",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = uiState.rememberedCustomer.fullName,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = maskPhone(uiState.rememberedCustomer.phone.ifBlank { uiState.rememberedCustomer.username }),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray,
+                            )
+
+                            Spacer(Modifier.height(18.dp))
+                        } else {
+                            // -------------------------------------------------------------
+                            // Case 2: Clean State (Phone Number + Password + Open Account)
+                            // -------------------------------------------------------------
+                            Text(
+                                text = "Đăng nhập tài khoản",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+
+                            Spacer(Modifier.height(18.dp))
+
+                            // Phone Number Field (Replaces separate Username)
+                            OutlinedTextField(
+                                value = uiState.username,
+                                onValueChange = onUsernameChanged,
+                                label = { Text("Số điện thoại") },
+                                placeholder = { Text("Nhập số điện thoại đã đăng ký") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Filled.Phone,
+                                        contentDescription = null,
+                                        tint = VcbGreenPrimary,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                },
+                                singleLine = true,
+                                enabled = !uiState.isSubmitting,
+                                shape = RoundedCornerShape(14.dp),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Phone,
+                                    imeAction = ImeAction.Next,
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = VcbGreenPrimary,
+                                    focusedLabelColor = VcbGreenPrimary,
+                                    focusedLeadingIconColor = VcbGreenPrimary,
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+
+                            Spacer(Modifier.height(14.dp))
+                        }
+
+                        // Password Field
                         OutlinedTextField(
                             value = uiState.password,
                             onValueChange = onPasswordChanged,
@@ -260,6 +330,7 @@ fun LoginContent(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = VcbGreenPrimary,
                                 focusedLabelColor = VcbGreenPrimary,
+                                focusedLeadingIconColor = VcbGreenPrimary,
                             ),
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -321,72 +392,91 @@ fun LoginContent(
                             }
                         }
 
-                        Spacer(Modifier.height(14.dp))
+                        if (isRemembered) {
+                            Spacer(Modifier.height(12.dp))
 
-                        // Clean Vector Biometric Button
-                        OutlinedButton(
-                            onClick = {
-                                if (!uiState.canSubmit) {
-                                    onUsernameChanged("customer1")
-                                    onPasswordChanged("Password@123")
+                            // Biometrics Face Login Button (Only available when account is remembered)
+                            OutlinedButton(
+                                onClick = onOpenBiometricDialog,
+                                enabled = !uiState.isSubmitting,
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Face,
+                                        contentDescription = null,
+                                        tint = VcbGreenPrimary,
+                                        modifier = Modifier.size(22.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Đăng nhập bằng khuôn mặt",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
                                 }
-                                onLogin()
-                            },
-                            enabled = !uiState.isSubmitting,
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Fingerprint,
-                                    contentDescription = null,
-                                    tint = VcbGreenPrimary,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Đăng nhập bằng sinh trắc học",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
                             }
-                        }
 
-                        Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(8.dp))
 
-                        // Open New eKYC Account Button
-                        Button(
-                            onClick = onNavigateToRegister,
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFE8F5E9),
-                                contentColor = VcbGreenPrimary,
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
+                            // Switch Account Option
+                            TextButton(
+                                onClick = onClearRememberedCustomer,
+                                enabled = !uiState.isSubmitting,
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.PersonAdd,
-                                    contentDescription = null,
-                                    tint = VcbGreenPrimary,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    "Mở tài khoản trực tuyến (eKYC)",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Filled.SwapHoriz,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        "Đăng nhập bằng số điện thoại khác",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        } else {
+                            Spacer(Modifier.height(14.dp))
+
+                            // Open New Online Account Button (Only available in Clean state)
+                            Button(
+                                onClick = onNavigateToRegister,
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFE8F5E9),
+                                    contentColor = VcbGreenPrimary,
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PersonAdd,
+                                        contentDescription = null,
+                                        tint = VcbGreenPrimary,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Mở tài khoản mới",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                    )
+                                }
                             }
                         }
                     }
@@ -528,5 +618,14 @@ private fun ModernLoginPreview() {
             onPasswordChanged = {},
             onLogin = {},
         )
+    }
+}
+
+private fun maskPhone(phone: String): String {
+    val clean = phone.trim()
+    return if (clean.length == 10) {
+        clean.take(4) + " *** " + clean.takeLast(3)
+    } else {
+        clean
     }
 }

@@ -85,6 +85,12 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation("com.google.maps.android:maps-compose:4.4.1")
     implementation("com.google.android.gms:play-services-maps:19.0.0")
+
+    // CameraX for Live eKYC & Biometric Scanner
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Room persistence

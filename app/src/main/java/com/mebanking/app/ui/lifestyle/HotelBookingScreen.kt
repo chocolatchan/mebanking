@@ -234,7 +234,7 @@ private fun HotelSearchAndBookContent(
             }
         }
 
-        items(uiState.hotels, key = { it.id }) { hotel ->
+        items(uiState.hotels.distinctBy { it.id }, key = { "hotel-${it.id}" }) { hotel ->
             val isSelected = uiState.selectedHotel?.id == hotel.id
             Card(
                 modifier = Modifier
@@ -417,7 +417,7 @@ private fun MyHotelBookingsContent(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(bookings, key = { it.id }) { booking ->
+            items(bookings.distinctBy { it.id }, key = { "hotel-booking-${it.id}" }) { booking ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),

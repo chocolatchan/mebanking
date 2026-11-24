@@ -30,12 +30,16 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(LoginViewModel::class.java) -> {
                 LoginViewModel(
                     authService = container.authService,
+                    sessionManager = container.sessionManager,
+                    rememberedCustomerStore = container.rememberedCustomerStore,
+                    faceRecognitionService = container.faceRecognitionService,
                     awaitDatabaseReady = { container.databaseReady.await() },
                 ) as T
             }
             modelClass.isAssignableFrom(com.mebanking.app.ui.auth.RegisterViewModel::class.java) -> {
                 com.mebanking.app.ui.auth.RegisterViewModel(
                     registrationService = container.customerRegistrationService,
+                    rememberedCustomerStore = container.rememberedCustomerStore,
                 ) as T
             }
             modelClass.isAssignableFrom(HomeViewModel::class.java) -> {

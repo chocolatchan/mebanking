@@ -231,6 +231,10 @@ class DefaultAppContainer(
         )
     }
 
+    override val rememberedCustomerStore: com.mebanking.app.domain.service.RememberedCustomerStore by lazy {
+        com.mebanking.app.domain.service.RememberedCustomerStore(context)
+    }
+
     override val viewModelFactory: ViewModelProvider.Factory by lazy {
         ViewModelFactory(this)
     }

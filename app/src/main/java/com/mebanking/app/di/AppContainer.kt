@@ -68,6 +68,7 @@ interface AppContainer {
     val simulatorService: SimulatorService
     val chatbotService: ChatbotService
     val authenticationPolicy: TransactionAuthenticationPolicy
+    val rememberedCustomerStore: com.mebanking.app.domain.service.RememberedCustomerStore
     val otpService: OtpService
 
     val viewModelFactory: ViewModelProvider.Factory

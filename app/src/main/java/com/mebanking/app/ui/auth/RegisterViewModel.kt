@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.mebanking.app.domain.service.CustomerRegistrationService
 import com.mebanking.app.domain.service.RegisterCustomerRequest
 import com.mebanking.app.domain.service.RegistrationResult
+import com.mebanking.app.domain.service.RememberedCustomer
+import com.mebanking.app.domain.service.RememberedCustomerStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,10 +30,6 @@ data class RegisterUiState(
             if (fullName.trim().length < 2) return "Vui lòng nhập họ và tên (tối thiểu 2 ký tự)"
             val nid = nationalId.trim()
             if (nid.length != 12 || !nid.all { it.isDigit() }) return "Số CCCD phải gồm đúng 12 chữ số"
-            val u = username.trim()
-            if (u.length !in 4..32 || !u.all { it.isLetterOrDigit() || it == '_' }) {
-                return "Tên đăng nhập phải gồm 4-32 ký tự chữ, số hoặc gạch dưới"
-            }
             if (password.length < 8) return "Mật khẩu phải có độ dài tối thiểu 8 ký tự"
             val p = phone.trim()
             if (p.length != 10 || !p.startsWith("0") || !p.all { it.isDigit() }) {
@@ -50,6 +48,7 @@ data class RegisterUiState(
 
 class RegisterViewModel(
     private val registrationService: CustomerRegistrationService,
+    private val rememberedCustomerStore: RememberedCustomerStore? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegisterUiState())
@@ -77,7 +76,14 @@ class RegisterViewModel(
             digits = "0" + digits.removePrefix("84")
         }
         val filtered = digits.take(10)
-        _uiState.update { it.copy(phone = filtered, errorMessage = null) }
+        _uiState.update { current ->
+            val updatedUsername = if (current.username.isBlank() || current.username == current.phone) {
+                filtered
+            } else {
+                current.username
+            }
+            current.copy(phone = filtered, username = updatedUsername, errorMessage = null)
+        }
     }
 
     fun onNationalIdChanged(value: String) {
@@ -114,8 +120,9 @@ class RegisterViewModel(
 
     fun submitRegistrationWithBiometrics(faceFrameBytes: ByteArray) {
         val state = _uiState.value
+        val effectiveUsername = state.username.ifBlank { state.phone.trim() }
         val request = RegisterCustomerRequest(
-            username = state.username,
+            username = effectiveUsername,
             rawPassword = state.password,
             fullName = state.fullName,
             email = state.email,
@@ -129,6 +136,14 @@ class RegisterViewModel(
                 val result = registrationService.registerCustomerWithBiometrics(request, faceFrameBytes)
                 result.fold(
                     onSuccess = { regResult ->
+                        rememberedCustomerStore?.saveCustomer(
+                            RememberedCustomer(
+                                userId = regResult.user.id,
+                                fullName = regResult.user.fullName,
+                                phone = regResult.user.phone,
+                                username = regResult.user.username,
+                            )
+                        )
                         _uiState.update {
                             it.copy(
                                 isSubmitting = false,

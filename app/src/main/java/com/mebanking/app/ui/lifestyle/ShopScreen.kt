@@ -229,7 +229,7 @@ private fun ProductCatalogContent(
             )
         }
 
-        items(uiState.products, key = { it.id }) { product ->
+        items(uiState.products.distinctBy { it.id }, key = { "product-${it.id}" }) { product ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -347,7 +347,7 @@ private fun CartContent(
                 }
             }
 
-            items(uiState.cart, key = { it.product.id }) { item ->
+            items(uiState.cart.distinctBy { it.product.id }, key = { "cart-${it.product.id}" }) { item ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -485,7 +485,7 @@ private fun OrdersContent(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(orders, key = { it.id }) { order ->
+            items(orders.distinctBy { it.id }, key = { "order-${it.id}" }) { order ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
