@@ -16,6 +16,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -103,6 +104,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -152,7 +154,7 @@ fun HomeScreen(
         factory = (LocalContext.current.applicationContext as? MEbankingApplication)?.container?.viewModelFactory,
     ),
     onNavigateToBranchLocator: () -> Unit = {},
-    onNavigateToTransfer: () -> Unit = {},
+    onNavigateToTransfer: (String?, String?) -> Unit = { _, _ -> },
     onNavigateToDeposit: () -> Unit = {},
     onNavigateToWithdraw: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
@@ -202,7 +204,7 @@ fun HomeScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     onNavigateToBranchLocator: () -> Unit = {},
-    onNavigateToTransfer: () -> Unit = {},
+    onNavigateToTransfer: (String?, String?) -> Unit = { _, _ -> },
     onNavigateToDeposit: () -> Unit = {},
     onNavigateToWithdraw: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
@@ -219,6 +221,10 @@ fun HomeScreen(
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
 ) {
+    LaunchedEffect(Unit) {
+        onRetry()
+    }
+
     var isBalanceHidden by remember { mutableStateOf(false) }
     var showQrModal by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
@@ -280,12 +286,13 @@ fun HomeScreen(
             onDismiss = { showQrModal = false },
             onTransferTo = {
                 showQrModal = false
-                onNavigateToTransfer()
+                onNavigateToTransfer(null, null)
             },
         )
     }
 
-    com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = false)
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isDark)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -361,7 +368,7 @@ private fun ModernAccountsContent(
     onOpenQr: () -> Unit,
     onLogoutClick: () -> Unit,
     onNavigateToBranchLocator: () -> Unit,
-    onNavigateToTransfer: () -> Unit,
+    onNavigateToTransfer: (String?, String?) -> Unit,
     onNavigateToDeposit: () -> Unit,
     onNavigateToWithdraw: () -> Unit,
     onNavigateToHistory: () -> Unit,
@@ -404,7 +411,7 @@ private fun ModernAccountsContent(
                     isBalanceHidden = isBalanceHidden,
                     onToggleBalanceVisibility = onToggleBalanceVisibility,
                     onCopyAccount = onCopyAccount,
-                    onTransfer = onNavigateToTransfer,
+                    onTransfer = { onNavigateToTransfer(null, null) },
                     onDeposit = onNavigateToDeposit,
                     onHistory = onNavigateToHistory,
                     isCustomer = isCustomer,
@@ -417,7 +424,7 @@ private fun ModernAccountsContent(
             item {
                 Spacer(Modifier.height(16.dp))
                 QuickActionsFourBar(
-                    onTransfer = onNavigateToTransfer,
+                    onTransfer = { onNavigateToTransfer(null, null) },
                     onOpenQr = onOpenQr,
                     onDeposit = onNavigateToDeposit,
                     onWithdraw = onNavigateToWithdraw,
@@ -429,7 +436,7 @@ private fun ModernAccountsContent(
             item {
                 Spacer(Modifier.height(20.dp))
                 RecentRecipientsSection(
-                    onRecipientClick = { onNavigateToTransfer() },
+                    onRecipientClick = { account, name -> onNavigateToTransfer(account, name) },
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
@@ -439,7 +446,7 @@ private fun ModernAccountsContent(
         item {
             Spacer(Modifier.height(20.dp))
             UtilityServicesGrid(
-                onNavigateToTransfer = onNavigateToTransfer,
+                onNavigateToTransfer = { onNavigateToTransfer(null, null) },
                 onNavigateToDeposit = onNavigateToDeposit,
                 onNavigateToWithdraw = onNavigateToWithdraw,
                 onNavigateToHistory = onNavigateToHistory,
@@ -526,24 +533,16 @@ private fun BankingTopHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF00381E),
-                        Color(0xFF005A36),
-                        Color(0xFF00753C),
-                    ),
-                ),
-            )
+            .background(MaterialTheme.colorScheme.surface)
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 18.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Left: User Vector Avatar + Greeting + Tier
+            // Left: User Avatar + Greeting + Role
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -552,14 +551,14 @@ private fun BankingTopHeader(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF002413))
-                        .border(1.5.dp, BankGoldPrimary, CircleShape),
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = if (isCustomer) Icons.Filled.Person else Icons.Filled.Badge,
                         contentDescription = "User Avatar",
-                        tint = BankGoldPrimary,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -568,13 +567,13 @@ private fun BankingTopHeader(
                     Text(
                         text = "Xin chào,",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFC7ECD3),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
                         text = if (isCustomer) "Quý khách" else "Cán bộ quản trị",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             }
@@ -595,14 +594,15 @@ private fun HeaderCircleButton(icon: ImageVector, contentDescription: String, on
         modifier = Modifier
             .size(38.dp)
             .clip(CircleShape)
-            .background(Color(0x33FFFFFF))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = Color.White,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp),
         )
     }
@@ -627,26 +627,16 @@ private fun VipBankMasterCard(
     val accountNumber = primaryAccount?.iban ?: "1001 2345 6789"
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 8.dp, shape = RoundedCornerShape(22.dp)),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF0F172A), // Obsidian Slate 900
-                            Color(0xFF1E293B), // Slate 800
-                            Color(0xFF111827), // Deep Graphite
-                        ),
-                    ),
-                )
-                .border(1.dp, Color(0x33E51937), RoundedCornerShape(22.dp))
-                .padding(20.dp),
+                .padding(18.dp),
         ) {
             Column {
                 // Top Row: Brand & Account Type
@@ -659,26 +649,27 @@ private fun VipBankMasterCard(
                         Box(
                             modifier = Modifier
                                 .size(10.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(TcbRedPrimary),
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(MaterialTheme.colorScheme.primary),
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
                             text = "MEBANKING",
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 16.sp,
-                            letterSpacing = 1.5.sp,
+                            fontSize = 15.sp,
+                            letterSpacing = 1.2.sp,
                         )
                     }
 
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = Color(0x26E51937),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
                     ) {
                         Text(
                             text = if (isCustomer) "Tài khoản thanh toán" else "Tài khoản quản trị",
-                            color = Color(0xFFFECACA),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -686,7 +677,7 @@ private fun VipBankMasterCard(
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(14.dp))
 
                 // Account Number & Vector Copy Button
                 Row(
@@ -695,21 +686,22 @@ private fun VipBankMasterCard(
                 ) {
                     Text(
                         text = "STK: $accountNumber",
-                        color = Color(0xFFCBD5E1),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                     )
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0x33FFFFFF))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
                             .clickable { onCopyAccount(accountNumber) }
                             .padding(horizontal = 7.dp, vertical = 3.dp),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "Sao chép",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -717,7 +709,7 @@ private fun VipBankMasterCard(
                             Icon(
                                 imageVector = Icons.Filled.ContentCopy,
                                 contentDescription = "Sao chép số tài khoản",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(12.dp),
                             )
                         }
@@ -735,37 +727,38 @@ private fun VipBankMasterCard(
                     Column {
                         Text(
                             text = "Số dư khả dụng",
-                            color = Color(0xFF94A3B8),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelMedium,
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
                             text = if (isBalanceHidden) "•••••••• đ" else CurrencyFormatter.formatVnd(uiState.totalBalance),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
 
                     // Vector Eye button
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color(0x26FFFFFF))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                             .clickable(onClick = onToggleBalanceVisibility),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = if (isBalanceHidden) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                             contentDescription = if (isBalanceHidden) "Hiện số dư" else "Ẩn số dư",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(12.dp))
 
                 // Bottom row inside card: Transaction History Link
                 if (isCustomer) {
@@ -780,14 +773,14 @@ private fun VipBankMasterCard(
                         ) {
                             Text(
                                 text = "Lịch sử giao dịch",
-                                color = Color(0xFFE2E8F0),
+                                color = MaterialTheme.colorScheme.primary,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Icon(
                                 imageVector = Icons.Filled.ChevronRight,
                                 contentDescription = null,
-                                tint = Color(0xFFE2E8F0),
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(16.dp),
                             )
                         }
@@ -812,43 +805,44 @@ private fun QuickActionsFourBar(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 8.dp),
+                .padding(vertical = 12.dp, horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CircleActionItem(
                 icon = Icons.Filled.Send,
                 title = "Chuyển tiền",
-                bgColor = Color(0xFFE8F5E9),
-                tintColor = VcbGreenPrimary,
+                bgColor = MaterialTheme.colorScheme.primaryContainer,
+                tintColor = MaterialTheme.colorScheme.primary,
                 onClick = onTransfer,
             )
             CircleActionItem(
                 icon = Icons.Filled.QrCodeScanner,
                 title = "Quét QR",
-                bgColor = Color(0xFFFEE2E2),
-                tintColor = TcbRedPrimary,
+                bgColor = MaterialTheme.colorScheme.secondaryContainer,
+                tintColor = MaterialTheme.colorScheme.secondary,
                 onClick = onOpenQr,
             )
             CircleActionItem(
                 icon = Icons.Filled.AddCircle,
                 title = "Nạp tiền",
-                bgColor = Color(0xFFE3F2FD),
-                tintColor = Color(0xFF1976D2),
+                bgColor = MaterialTheme.colorScheme.tertiaryContainer,
+                tintColor = MaterialTheme.colorScheme.tertiary,
                 onClick = onDeposit,
             )
             CircleActionItem(
                 icon = Icons.Filled.LocalAtm,
                 title = "Rút tiền",
-                bgColor = Color(0xFFFFF3E0),
-                tintColor = Color(0xFFE65100),
+                bgColor = MaterialTheme.colorScheme.surfaceVariant,
+                tintColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 onClick = onWithdraw,
             )
         }
@@ -866,14 +860,14 @@ private fun CircleActionItem(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
+                .size(46.dp)
+                .clip(RoundedCornerShape(12.dp))
                 .background(bgColor),
             contentAlignment = Alignment.Center,
         ) {
@@ -881,14 +875,14 @@ private fun CircleActionItem(
                 imageVector = icon,
                 contentDescription = title,
                 tint = tintColor,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(22.dp),
             )
         }
         Spacer(Modifier.height(6.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
@@ -900,7 +894,7 @@ private fun CircleActionItem(
 
 @Composable
 private fun RecentRecipientsSection(
-    onRecipientClick: () -> Unit,
+    onRecipientClick: (String?, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -916,7 +910,7 @@ private fun RecentRecipientsSection(
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable(onClick = onRecipientClick),
+                modifier = Modifier.clickable { onRecipientClick(null, null) },
             ) {
                 Text(
                     text = "Xem danh bạ",
@@ -941,12 +935,43 @@ private fun RecentRecipientsSection(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            RecipientAvatarItem(name = "Lan Anh", bank = "VCB", initials = "LA", onClick = onRecipientClick)
-            RecipientAvatarItem(name = "Văn Bình", bank = "TCB", initials = "VB", onClick = onRecipientClick)
-            RecipientAvatarItem(name = "EVN HCMC", bank = "Điện", icon = Icons.Filled.Bolt, onClick = onRecipientClick)
-            RecipientAvatarItem(name = "Hoàng Yến", bank = "MB", initials = "HY", onClick = onRecipientClick)
-            RecipientAvatarItem(name = "Quang Huy", bank = "ACB", initials = "QH", onClick = onRecipientClick)
-            RecipientAvatarItem(name = "Thêm mới", bank = "24/7", icon = Icons.Filled.Add, isAdd = true, onClick = onRecipientClick)
+            RecipientAvatarItem(
+                name = "Lan Anh",
+                bank = "VCB",
+                initials = "LA",
+                onClick = { onRecipientClick("100123456789", "Nguyễn Lan Anh") },
+            )
+            RecipientAvatarItem(
+                name = "Văn Bình",
+                bank = "TCB",
+                initials = "VB",
+                onClick = { onRecipientClick("200987654321", "Trần Văn Bình") },
+            )
+            RecipientAvatarItem(
+                name = "Tiết kiệm",
+                bank = "MEB",
+                icon = Icons.Filled.AccountBalance,
+                onClick = { onRecipientClick("200123456789", "Tài khoản tiết kiệm") },
+            )
+            RecipientAvatarItem(
+                name = "Hoàng Yến",
+                bank = "MB",
+                initials = "HY",
+                onClick = { onRecipientClick("100888999111", "Lê Hoàng Yến") },
+            )
+            RecipientAvatarItem(
+                name = "Quang Huy",
+                bank = "ACB",
+                initials = "QH",
+                onClick = { onRecipientClick("100666777222", "Phạm Quang Huy") },
+            )
+            RecipientAvatarItem(
+                name = "Thêm mới",
+                bank = "24/7",
+                icon = Icons.Filled.Add,
+                isAdd = true,
+                onClick = { onRecipientClick(null, null) },
+            )
         }
     }
 }
@@ -971,10 +996,10 @@ private fun RecipientAvatarItem(
             modifier = Modifier
                 .size(52.dp)
                 .clip(CircleShape)
-                .background(if (isAdd) MaterialTheme.colorScheme.surfaceVariant else Color(0xFFE8F5E9))
+                .background(if (isAdd) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer)
                 .border(
                     width = 1.dp,
-                    color = if (isAdd) MaterialTheme.colorScheme.outlineVariant else VcbGreenLight,
+                    color = MaterialTheme.colorScheme.outlineVariant,
                     shape = CircleShape,
                 ),
             contentAlignment = Alignment.Center,
@@ -983,7 +1008,7 @@ private fun RecipientAvatarItem(
                 Icon(
                     imageVector = icon,
                     contentDescription = name,
-                    tint = if (isAdd) MaterialTheme.colorScheme.primary else VcbGreenPrimary,
+                    tint = if (isAdd) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp),
                 )
             } else if (initials != null) {
@@ -991,7 +1016,7 @@ private fun RecipientAvatarItem(
                     text = initials,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
-                    color = VcbGreenPrimary,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -1194,9 +1219,10 @@ private fun ModernAccountItem(
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
             modifier = Modifier
@@ -1214,13 +1240,13 @@ private fun ModernAccountItem(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE8F5E9)),
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.AccountBalance,
                         contentDescription = "Tài khoản",
-                        tint = VcbGreenPrimary,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -1243,8 +1269,8 @@ private fun ModernAccountItem(
                 Text(
                     text = if (isBalanceHidden) "•••••• đ" else CurrencyFormatter.formatVnd(account.balance),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = VcbGreenPrimary,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -1273,21 +1299,25 @@ private fun ModernBankingBottomBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
 ) {
+    val navItemColors = NavigationBarItemDefaults.colors(
+        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+        selectedIconColor = MaterialTheme.colorScheme.primary,
+        selectedTextColor = MaterialTheme.colorScheme.primary,
+        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp,
-        modifier = Modifier.shadow(elevation = 16.dp),
+        tonalElevation = 4.dp,
+        modifier = Modifier.shadow(elevation = 8.dp),
     ) {
         NavigationBarItem(
             icon = { Icon(Icons.Filled.Home, contentDescription = "Trang chủ") },
             label = { Text("Trang chủ", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 0,
             onClick = { onTabSelected(0) },
-            colors = NavigationBarItemDefaults.colors(
-                indicatorColor = Color(0xFFE8F5E9),
-                selectedIconColor = VcbGreenPrimary,
-                selectedTextColor = VcbGreenPrimary,
-            ),
+            colors = navItemColors,
         )
 
         NavigationBarItem(
@@ -1295,37 +1325,29 @@ private fun ModernBankingBottomBar(
             label = { Text("Lịch sử", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 1,
             onClick = { onTabSelected(1) },
-            colors = NavigationBarItemDefaults.colors(
-                indicatorColor = Color(0xFFE8F5E9),
-                selectedIconColor = VcbGreenPrimary,
-                selectedTextColor = VcbGreenPrimary,
-            ),
+            colors = navItemColors,
         )
 
-        // Center highlighted QR Pay button (MoMo / ZaloPay / ShopeePay layout)
+        // Center highlighted QR Pay button (Pastel Purple flat highlight)
         NavigationBarItem(
             icon = {
                 Box(
                     modifier = Modifier
-                        .size(46.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(TcbRedPrimary, Color(0xFFB91C1C)),
-                            ),
-                        )
-                        .shadow(elevation = 4.dp, shape = CircleShape),
+                        .background(MaterialTheme.colorScheme.primary)
+                        .shadow(elevation = 2.dp, shape = CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.QrCodeScanner,
                         contentDescription = "Quét QR",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(24.dp),
                     )
                 }
             },
-            label = { Text("Quét QR", fontWeight = FontWeight.Bold, color = TcbRedPrimary) },
+            label = { Text("Quét QR", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
             selected = selectedTab == 2,
             onClick = { onTabSelected(2) },
         )
@@ -1335,11 +1357,7 @@ private fun ModernBankingBottomBar(
             label = { Text("Dịch vụ", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 3,
             onClick = { onTabSelected(3) },
-            colors = NavigationBarItemDefaults.colors(
-                indicatorColor = Color(0xFFE8F5E9),
-                selectedIconColor = VcbGreenPrimary,
-                selectedTextColor = VcbGreenPrimary,
-            ),
+            colors = navItemColors,
         )
 
         NavigationBarItem(
@@ -1347,11 +1365,7 @@ private fun ModernBankingBottomBar(
             label = { Text("Tài khoản", fontWeight = FontWeight.SemiBold) },
             selected = selectedTab == 4,
             onClick = { onTabSelected(4) },
-            colors = NavigationBarItemDefaults.colors(
-                indicatorColor = Color(0xFFE8F5E9),
-                selectedIconColor = VcbGreenPrimary,
-                selectedTextColor = VcbGreenPrimary,
-            ),
+            colors = navItemColors,
         )
     }
 }

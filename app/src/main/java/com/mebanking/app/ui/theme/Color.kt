@@ -2,6 +2,21 @@ package com.mebanking.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+// -----------------------------------------------------------------------------
+// Pastel Purple Palette (Minimalist, Flat, Friendly & High-Legibility)
+// -----------------------------------------------------------------------------
+val PastelPurplePrimary = Color(0xFF7C5CBF)       // Balanced pastel purple (main brand)
+val PastelPurpleDark = Color(0xFF4A327A)          // High contrast purple text/icons
+val PastelPurpleLight = Color(0xFFB39DDB)         // Soft lavender for dark mode / highlights
+val PastelPurpleContainer = Color(0xFFF1EDF9)     // Delicate lilac container background
+val PastelPurpleBorder = Color(0xFFDDD4EE)        // Flat outline/border
+
+// Backward-compatible brand aliases seamlessly pointing to Pastel Purple palette
+val VcbGreenDark = PastelPurpleDark
+val VcbGreenPrimary = PastelPurplePrimary
+val VcbGreenLight = PastelPurpleLight
+val VcbGreenContainer = PastelPurpleContainer
+
 val Teal10 = Color(0xFF00201F)
 val Teal20 = Color(0xFF003735)
 val Teal30 = Color(0xFF00504E)
@@ -21,28 +36,24 @@ val Error40 = Color(0xFFBA1A1A)
 val Error80 = Color(0xFFFFB4AB)
 val Error90 = Color(0xFFFFDAD6)
 
-// Vietcombank & Techcombank signature modern banking colors
-val VcbGreenDark = Color(0xFF004D25)
-val VcbGreenPrimary = Color(0xFF008848)
-val VcbGreenLight = Color(0xFF10B981)
-val VcbGreenContainer = Color(0xFFE6F4EA)
-
-val TcbRedPrimary = Color(0xFFE51937)
+val TcbRedPrimary = Color(0xFFDC2626)
 val TcbRedDark = Color(0xFF991B1B)
 val TcbRedLight = Color(0xFFFEE2E2)
 
-val BankGoldPrimary = Color(0xFFF59E0B)
+val BankGoldPrimary = Color(0xFFD97706)
 val BankGoldLight = Color(0xFFFEF3C7)
-val BankGoldDark = Color(0xFFB45309)
+val BankGoldDark = Color(0xFF92400E)
 
-val BankDarkBg = Color(0xFF0A111C)
-val BankDarkSurface = Color(0xFF131D2D)
-val BankDarkCard = Color(0xFF1A273C)
+// Flat dark surfaces (Warm charcoal with soft purple undertone)
+val BankDarkBg = Color(0xFF141218)
+val BankDarkSurface = Color(0xFF1D1A23)
+val BankDarkCard = Color(0xFF262130)
 
-val BankLightBg = Color(0xFFF4F6F9)
+// Flat light surfaces (Soft off-white with gentle lilac warmth)
+val BankLightBg = Color(0xFFF8F7FA)
 val BankLightSurface = Color(0xFFFFFFFF)
-val BankLightCard = Color(0xFFF8FAFC)
+val BankLightCard = Color(0xFFF3EFF7)
 
-val TextPrimaryLight = Color(0xFF0F172A)
-val TextSecondaryLight = Color(0xFF64748B)
-val TextMutedLight = Color(0xFF94A3B8)
+val TextPrimaryLight = Color(0xFF1E1B24)
+val TextSecondaryLight = Color(0xFF635E70)
+val TextMutedLight = Color(0xFF8E889C)

@@ -165,7 +165,8 @@ fun LoginContent(
     var passwordVisible by remember { mutableStateOf(false) }
     val isRemembered = uiState.rememberedCustomer != null
 
-    com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = false)
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isDark)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

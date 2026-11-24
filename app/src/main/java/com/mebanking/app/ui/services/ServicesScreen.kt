@@ -68,7 +68,8 @@ fun ServicesScreen(
     onNavigateToTransfer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SynchronizedStatusBar(darkIcons = false)
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    SynchronizedStatusBar(darkIcons = !isDark)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

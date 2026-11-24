@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.domain.model.toDomainError
 import com.mebanking.app.domain.service.SessionManager
+import com.mebanking.app.domain.model.SessionState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,19 @@ class HomeViewModel(
 
     init {
         refresh()
+        if (sessionManager != null) {
+            viewModelScope.launch {
+                sessionManager.sessionState.collect { state ->
+                    when (state) {
+                        is SessionState.Authenticated -> observeAccounts(state.user.userId)
+                        else -> {
+                            observationJob?.cancel()
+                            _uiState.update { it.copy(isLoading = false, accounts = emptyList()) }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fun refresh() {
@@ -44,6 +58,7 @@ class HomeViewModel(
                     return@launch
                 }
                 val accounts = if (session != null) {
+                    observeAccounts(session.userId)
                     repository.getAccountsByUserIdSync(session.userId)
                         .map { account -> account.toLegacyAccount() }
                 } else {
@@ -73,7 +88,6 @@ class HomeViewModel(
     fun observeAccounts(userId: Long? = null) {
         observationJob?.cancel()
         observationJob = viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val flow = if (userId != null) {
                 repository.observeAccountsByUserId(userId)
             } else {

@@ -8,40 +8,49 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val LightColorScheme = lightColorScheme(
-    primary = VcbGreenPrimary,
-    onPrimary = Sand95,
-    primaryContainer = VcbGreenContainer,
-    onPrimaryContainer = VcbGreenDark,
-    secondary = BankGoldPrimary,
-    onSecondary = Sand95,
+    primary = PastelPurplePrimary,
+    onPrimary = Color.White,
+    primaryContainer = PastelPurpleContainer,
+    onPrimaryContainer = PastelPurpleDark,
+    secondary = Color(0xFF8E7AB5),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFF3EEFA),
+    onSecondaryContainer = PastelPurpleDark,
     background = BankLightBg,
     onBackground = TextPrimaryLight,
     surface = BankLightSurface,
     onSurface = TextPrimaryLight,
-    surfaceVariant = Sand90,
+    surfaceVariant = BankLightCard,
     onSurfaceVariant = TextSecondaryLight,
+    outline = PastelPurpleBorder,
+    outlineVariant = Color(0xFFEBE6F3),
     error = Error40,
-    onError = Sand95,
+    onError = Color.White,
     errorContainer = Error90,
     onErrorContainer = Error40,
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = VcbGreenLight,
-    onPrimary = BankDarkBg,
-    primaryContainer = VcbGreenDark,
-    onPrimaryContainer = VcbGreenContainer,
-    secondary = BankGoldLight,
-    onSecondary = BankDarkBg,
+    primary = PastelPurpleLight,
+    onPrimary = Color(0xFF24163E),
+    primaryContainer = Color(0xFF4D3873),
+    onPrimaryContainer = Color(0xFFEDE7F6),
+    secondary = Color(0xFFBBA7DC),
+    onSecondary = Color(0xFF2A1C44),
+    secondaryContainer = Color(0xFF382D4A),
+    onSecondaryContainer = Color(0xFFF1E9FA),
     background = BankDarkBg,
-    onBackground = Sand90,
+    onBackground = Color(0xFFECE7F0),
     surface = BankDarkSurface,
-    onSurface = Sand90,
+    onSurface = Color(0xFFECE7F0),
     surfaceVariant = BankDarkCard,
-    onSurfaceVariant = Sand90,
+    onSurfaceVariant = Color(0xFFCAC4D2),
+    outline = Color(0xFF554E60),
+    outlineVariant = Color(0xFF3A3445),
     error = Error80,
     onError = Error40,
     errorContainer = Error40,
@@ -49,10 +58,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 /**
- * Brand theme for the app.
- *
- * Set [dynamicColor] to true to let Android 12+ derive the palette from the
- * user's wallpaper instead of the banking brand colors.
+ * Brand theme for the app with Pastel Purple palette and clean flat styling.
  */
 @Composable
 fun MEbankingTheme(

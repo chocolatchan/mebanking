@@ -21,16 +21,29 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+data class TransferReceipt(
+    val transactionId: Long,
+    val amount: Long,
+    val fromAccountNumber: String,
+    val toAccountNumber: String,
+    val recipientName: String? = null,
+    val note: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+)
+
 data class TransferUiState(
     val isLoading: Boolean = true,
     val accounts: List<Account> = emptyList(),
     val selectedFromAccountId: Long? = null,
     val toAccountNumber: String = "",
+    val recipientName: String? = null,
+    val isRecipientLocked: Boolean = false,
     val amountInput: String = "",
     val note: String = "",
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null,
+    val lastCompletedReceipt: TransferReceipt? = null,
     val showOtpDialog: Boolean = false,
     val otpChallengeId: String? = null,
     val otpCode: String = "",
@@ -44,7 +57,7 @@ data class TransferUiState(
         get() = accounts.firstOrNull { it.id == selectedFromAccountId }
 
     val parsedAmount: Long?
-        get() = amountInput.toLongOrNull()
+        get() = amountInput.replace(".", "").replace(",", "").toLongOrNull()
 
     val canSubmit: Boolean
         get() = !isSubmitting &&
@@ -265,6 +278,25 @@ class TransferViewModel(
         }
     }
 
+    fun setRecipient(accountNumber: String, recipientName: String? = null, lockAccount: Boolean = true) {
+        resetIdempotency()
+        _uiState.update {
+            it.copy(
+                toAccountNumber = accountNumber,
+                recipientName = recipientName,
+                isRecipientLocked = lockAccount,
+                errorMessage = null,
+                successMessage = null,
+            )
+        }
+    }
+
+    fun unlockRecipient() {
+        _uiState.update {
+            it.copy(isRecipientLocked = false)
+        }
+    }
+
     fun onFromAccountSelected(accountId: Long) {
         resetIdempotency()
         _uiState.update { it.copy(selectedFromAccountId = accountId, errorMessage = null, successMessage = null) }
@@ -272,7 +304,14 @@ class TransferViewModel(
 
     fun onToAccountNumberChanged(value: String) {
         resetIdempotency()
-        _uiState.update { it.copy(toAccountNumber = value, errorMessage = null, successMessage = null) }
+        _uiState.update {
+            it.copy(
+                toAccountNumber = value,
+                recipientName = null,
+                errorMessage = null,
+                successMessage = null,
+            )
+        }
     }
 
     fun onAmountChanged(value: String) {
@@ -345,13 +384,24 @@ class TransferViewModel(
                 result
                     .onSuccess { tx ->
                         idempotencyKey = null
+                        val receipt = TransferReceipt(
+                            transactionId = tx.transactionId,
+                            amount = amount,
+                            fromAccountNumber = state.selectedFromAccount?.accountNumber ?: "",
+                            toAccountNumber = state.toAccountNumber,
+                            recipientName = state.recipientName,
+                            note = state.note.trim().ifBlank { "Chuyển tiền nội bộ M.Ebanking" },
+                        )
                         _uiState.update {
                             it.copy(
                                 isSubmitting = false,
                                 successMessage = "Chuyển khoản thành công. Mã giao dịch #${tx.transactionId}",
+                                lastCompletedReceipt = receipt,
                                 toAccountNumber = "",
                                 amountInput = "",
                                 note = "",
+                                isRecipientLocked = false,
+                                recipientName = null,
                             )
                         }
                         refreshBalances(session)

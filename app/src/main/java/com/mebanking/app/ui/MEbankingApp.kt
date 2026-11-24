@@ -11,9 +11,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.SessionState
@@ -91,9 +93,13 @@ private fun AuthenticatedApp(
                 onNavigateToBranchLocator = {
                     navController.navigate("branch_locator") { launchSingleTop = true }
                 },
-                onNavigateToTransfer = {
+                onNavigateToTransfer = { account, name ->
                     if (isCustomer) {
-                        navController.navigate("transfer") { launchSingleTop = true }
+                        if (!account.isNullOrBlank()) {
+                            navController.navigate("transfer?targetAccount=$account&targetName=${name ?: ""}") { launchSingleTop = true }
+                        } else {
+                            navController.navigate("transfer") { launchSingleTop = true }
+                        }
                     }
                 },
                 onNavigateToDeposit = { if (isCustomer) navController.navigate("deposit") { launchSingleTop = true } },
@@ -162,6 +168,29 @@ private fun AuthenticatedApp(
         }
         composable("branch_locator") {
             BranchLocatorScreen(onBack = { navController.popBackStack() })
+        }
+        composable(
+            route = "transfer?targetAccount={targetAccount}&targetName={targetName}",
+            arguments = listOf(
+                navArgument("targetAccount") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("targetName") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) { backStackEntry ->
+            val targetAccount = backStackEntry.arguments?.getString("targetAccount")
+            val targetName = backStackEntry.arguments?.getString("targetName")
+            TransferScreen(
+                targetAccount = targetAccount,
+                targetName = targetName,
+                onBack = { navController.popBackStack() },
+            )
         }
         composable("transfer") {
             TransferScreen(onBack = { navController.popBackStack() })
