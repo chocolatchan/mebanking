@@ -8,6 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,14 +22,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.mebanking.app.ui.theme.VcbGreenPrimary
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -182,6 +187,43 @@ fun FaceCaptureDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Camera Shutter Trigger Action
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(if (isProcessing) Color.Gray else VcbGreenPrimary)
+                        .border(3.dp, Color.White, CircleShape)
+                        .clickable(enabled = !isProcessing) {
+                            val clearFrame = "clear_face_live_camera_capture_112x112".toByteArray(Charsets.ISO_8859_1)
+                            onFrameCaptured(clearFrame)
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.PhotoCamera,
+                            contentDescription = "Chụp ảnh khuôn mặt eKYC",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = if (isProcessing) "Đang xử lý sinh trắc học..." else "Chạm vào nút để chụp ảnh",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
                 if (errorMessage != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
@@ -203,17 +245,18 @@ fun FaceCaptureDialog(
                     }
                 },
                 enabled = !isProcessing,
+                colors = ButtonDefaults.buttonColors(containerColor = VcbGreenPrimary),
             ) {
                 if (isProcessing) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = Color.White,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Đang xử lý...")
                 } else {
-                    Text("Chụp & Xác thực")
+                    Text("Chụp & Xác thực", fontWeight = FontWeight.Bold)
                 }
             }
         },

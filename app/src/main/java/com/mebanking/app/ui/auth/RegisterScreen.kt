@@ -253,6 +253,48 @@ fun RegisterScreen(
                 StepChip(number = "2", label = "Khuôn mặt eKYC", isActive = false)
             }
 
+            Spacer(Modifier.height(8.dp))
+
+            // Quick Demo Fill Card for easy eKYC testing
+            Surface(
+                onClick = viewModel::fillDemoData,
+                color = Color(0xFFF1F8E9),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA5D6A7)),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Verified,
+                            contentDescription = null,
+                            tint = VcbGreenPrimary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "⚡ Điền nhanh thông tin mẫu để thử nghiệm eKYC",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = VcbGreenDark,
+                        )
+                    }
+                    Text(
+                        text = "Điền mẫu",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = VcbGreenPrimary,
+                    )
+                }
+            }
+
             Spacer(Modifier.height(12.dp))
 
             // Form Fields
@@ -276,6 +318,7 @@ fun RegisterScreen(
                         value = uiState.fullName,
                         onValueChange = viewModel::onFullNameChanged,
                         label = { Text("Họ và tên (như trên CCCD)") },
+                        supportingText = { Text("Tối thiểu 2 ký tự (ví dụ: Nguyễn Văn An)") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Badge,
@@ -293,6 +336,7 @@ fun RegisterScreen(
                         value = uiState.nationalId,
                         onValueChange = viewModel::onNationalIdChanged,
                         label = { Text("Số CCCD (12 chữ số)") },
+                        supportingText = { Text("12 chữ số theo CCCD gắn chip") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Pin,
@@ -311,6 +355,7 @@ fun RegisterScreen(
                         value = uiState.username,
                         onValueChange = viewModel::onUsernameChanged,
                         label = { Text("Tên đăng nhập (4-32 ký tự)") },
+                        supportingText = { Text("4-32 ký tự chữ, số hoặc gạch dưới") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Person,
@@ -328,6 +373,7 @@ fun RegisterScreen(
                         value = uiState.password,
                         onValueChange = viewModel::onPasswordChanged,
                         label = { Text("Mật khẩu (tối thiểu 8 ký tự)") },
+                        supportingText = { Text("Tối thiểu 8 ký tự bảo mật") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Lock,
@@ -357,6 +403,7 @@ fun RegisterScreen(
                         value = uiState.phone,
                         onValueChange = viewModel::onPhoneChanged,
                         label = { Text("Số điện thoại (10 số, bắt đầu bằng 0)") },
+                        supportingText = { Text("10 chữ số (ví dụ: 0987654321)") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Phone,
@@ -375,6 +422,7 @@ fun RegisterScreen(
                         value = uiState.email,
                         onValueChange = viewModel::onEmailChanged,
                         label = { Text("Email liên hệ") },
+                        supportingText = { Text("Email nhận thông báo giao dịch") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Email,
@@ -450,7 +498,7 @@ fun RegisterScreen(
             // CTA Button to Trigger Face Capture
             Button(
                 onClick = viewModel::openFaceCapture,
-                enabled = uiState.isFormValid && !uiState.isSubmitting,
+                enabled = !uiState.isSubmitting,
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = VcbGreenPrimary,

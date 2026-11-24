@@ -51,7 +51,7 @@ class DefaultCustomerRegistrationService(
     override suspend fun registerCustomerWithBiometrics(
         request: RegisterCustomerRequest,
         faceFrameBytes: ByteArray,
-    ): Result<RegistrationResult> {
+    ): Result<RegistrationResult> = try {
         val trimmedUsername = request.username.trim()
         val trimmedName = request.fullName.trim()
         val trimmedEmail = request.email.trim()
@@ -60,103 +60,98 @@ class DefaultCustomerRegistrationService(
 
         // 1. Validate Form Fields
         if (!usernameRegex.matches(trimmedUsername)) {
-            return Result.failure(DomainError.InvalidData("Tên đăng nhập phải gồm 4-32 ký tự chữ, số hoặc gạch dưới"))
-        }
-        if (request.rawPassword.length < 8) {
-            return Result.failure(DomainError.InvalidData("Mật khẩu phải có độ dài tối thiểu 8 ký tự"))
-        }
-        if (trimmedName.length < 2) {
-            return Result.failure(DomainError.InvalidData("Họ và tên phải có tối thiểu 2 ký tự"))
-        }
-        if (!emailRegex.matches(trimmedEmail)) {
-            return Result.failure(DomainError.InvalidData("Định dạng email không hợp lệ"))
-        }
-        if (!phoneRegex.matches(trimmedPhone)) {
-            return Result.failure(DomainError.InvalidData("Số điện thoại phải gồm 10 chữ số bắt đầu bằng 0"))
-        }
-        if (!nationalIdRegex.matches(trimmedNationalId)) {
-            return Result.failure(DomainError.InvalidData("Số CCCD phải gồm đúng 12 chữ số"))
-        }
+            Result.failure(DomainError.InvalidData("Tên đăng nhập phải gồm 4-32 ký tự chữ, số hoặc gạch dưới"))
+        } else if (request.rawPassword.length < 8) {
+            Result.failure(DomainError.InvalidData("Mật khẩu phải có độ dài tối thiểu 8 ký tự"))
+        } else if (trimmedName.length < 2) {
+            Result.failure(DomainError.InvalidData("Họ và tên phải có tối thiểu 2 ký tự"))
+        } else if (!emailRegex.matches(trimmedEmail)) {
+            Result.failure(DomainError.InvalidData("Định dạng email không hợp lệ"))
+        } else if (!phoneRegex.matches(trimmedPhone)) {
+            Result.failure(DomainError.InvalidData("Số điện thoại phải gồm 10 chữ số bắt đầu bằng 0"))
+        } else if (!nationalIdRegex.matches(trimmedNationalId)) {
+            Result.failure(DomainError.InvalidData("Số CCCD phải gồm đúng 12 chữ số"))
+        } else if (userDao.getByUsername(trimmedUsername) != null) {
+            // 2. Validate Uniqueness
+            Result.failure(DomainError.InvalidData("Tên đăng nhập '$trimmedUsername' đã được sử dụng"))
+        } else {
+            val protectedId = nationalIdProtector.protect(trimmedNationalId)
+                ?: throw DomainError.SystemError("Không thể mã hóa CCCD bảo mật trên thiết bị")
 
-        // 2. Validate Uniqueness
-        if (userDao.getByUsername(trimmedUsername) != null) {
-            return Result.failure(DomainError.InvalidData("Tên đăng nhập '$trimmedUsername' đã được sử dụng"))
-        }
+            if (userDao.getByNationalIdHash(protectedId.lookupHash) != null) {
+                Result.failure(DomainError.InvalidData("Số CCCD này đã được đăng ký tài khoản khác"))
+            } else {
+                // 3. Pre-inference Face Quality Validation
+                val qualityResult = FaceQualityValidator.validateFrame(faceFrameBytes)
+                if (qualityResult.isFailure) {
+                    Result.failure(
+                        DomainError.InvalidData(
+                            qualityResult.exceptionOrNull()?.message ?: "Chất lượng ảnh khuôn mặt không đạt chuẩn eKYC",
+                        ),
+                    )
+                } else {
+                    // 4. Create User Entity with kycVerified = true
+                    val passwordHash = passwordHasher.hashPasswordV1(request.rawPassword)
+                    val userEntity = UserEntity(
+                        username = trimmedUsername,
+                        passwordHash = passwordHash,
+                        fullName = trimmedName,
+                        email = trimmedEmail,
+                        phone = trimmedPhone,
+                        role = Role.CUSTOMER,
+                        kycVerified = true,
+                        nationalIdCipher = protectedId.cipherText,
+                        nationalIdHash = protectedId.lookupHash,
+                        createdAt = System.currentTimeMillis(),
+                    )
 
-        val protectedId = nationalIdProtector.protect(trimmedNationalId)
-            ?: return Result.failure(DomainError.SystemError("Không thể mã hóa CCCD bảo mật trên thiết bị"))
+                    val newUserId = userDao.insert(userEntity)
 
-        if (userDao.getByNationalIdHash(protectedId.lookupHash) != null) {
-            return Result.failure(DomainError.InvalidData("Số CCCD này đã được đăng ký tài khoản khác"))
-        }
+                    // 5. Enroll Biometric Face Template
+                    val enrollResult = faceRecognitionService.enrollFace(newUserId, faceFrameBytes)
+                    if (enrollResult.isFailure) {
+                        // Rollback newly inserted user
+                        val createdUser = userDao.getById(newUserId)
+                        if (createdUser != null) {
+                            userDao.delete(createdUser)
+                        }
+                        Result.failure(
+                            DomainError.SystemError(
+                                enrollResult.exceptionOrNull()?.message ?: "Không thể trích xuất hoặc lưu trữ mẫu sinh trắc học",
+                            ),
+                        )
+                    } else {
+                        // 6. Automatically Create Default Checking Account with Welcome Bonus (50,000 VND)
+                        val initialBonus = 50_000L
+                        val accountNumber = "100" + String.format("%07d", newUserId)
+                        accountDao.insert(
+                            AccountEntity(
+                                userId = newUserId,
+                                accountNumber = accountNumber,
+                                accountType = AccountType.CHECKING,
+                                balance = initialBonus,
+                                currency = "VND",
+                                status = "ACTIVE",
+                            ),
+                        )
 
-        // 3. Pre-inference Face Quality Validation
-        val qualityResult = FaceQualityValidator.validateFrame(faceFrameBytes)
-        if (qualityResult.isFailure) {
-            return Result.failure(
-                DomainError.InvalidData(
-                    qualityResult.exceptionOrNull()?.message ?: "Chất lượng ảnh khuôn mặt không đạt chuẩn eKYC",
-                ),
-            )
-        }
+                        val domainUser = userEntity.toDomainModel().copy(
+                            id = newUserId,
+                            nationalId = trimmedNationalId,
+                        )
 
-        // 4. Create User Entity with kycVerified = true
-        val passwordHash = passwordHasher.hashPasswordV1(request.rawPassword)
-        val userEntity = UserEntity(
-            username = trimmedUsername,
-            passwordHash = passwordHash,
-            fullName = trimmedName,
-            email = trimmedEmail,
-            phone = trimmedPhone,
-            role = Role.CUSTOMER,
-            kycVerified = true,
-            nationalIdCipher = protectedId.cipherText,
-            nationalIdHash = protectedId.lookupHash,
-            createdAt = System.currentTimeMillis(),
-        )
-
-        val newUserId = userDao.insert(userEntity)
-
-        // 5. Enroll Biometric Face Template
-        val enrollResult = faceRecognitionService.enrollFace(newUserId, faceFrameBytes)
-        if (enrollResult.isFailure) {
-            // Rollback newly inserted user
-            val createdUser = userDao.getById(newUserId)
-            if (createdUser != null) {
-                userDao.delete(createdUser)
+                        Result.success(
+                            RegistrationResult(
+                                user = domainUser,
+                                accountNumber = accountNumber,
+                                initialBalance = initialBonus,
+                            ),
+                        )
+                    }
+                }
             }
-            return Result.failure(
-                DomainError.SystemError(
-                    enrollResult.exceptionOrNull()?.message ?: "Không thể trích xuất hoặc lưu trữ mẫu sinh trắc học",
-                ),
-            )
         }
-
-        // 6. Automatically Create Default Checking Account with Welcome Bonus (50,000 VND)
-        val initialBonus = 50_000L
-        val accountNumber = "100" + String.format("%07d", newUserId)
-        accountDao.insert(
-            AccountEntity(
-                userId = newUserId,
-                accountNumber = accountNumber,
-                accountType = AccountType.CHECKING,
-                balance = initialBonus,
-                currency = "VND",
-                status = "ACTIVE",
-            ),
-        )
-
-        val domainUser = userEntity.toDomainModel().copy(
-            id = newUserId,
-            nationalId = trimmedNationalId,
-        )
-
-        return Result.success(
-            RegistrationResult(
-                user = domainUser,
-                accountNumber = accountNumber,
-                initialBalance = initialBonus,
-            ),
-        )
+    } catch (e: Throwable) {
+        Result.failure(e)
     }
 }

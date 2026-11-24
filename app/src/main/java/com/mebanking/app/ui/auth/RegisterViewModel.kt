@@ -23,15 +23,29 @@ data class RegisterUiState(
     val errorMessage: String? = null,
     val registrationResult: RegistrationResult? = null,
 ) {
+    val validationError: String?
+        get() {
+            if (fullName.trim().length < 2) return "Vui lòng nhập họ và tên (tối thiểu 2 ký tự)"
+            val nid = nationalId.trim()
+            if (nid.length != 12 || !nid.all { it.isDigit() }) return "Số CCCD phải gồm đúng 12 chữ số"
+            val u = username.trim()
+            if (u.length !in 4..32 || !u.all { it.isLetterOrDigit() || it == '_' }) {
+                return "Tên đăng nhập phải gồm 4-32 ký tự chữ, số hoặc gạch dưới"
+            }
+            if (password.length < 8) return "Mật khẩu phải có độ dài tối thiểu 8 ký tự"
+            val p = phone.trim()
+            if (p.length != 10 || !p.startsWith("0") || !p.all { it.isDigit() }) {
+                return "Số điện thoại phải gồm 10 chữ số bắt đầu bằng 0"
+            }
+            val em = email.trim()
+            if (!em.contains("@") || !em.contains(".") || em.length < 5) {
+                return "Định dạng email không hợp lệ (ví dụ: name@example.com)"
+            }
+            return null
+        }
+
     val isFormValid: Boolean
-        get() = username.trim().length in 4..32 &&
-            password.length >= 8 &&
-            fullName.trim().length >= 2 &&
-            email.trim().contains("@") &&
-            phone.trim().length == 10 &&
-            phone.trim().startsWith("0") &&
-            nationalId.trim().length == 12 &&
-            nationalId.trim().all { it.isDigit() }
+        get() = validationError == null
 }
 
 class RegisterViewModel(
@@ -58,7 +72,11 @@ class RegisterViewModel(
     }
 
     fun onPhoneChanged(value: String) {
-        val filtered = value.filter(Char::isDigit).take(10)
+        var digits = value.filter(Char::isDigit)
+        if (digits.startsWith("84") && digits.length >= 10) {
+            digits = "0" + digits.removePrefix("84")
+        }
+        val filtered = digits.take(10)
         _uiState.update { it.copy(phone = filtered, errorMessage = null) }
     }
 
@@ -67,11 +85,24 @@ class RegisterViewModel(
         _uiState.update { it.copy(nationalId = filtered, errorMessage = null) }
     }
 
+    fun fillDemoData() {
+        _uiState.update {
+            it.copy(
+                fullName = "Nguyễn Văn An",
+                nationalId = "079099123456",
+                username = "nguyen_van_an",
+                password = "SecurePass@123",
+                phone = "0987654321",
+                email = "vanan@mebanking.vn",
+                errorMessage = null,
+            )
+        }
+    }
+
     fun openFaceCapture() {
-        if (!_uiState.value.isFormValid) {
-            _uiState.update {
-                it.copy(errorMessage = "Vui lòng hoàn tất chính xác toàn bộ thông tin đăng ký trước khi chụp sinh trắc học")
-            }
+        val error = _uiState.value.validationError
+        if (error != null) {
+            _uiState.update { it.copy(errorMessage = error) }
             return
         }
         _uiState.update { it.copy(isFaceCaptureOpen = true, errorMessage = null) }
@@ -94,27 +125,36 @@ class RegisterViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
-            val result = registrationService.registerCustomerWithBiometrics(request, faceFrameBytes)
-            result.fold(
-                onSuccess = { regResult ->
-                    _uiState.update {
-                        it.copy(
-                            isSubmitting = false,
-                            isFaceCaptureOpen = false,
-                            registrationResult = regResult,
-                            errorMessage = null,
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isSubmitting = false,
-                            errorMessage = error.message ?: "Đăng ký không thành công. Vui lòng thử lại",
-                        )
-                    }
-                },
-            )
+            try {
+                val result = registrationService.registerCustomerWithBiometrics(request, faceFrameBytes)
+                result.fold(
+                    onSuccess = { regResult ->
+                        _uiState.update {
+                            it.copy(
+                                isSubmitting = false,
+                                isFaceCaptureOpen = false,
+                                registrationResult = regResult,
+                                errorMessage = null,
+                            )
+                        }
+                    },
+                    onFailure = { error ->
+                        _uiState.update {
+                            it.copy(
+                                isSubmitting = false,
+                                errorMessage = error.message ?: "Đăng ký không thành công. Vui lòng thử lại",
+                            )
+                        }
+                    },
+                )
+            } catch (t: Throwable) {
+                _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        errorMessage = t.message ?: "Đã có lỗi xảy ra trong quá trình đăng ký. Vui lòng thử lại",
+                    )
+                }
+            }
         }
     }
 

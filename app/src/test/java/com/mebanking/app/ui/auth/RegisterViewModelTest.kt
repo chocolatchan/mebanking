@@ -165,4 +165,43 @@ class RegisterViewModelTest {
         assertNull(state.registrationResult)
         assertEquals("Tên đăng nhập đã tồn tại", state.errorMessage)
     }
+
+    @Test
+    fun fillDemoData_populatesValidFormAndAllowsCapture() {
+        assertFalse(viewModel.uiState.value.isFormValid)
+
+        viewModel.fillDemoData()
+        assertTrue(viewModel.uiState.value.isFormValid)
+        assertEquals("Nguyễn Văn An", viewModel.uiState.value.fullName)
+        assertEquals("079099123456", viewModel.uiState.value.nationalId)
+        assertEquals("nguyen_van_an", viewModel.uiState.value.username)
+
+        viewModel.openFaceCapture()
+        assertTrue(viewModel.uiState.value.isFaceCaptureOpen)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun onPhoneChanged_normalizesLeadingCountryCode() {
+        viewModel.onPhoneChanged("+84987654321")
+        assertEquals("0987654321", viewModel.uiState.value.phone)
+
+        viewModel.onPhoneChanged("84912345678")
+        assertEquals("0912345678", viewModel.uiState.value.phone)
+    }
+
+    @Test
+    fun openFaceCapture_providesHelpfulSpecificErrorMessage() {
+        // Missing full name
+        viewModel.onUsernameChanged("user_test")
+        viewModel.openFaceCapture()
+        assertEquals("Vui lòng nhập họ và tên (tối thiểu 2 ký tự)", viewModel.uiState.value.errorMessage)
+
+        // Short password
+        viewModel.onFullNameChanged("Nguyễn Văn A")
+        viewModel.onNationalIdChanged("079099123456")
+        viewModel.onPasswordChanged("short")
+        viewModel.openFaceCapture()
+        assertEquals("Mật khẩu phải có độ dài tối thiểu 8 ký tự", viewModel.uiState.value.errorMessage)
+    }
 }
