@@ -1,5 +1,10 @@
 package com.mebanking.app.ui.auth
 
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -90,7 +95,34 @@ fun LoginScreen(
         factory = (LocalContext.current.applicationContext as MEbankingApplication).container.viewModelFactory,
     ),
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.openBiometricDialog()
+        } else {
+            Toast.makeText(
+                context,
+                "Vui lòng cấp quyền Máy ảnh để đăng nhập bằng khuôn mặt",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+
+    val onOpenBiometricWithPermission = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.CAMERA,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            viewModel.openBiometricDialog()
+        } else {
+            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+        }
+    }
 
     if (uiState.isBiometricDialogOpen) {
         FaceCaptureDialog(
@@ -113,7 +145,7 @@ fun LoginScreen(
         onPasswordChanged = viewModel::onPasswordChanged,
         onLogin = viewModel::login,
         onClearRememberedCustomer = viewModel::clearRememberedCustomer,
-        onOpenBiometricDialog = viewModel::openBiometricDialog,
+        onOpenBiometricDialog = onOpenBiometricWithPermission,
         onNavigateToRegister = onNavigateToRegister,
         modifier = modifier,
     )

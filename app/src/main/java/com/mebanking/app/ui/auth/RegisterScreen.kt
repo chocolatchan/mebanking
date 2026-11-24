@@ -1,5 +1,9 @@
 package com.mebanking.app.ui.auth
 
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -70,6 +74,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.content.ContextCompat
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.ekyc.FaceCaptureDialog
@@ -85,8 +90,23 @@ fun RegisterScreen(
         factory = (LocalContext.current.applicationContext as MEbankingApplication).container.viewModelFactory,
     ),
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var passwordVisible by remember { mutableStateOf(false) }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.openFaceCapture()
+        } else {
+            Toast.makeText(
+                context,
+                "Vui lòng cấp quyền Máy ảnh để xác thực khuôn mặt",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
 
     // If Face Capture dialog is open
     if (uiState.isFaceCaptureOpen) {
@@ -254,48 +274,6 @@ fun RegisterScreen(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            // Quick Demo Fill Card for testing
-            Surface(
-                onClick = viewModel::fillDemoData,
-                color = Color(0xFFF1F8E9),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA5D6A7)),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Verified,
-                            contentDescription = null,
-                            tint = VcbGreenPrimary,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "⚡ Điền nhanh thông tin mẫu để thử nghiệm",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = VcbGreenDark,
-                        )
-                    }
-                    Text(
-                        text = "Điền mẫu",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = VcbGreenPrimary,
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
 
             // Form Fields
             Card(
@@ -479,7 +457,22 @@ fun RegisterScreen(
 
             // CTA Button to Trigger Face Capture
             Button(
-                onClick = viewModel::openFaceCapture,
+                onClick = {
+                    val validationError = uiState.validationError
+                    if (validationError != null) {
+                        viewModel.openFaceCapture()
+                    } else {
+                        val hasCameraPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            android.Manifest.permission.CAMERA,
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (hasCameraPermission) {
+                            viewModel.openFaceCapture()
+                        } else {
+                            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                        }
+                    }
+                },
                 enabled = !uiState.isSubmitting,
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(

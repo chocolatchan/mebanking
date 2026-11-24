@@ -1,6 +1,16 @@
 package com.mebanking.app.ui.home
 
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview as CameraPreview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -85,6 +95,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -92,6 +103,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -115,7 +127,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
@@ -212,6 +227,29 @@ fun HomeScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
 
+    val qrPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { isGranted ->
+        if (isGranted) {
+            showQrModal = true
+        } else {
+            Toast.makeText(context, "Vui lòng cấp quyền Máy ảnh để quét mã QR", Toast.LENGTH_SHORT).show()
+            showQrModal = true
+        }
+    }
+
+    val openQrScanner = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.CAMERA,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            showQrModal = true
+        } else {
+            qrPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+        }
+    }
+
     if (showLogoutConfirm) {
         AlertDialog(
             onDismissRequest = { showLogoutConfirm = false },
@@ -260,7 +298,7 @@ fun HomeScreen(
                     when (tab) {
                         0 -> {} // Home
                         1 -> onNavigateToHistory()
-                        2 -> showQrModal = true
+                        2 -> openQrScanner()
                         3 -> onNavigateToServices()
                         4 -> {
                             val primaryId = uiState.accounts.firstOrNull()?.id?.toLongOrNull()
@@ -287,7 +325,7 @@ fun HomeScreen(
                     clipboardManager.setText(AnnotatedString(accountNumber))
                     Toast.makeText(context, "Đã sao chép số tài khoản: $accountNumber", Toast.LENGTH_SHORT).show()
                 },
-                onOpenQr = { showQrModal = true },
+                onOpenQr = openQrScanner,
                 onLogoutClick = { showLogoutConfirm = true },
                 onNavigateToBranchLocator = onNavigateToBranchLocator,
                 onNavigateToTransfer = onNavigateToTransfer,
@@ -1328,7 +1366,36 @@ private fun QrPayModalDialog(
     onDismiss: () -> Unit,
     onTransferTo: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var selectedQrTab by remember { mutableIntStateOf(0) }
+
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.CAMERA,
+            ) == PackageManager.PERMISSION_GRANTED,
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { isGranted ->
+        hasCameraPermission = isGranted
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        onDispose {
+            try {
+                val cameraProvider = ProcessCameraProvider.getInstance(context).get()
+                cameraProvider.unbindAll()
+            } catch (_: Throwable) {
+                // Ignore if provider not initialized
+            }
+        }
+    }
+
     val infiniteTransition = rememberInfiniteTransition(label = "qr_scanner")
     val laserY by infiniteTransition.animateFloat(
         initialValue = 0.1f,
@@ -1392,7 +1459,7 @@ private fun QrPayModalDialog(
                 Spacer(Modifier.height(18.dp))
 
                 if (selectedQrTab == 0) {
-                    // Camera Scanner Simulator
+                    // Live Camera Viewfinder & QR Scanner
                     Box(
                         modifier = Modifier
                             .size(240.dp)
@@ -1400,28 +1467,115 @@ private fun QrPayModalDialog(
                             .background(Color(0xFF111827)),
                         contentAlignment = Alignment.Center,
                     ) {
+                        if (hasCameraPermission) {
+                            AndroidView(
+                                modifier = Modifier.fillMaxSize(),
+                                factory = { ctx ->
+                                    val previewView = PreviewView(ctx).apply {
+                                        scaleType = PreviewView.ScaleType.FILL_CENTER
+                                        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                                    }
+                                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                                    cameraProviderFuture.addListener({
+                                        try {
+                                            if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                                val cameraProvider = cameraProviderFuture.get()
+                                                val preview = CameraPreview.Builder().build().also {
+                                                    it.setSurfaceProvider(previewView.surfaceProvider)
+                                                }
+                                                val cameraSelector = when {
+                                                    cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
+                                                    cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
+                                                    else -> null
+                                                }
+                                                if (cameraSelector != null) {
+                                                    cameraProvider.unbindAll()
+                                                    cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview)
+                                                }
+                                            }
+                                        } catch (_: Throwable) {
+                                            // Fallback for tests/emulators
+                                        }
+                                    }, ContextCompat.getMainExecutor(ctx))
+                                    previewView
+                                },
+                            )
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.CameraAlt,
+                                    contentDescription = null,
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(36.dp),
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Cần quyền Máy ảnh để quét QR",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.LightGray,
+                                    textAlign = TextAlign.Center,
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = VcbGreenPrimary),
+                                    ) {
+                                        Text("Cấp quyền", fontSize = 12.sp)
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            try {
+                                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                    data = Uri.fromParts("package", context.packageName, null)
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (_: Throwable) {}
+                                        },
+                                    ) {
+                                        Text("Cài đặt", fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Scanning viewfinder corners and laser overlay
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val laserPos = size.height * laserY
                             drawLine(
                                 color = Color(0xFF10B981),
-                                start = Offset(20f, laserPos),
-                                end = Offset(size.width - 20f, laserPos),
+                                start = Offset(24f, laserPos),
+                                end = Offset(size.width - 24f, laserPos),
                                 strokeWidth = 3.dp.toPx(),
                             )
                         }
 
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Filled.CameraAlt,
-                                contentDescription = "Camera",
-                                tint = Color.White,
-                                modifier = Modifier.size(42.dp),
-                            )
-                            Spacer(Modifier.height(8.dp))
+                        // Corner border indicators (QR target frame)
+                        Box(
+                            modifier = Modifier
+                                .size(180.dp)
+                                .border(2.dp, Color(0x80FFFFFF), RoundedCornerShape(12.dp)),
+                        )
+
+                        // Bottom label
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 8.dp)
+                                .background(Color(0x99000000), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                        ) {
                             Text(
                                 "Hướng camera về mã VietQR",
                                 color = Color.White,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.labelSmall,
                             )
                         }
                     }

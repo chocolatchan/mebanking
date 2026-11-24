@@ -1,6 +1,9 @@
 package com.mebanking.app.ui.ekyc
 
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -41,6 +44,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -106,6 +110,17 @@ fun FaceCaptureDialog(
         }
     }
 
+    DisposableEffect(lifecycleOwner) {
+        onDispose {
+            try {
+                val cameraProvider = ProcessCameraProvider.getInstance(context).get()
+                cameraProvider.unbindAll()
+            } catch (_: Throwable) {
+                // Ignore if provider not initialized
+            }
+        }
+    }
+
     val infiniteTransition = rememberInfiniteTransition(label = "scanner")
     val scanLineY by infiniteTransition.animateFloat(
         initialValue = 0.1f,
@@ -155,15 +170,17 @@ fun FaceCaptureDialog(
                         AndroidView(
                             modifier = Modifier.fillMaxSize(),
                             factory = { ctx ->
-                                PreviewView(ctx).apply {
+                                val previewView = PreviewView(ctx).apply {
                                     scaleType = PreviewView.ScaleType.FILL_CENTER
                                     implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                                    cameraProviderFuture.addListener({
-                                        try {
+                                }
+                                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                                cameraProviderFuture.addListener({
+                                    try {
+                                        if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                                             val cameraProvider = cameraProviderFuture.get()
                                             val preview = Preview.Builder().build().also {
-                                                it.setSurfaceProvider(surfaceProvider)
+                                                it.setSurfaceProvider(previewView.surfaceProvider)
                                             }
                                             val cameraSelector = when {
                                                 cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
@@ -174,11 +191,12 @@ fun FaceCaptureDialog(
                                                 cameraProvider.unbindAll()
                                                 cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview)
                                             }
-                                        } catch (_: Throwable) {
-                                            // Fallback for tests/emulators
                                         }
-                                    }, ContextCompat.getMainExecutor(ctx))
-                                }
+                                    } catch (_: Throwable) {
+                                        // Fallback for tests/emulators
+                                    }
+                                }, ContextCompat.getMainExecutor(ctx))
+                                previewView
                             },
                         )
                     } else {
@@ -197,17 +215,32 @@ fun FaceCaptureDialog(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Cần quyền Camera để nhận diện",
+                                text = "Cần quyền Máy ảnh để nhận diện",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.LightGray,
                                 textAlign = TextAlign.Center,
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(
-                                onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
-                                colors = ButtonDefaults.buttonColors(containerColor = VcbGreenPrimary),
-                            ) {
-                                Text("Cấp quyền", fontSize = 12.sp)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = VcbGreenPrimary),
+                                ) {
+                                    Text("Cấp quyền", fontSize = 12.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                data = Uri.fromParts("package", context.packageName, null)
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (_: Throwable) {}
+                                    },
+                                ) {
+                                    Text("Cài đặt", fontSize = 12.sp)
+                                }
                             }
                         }
                     }
