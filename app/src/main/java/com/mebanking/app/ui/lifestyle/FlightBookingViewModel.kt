@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mebanking.app.data.local.entity.lifestyle.FlightBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.FlightEntity
+import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.lifestyle.FlightRepository
 import com.mebanking.app.domain.service.SessionManager
+import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +41,8 @@ data class FlightBookingUiState(
 class FlightBookingViewModel(
     private val flightRepository: FlightRepository,
     private val sessionManager: SessionManager,
+    private val accountRepository: AccountRepository? = null,
+    private val transactionService: TransactionService? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FlightBookingUiState())
@@ -123,6 +127,23 @@ class FlightBookingViewModel(
         _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
 
         viewModelScope.launch {
+            val debitResult = debitCustomerAccountForService(
+                sessionManager = sessionManager,
+                accountRepository = accountRepository,
+                transactionService = transactionService,
+                amountVnd = currentState.calculatedPriceVnd,
+                note = "Đặt vé máy bay ${flight.flightNumber} (${flight.departureAirport}-${flight.arrivalAirport})",
+            )
+            if (debitResult.isFailure) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = debitResult.exceptionOrNull()?.message ?: "Không thể thanh toán vé máy bay",
+                    )
+                }
+                return@launch
+            }
+
             val userId = sessionManager.currentSession?.userId ?: 1L
             val result = flightRepository.bookFlight(
                 flightId = flight.id,

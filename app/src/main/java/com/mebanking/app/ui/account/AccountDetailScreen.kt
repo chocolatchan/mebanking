@@ -254,6 +254,82 @@ fun AccountDetailContent(
                     Spacer(Modifier.height(16.dp))
                 }
             }
+
+            uiState.userSession != null -> LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = if (uiState.userSession.role == com.mebanking.app.domain.model.Role.OFFICER) {
+                                    "TÀI KHOẢN CÁN BỘ NGÂN HÀNG"
+                                } else {
+                                    "THÔNG TIN TÀI KHOẢN"
+                                },
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = uiState.userSession.fullName,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                            Text(
+                                text = "Mã định danh / Username: ${uiState.userSession.username}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                            Text(
+                                text = "Đơn vị công tác: ${uiState.branchName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    AccountSettingsCard(
+                        isOttEnabled = uiState.isOttEnabled,
+                        isBiometricEnabled = uiState.isBiometricEnabled,
+                        onToggleOtt = onToggleOtt,
+                        onToggleBiometric = onToggleBiometric,
+                    )
+                }
+
+                item {
+                    CustomerProfileCard(uiState = uiState)
+                }
+
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("Quay lại trang chủ")
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
         }
     }
 }

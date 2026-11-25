@@ -162,13 +162,29 @@ class DefaultTransactionService(
         idempotencyKey: String,
         session: UserSession,
     ): Result<TransactionResult> {
+        return executeServicePayment(
+            accountId = accountId,
+            amount = amount,
+            note = "Rút tiền mặt tại ATM/Quầy",
+            idempotencyKey = idempotencyKey,
+            session = session,
+        )
+    }
+
+    override suspend fun executeServicePayment(
+        accountId: Long,
+        amount: Long,
+        note: String,
+        idempotencyKey: String,
+        session: UserSession,
+    ): Result<TransactionResult> {
         // Session, RBAC and ownership validation
         SessionAuthorization.requireCustomer(session)?.let { return Result.failure(it) }
         SessionAuthorization.validateSession(session, sessionManager)?.let { return Result.failure(it) }
 
         // Amount validation
         if (amount <= 0L) {
-            return Result.failure(DomainError.InvalidData("Số tiền rút phải lớn hơn 0"))
+            return Result.failure(DomainError.InvalidData("Số tiền thanh toán phải lớn hơn 0"))
         }
         if (idempotencyKey.isBlank()) {
             return Result.failure(DomainError.InvalidData("Idempotency key không được để trống"))
@@ -180,7 +196,7 @@ class DefaultTransactionService(
         SessionAuthorization.requireOwnedAccount(
             accountOwnerId = account.userId,
             session = session,
-            resourceName = "tài khoản rút tiền",
+            resourceName = "tài khoản thanh toán",
         )?.let { return Result.failure(it) }
 
         if (account.status != "ACTIVE") {
@@ -190,7 +206,12 @@ class DefaultTransactionService(
         initialBalances.putIfAbsent(account.id, account.balance)
 
         transferMutex.withLock {
-            val repoResult = transactionRepository.executeWithdrawal(accountId, amount, "Rút tiền mặt tại ATM/Quầy", idempotencyKey)
+            val repoResult = transactionRepository.executeWithdrawal(
+                accountId = accountId,
+                amount = amount,
+                note = note.ifBlank { "Thanh toán dịch vụ" },
+                idempotencyKey = idempotencyKey,
+            )
             if (repoResult.isFailure) {
                 return repoResult
             }

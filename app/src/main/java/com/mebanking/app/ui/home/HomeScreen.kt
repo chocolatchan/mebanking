@@ -312,9 +312,8 @@ fun HomeScreen(
                         2 -> openQrScanner()
                         3 -> onNavigateToServices()
                         4 -> {
-                            val primaryId = uiState.accounts.firstOrNull()?.id?.toLongOrNull()
-                            if (primaryId != null) onNavigateToAccountDetail(primaryId)
-                            else if (!isCustomer) onNavigateToOfficerDashboard()
+                            val primaryId = uiState.accounts.firstOrNull()?.id?.toLongOrNull() ?: -1L
+                            onNavigateToAccountDetail(primaryId)
                         }
                     }
                 },

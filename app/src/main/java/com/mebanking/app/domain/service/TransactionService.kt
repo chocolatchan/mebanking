@@ -35,5 +35,13 @@ interface TransactionService {
         session: UserSession,
     ): Result<TransactionResult>
 
+    suspend fun executeServicePayment(
+        accountId: Long,
+        amount: Long,
+        note: String,
+        idempotencyKey: String,
+        session: UserSession,
+    ): Result<TransactionResult> = executeWithdrawal(accountId, amount, idempotencyKey, session)
+
     suspend fun reconcileLedger(accountId: Long): Result<ReconciliationReport>
 }

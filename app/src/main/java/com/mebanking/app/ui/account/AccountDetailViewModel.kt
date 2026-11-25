@@ -64,6 +64,18 @@ class AccountDetailViewModel(
                 return@launch
             }
 
+            if (accountId <= 0L) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        account = null,
+                        userSession = session,
+                        errorMessage = null,
+                    )
+                }
+                return@launch
+            }
+
             try {
                 accountService.getAccountById(accountId, session)
                     .onSuccess { account ->

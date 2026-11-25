@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mebanking.app.data.local.entity.lifestyle.OrderEntity
 import com.mebanking.app.data.local.entity.lifestyle.ProductEntity
+import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.lifestyle.CartItem
 import com.mebanking.app.data.repository.lifestyle.ShopRepository
 import com.mebanking.app.domain.service.SessionManager
+import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +40,8 @@ data class ShopUiState(
 class ShopViewModel(
     private val shopRepository: ShopRepository,
     private val sessionManager: SessionManager,
+    private val accountRepository: AccountRepository? = null,
+    private val transactionService: TransactionService? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ShopUiState())
@@ -154,6 +158,24 @@ class ShopViewModel(
         _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
 
         viewModelScope.launch {
+            val itemSummary = currentState.cart.joinToString(", ") { "${it.product.name} x${it.quantity}" }.take(80)
+            val debitResult = debitCustomerAccountForService(
+                sessionManager = sessionManager,
+                accountRepository = accountRepository,
+                transactionService = transactionService,
+                amountVnd = currentState.cartTotalVnd,
+                note = "Mua sắm ME Shop: $itemSummary",
+            )
+            if (debitResult.isFailure) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = debitResult.exceptionOrNull()?.message ?: "Không thể thanh toán đơn hàng",
+                    )
+                }
+                return@launch
+            }
+
             val userId = sessionManager.currentSession?.userId ?: 1L
             val result = shopRepository.checkoutOrder(
                 userId = userId,

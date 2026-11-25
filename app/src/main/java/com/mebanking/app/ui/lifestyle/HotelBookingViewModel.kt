@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mebanking.app.data.local.entity.lifestyle.HotelBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.HotelEntity
+import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.lifestyle.HotelRepository
 import com.mebanking.app.domain.service.SessionManager
+import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +39,8 @@ data class HotelBookingUiState(
 class HotelBookingViewModel(
     private val hotelRepository: HotelRepository,
     private val sessionManager: SessionManager,
+    private val accountRepository: AccountRepository? = null,
+    private val transactionService: TransactionService? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HotelBookingUiState())
@@ -124,6 +128,23 @@ class HotelBookingViewModel(
         _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
 
         viewModelScope.launch {
+            val debitResult = debitCustomerAccountForService(
+                sessionManager = sessionManager,
+                accountRepository = accountRepository,
+                transactionService = transactionService,
+                amountVnd = currentState.calculatedTotalVnd,
+                note = "Đặt phòng khách sạn ${hotel.name} (${currentState.nights} đêm)",
+            )
+            if (debitResult.isFailure) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = debitResult.exceptionOrNull()?.message ?: "Không thể thanh toán đặt phòng",
+                    )
+                }
+                return@launch
+            }
+
             val userId = sessionManager.currentSession?.userId ?: 1L
             val result = hotelRepository.bookHotel(
                 hotelId = hotel.id,

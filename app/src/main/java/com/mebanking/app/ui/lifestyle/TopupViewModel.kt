@@ -2,7 +2,9 @@ package com.mebanking.app.ui.lifestyle
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.domain.service.SessionManager
+import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,6 +53,8 @@ data class TopupUiState(
 
 class TopupViewModel(
     private val sessionManager: SessionManager,
+    private val accountRepository: AccountRepository? = null,
+    private val transactionService: TransactionService? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TopupUiState())
@@ -164,20 +168,47 @@ class TopupViewModel(
 
         _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
 
-        val txCode = "TOPUP-" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
-        val tx = TopupTransaction(
-            phoneNumber = currentState.phoneNumber,
-            carrier = currentState.selectedCarrier,
-            amountVnd = currentState.selectedAmountVnd,
-            transactionCode = txCode,
-        )
+        val completeTopup: () -> Unit = {
+            val txCode = "TOPUP-" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
+            val tx = TopupTransaction(
+                phoneNumber = currentState.phoneNumber,
+                carrier = currentState.selectedCarrier,
+                amountVnd = currentState.selectedAmountVnd,
+                transactionCode = txCode,
+            )
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    topupHistory = listOf(tx) + it.topupHistory,
+                    successMessage = "Nạp tiền thành công cho thuê bao ${tx.phoneNumber}! Mã GD: ${tx.transactionCode}",
+                    phoneNumber = "",
+                )
+            }
+        }
 
-        _uiState.update {
-            it.copy(
-                isLoading = false,
-                topupHistory = listOf(tx) + it.topupHistory,
-                successMessage = "Nạp tiền thành công cho thuê bao ${tx.phoneNumber}! Mã GD: ${tx.transactionCode}",
-                phoneNumber = "",
+        if (accountRepository == null || transactionService == null) {
+            completeTopup()
+            return
+        }
+
+        viewModelScope.launch {
+            val debitResult = debitCustomerAccountForService(
+                sessionManager = sessionManager,
+                accountRepository = accountRepository,
+                transactionService = transactionService,
+                amountVnd = currentState.selectedAmountVnd,
+                note = "Nạp ĐT ${currentState.selectedCarrier} - ${currentState.phoneNumber}",
+            )
+            debitResult.fold(
+                onSuccess = { completeTopup() },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.message ?: "Không thể thanh toán nạp tiền",
+                        )
+                    }
+                },
             )
         }
     }

@@ -109,7 +109,7 @@ private fun AuthenticatedApp(
                 },
                 onNavigateToDeposit = { if (isCustomer) navController.navigate("deposit") { launchSingleTop = true } },
                 onNavigateToWithdraw = { if (isCustomer) navController.navigate("withdraw") { launchSingleTop = true } },
-                onNavigateToHistory = { if (isCustomer) navController.navigate("transaction_history") { launchSingleTop = true } },
+                onNavigateToHistory = { navController.navigate("transaction_history") { launchSingleTop = true } },
                 onNavigateToOfficerDashboard = { if (!isCustomer) navController.navigate("officer_dashboard") { launchSingleTop = true } },
                 onNavigateToBills = {
                     if (isCustomer) {
@@ -117,9 +117,7 @@ private fun AuthenticatedApp(
                     }
                 },
                 onNavigateToServices = {
-                    if (isCustomer) {
-                        navController.navigate("services") { launchSingleTop = true }
-                    }
+                    navController.navigate("services") { launchSingleTop = true }
                 },
                 onNavigateToChatbot = {
                     navController.navigate("chatbot") { launchSingleTop = true }

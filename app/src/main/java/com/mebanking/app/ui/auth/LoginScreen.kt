@@ -137,6 +137,20 @@ fun LoginScreen(
         )
     }
 
+    if (uiState.isForgotPasswordOpen) {
+        ForgotPasswordDialog(
+            initialIdentifier = uiState.rememberedCustomer?.username ?: uiState.username,
+            isProcessing = uiState.isSubmitting,
+            errorMessage = uiState.forgotPasswordError,
+            onSubmit = { identifier, newPassword ->
+                viewModel.resetPassword(identifier, newPassword)
+            },
+            onDismiss = {
+                viewModel.closeForgotPasswordDialog()
+            },
+        )
+    }
+
     LoginContent(
         uiState = uiState,
         onUsernameChanged = viewModel::onUsernameChanged,
@@ -145,6 +159,7 @@ fun LoginScreen(
         onClearRememberedCustomer = viewModel::clearRememberedCustomer,
         onOpenBiometricDialog = onOpenBiometricWithPermission,
         onNavigateToRegister = onNavigateToRegister,
+        onOpenForgotPassword = viewModel::openForgotPasswordDialog,
         modifier = modifier,
     )
 }
@@ -158,8 +173,10 @@ fun LoginContent(
     onClearRememberedCustomer: () -> Unit = {},
     onOpenBiometricDialog: () -> Unit = {},
     onNavigateToRegister: () -> Unit = {},
+    onOpenForgotPassword: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     var passwordVisible by remember { mutableStateOf(false) }
     val isRemembered = uiState.rememberedCustomer != null
 
@@ -360,6 +377,22 @@ fun LoginContent(
                             modifier = Modifier.fillMaxWidth(),
                         )
 
+                        if (uiState.infoMessage != null) {
+                            Spacer(Modifier.height(12.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = uiState.infoMessage,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(10.dp),
+                                )
+                            }
+                        }
+
                         if (uiState.errorMessage != null) {
                             Spacer(Modifier.height(12.dp))
                             Surface(
@@ -530,6 +563,10 @@ fun LoginContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { onOpenForgotPassword() }
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
                     )
                     Text("•", color = MaterialTheme.colorScheme.outlineVariant)
                     Text(
@@ -537,12 +574,32 @@ fun LoginContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable {
+                                Toast.makeText(
+                                    context,
+                                    "Smart OTP đã được kích hoạt mặc định cho tài khoản của bạn",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
                     )
                     Text("•", color = MaterialTheme.colorScheme.outlineVariant)
                     Text(
                         text = "Hotline 1900 8888",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable {
+                                Toast.makeText(
+                                    context,
+                                    "Tổng đài hỗ trợ 24/7: 1900 8888",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
                     )
                 }
             }
@@ -671,4 +728,98 @@ private fun maskPhone(phone: String): String {
     } else {
         clean
     }
+}
+
+@Composable
+private fun ForgotPasswordDialog(
+    initialIdentifier: String,
+    isProcessing: Boolean,
+    errorMessage: String?,
+    onSubmit: (String, String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var identifier by remember { mutableStateOf(initialIdentifier) }
+    var newPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { if (!isProcessing) onDismiss() },
+        shape = RoundedCornerShape(16.dp),
+        title = {
+            Text(
+                text = "Khôi phục mật khẩu",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Nhập số điện thoại hoặc tên đăng nhập và mật khẩu mới (tối thiểu 8 ký tự).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = identifier,
+                    onValueChange = { identifier = it },
+                    label = { Text("Số điện thoại / Tên đăng nhập") },
+                    singleLine = true,
+                    enabled = !isProcessing,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = { Text("Mật khẩu mới") },
+                    singleLine = true,
+                    enabled = !isProcessing,
+                    shape = RoundedCornerShape(10.dp),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (errorMessage != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(8.dp),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(identifier, newPassword) },
+                enabled = !isProcessing && identifier.isNotBlank() && newPassword.length >= 8,
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                } else {
+                    Text("Đặt lại mật khẩu", fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isProcessing) {
+                Text("Hủy")
+            }
+        },
+    )
 }

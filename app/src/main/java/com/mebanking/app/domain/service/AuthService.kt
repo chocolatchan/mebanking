@@ -8,6 +8,7 @@ import com.mebanking.app.domain.model.SessionState
 import com.mebanking.app.domain.model.User
 import com.mebanking.app.domain.model.UserSession
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 
 data class CreateCustomerRequest(
     val username: String,
@@ -40,6 +41,8 @@ interface AuthService {
     suspend fun updateOwnProfile(callerSession: UserSession, request: UpdateProfileRequest): Result<User>
     suspend fun createCustomerByOfficer(officerSession: UserSession, request: CreateCustomerRequest): Result<User>
     suspend fun updateCustomerByOfficer(officerSession: UserSession, targetUserId: Long, request: UpdateProfileRequest): Result<User>
+    suspend fun resetPassword(identifier: String, newPassword: String): Result<Unit> =
+        Result.failure(DomainError.SystemError("Tính năng đặt lại mật khẩu chưa được hỗ trợ"))
 }
 
 class DefaultAuthService(
@@ -228,5 +231,28 @@ class DefaultAuthService(
             phone = trimmedPhone,
             kycVerified = request.kycVerified,
         )
+    }
+
+    override suspend fun resetPassword(identifier: String, newPassword: String): Result<Unit> {
+        val repo = authRepository
+            ?: return Result.failure(DomainError.SystemError("Hệ thống xác thực chưa sẵn sàng"))
+
+        val trimmedId = identifier.trim()
+        if (trimmedId.isBlank()) {
+            return Result.failure(DomainError.InvalidData("Vui lòng nhập số điện thoại hoặc tên đăng nhập"))
+        }
+        if (newPassword.length < 8) {
+            return Result.failure(DomainError.InvalidData("Mật khẩu mới phải có tối thiểu 8 ký tự"))
+        }
+
+        val user = repo.getUserByUsername(trimmedId)
+            ?: repo.observeAllUsers().first().firstOrNull {
+                it.phone.equals(trimmedId, ignoreCase = true) ||
+                    it.username.equals(trimmedId, ignoreCase = true)
+            }
+            ?: return Result.failure(DomainError.NotFound("Không tìm thấy tài khoản với thông tin '$trimmedId'"))
+
+        val newHash = passwordHasher.hashPasswordV1(newPassword)
+        return repo.updatePasswordHash(user.id, newHash)
     }
 }

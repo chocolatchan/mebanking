@@ -28,6 +28,8 @@ data class LoginUiState(
     val infoMessage: String? = null,
     val rememberedCustomer: RememberedCustomer? = null,
     val isBiometricDialogOpen: Boolean = false,
+    val isForgotPasswordOpen: Boolean = false,
+    val forgotPasswordError: String? = null,
 ) {
     val canSubmit: Boolean
         get() = !isSubmitting && (rememberedCustomer != null || username.isNotBlank()) && password.isNotBlank()
@@ -113,6 +115,53 @@ class LoginViewModel(
 
     fun closeBiometricDialog() {
         _uiState.update { it.copy(isBiometricDialogOpen = false, isSubmitting = false, errorMessage = null) }
+    }
+
+    fun openForgotPasswordDialog() {
+        _uiState.update { it.copy(isForgotPasswordOpen = true, forgotPasswordError = null) }
+    }
+
+    fun closeForgotPasswordDialog() {
+        _uiState.update { it.copy(isForgotPasswordOpen = false, forgotPasswordError = null) }
+    }
+
+    fun resetPassword(identifier: String, newPassword: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, forgotPasswordError = null) }
+            try {
+                awaitDatabaseReady()
+                val res = authService.resetPassword(identifier, newPassword)
+                res.fold(
+                    onSuccess = {
+                        _uiState.update {
+                            it.copy(
+                                isSubmitting = false,
+                                isForgotPasswordOpen = false,
+                                forgotPasswordError = null,
+                                infoMessage = "Đã đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.",
+                            )
+                        }
+                    },
+                    onFailure = { err ->
+                        _uiState.update {
+                            it.copy(
+                                isSubmitting = false,
+                                forgotPasswordError = err.toDomainError().message ?: "Không thể đặt lại mật khẩu",
+                            )
+                        }
+                    },
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        forgotPasswordError = t.message ?: "Lỗi đặt lại mật khẩu",
+                    )
+                }
+            }
+        }
     }
 
     fun login() {

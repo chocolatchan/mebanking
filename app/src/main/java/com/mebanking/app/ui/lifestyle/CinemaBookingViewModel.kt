@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.mebanking.app.data.local.entity.lifestyle.CinemaBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.CinemaShowtimeEntity
 import com.mebanking.app.data.local.entity.lifestyle.MovieEntity
+import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.lifestyle.CinemaRepository
 import com.mebanking.app.domain.service.SessionManager
+import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +39,8 @@ data class CinemaBookingUiState(
 class CinemaBookingViewModel(
     private val cinemaRepository: CinemaRepository,
     private val sessionManager: SessionManager,
+    private val accountRepository: AccountRepository? = null,
+    private val transactionService: TransactionService? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CinemaBookingUiState())
@@ -159,6 +163,25 @@ class CinemaBookingViewModel(
         _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
 
         viewModelScope.launch {
+            val movieTitle = currentState.selectedMovie?.title ?: "Phim"
+            val seatsLabel = currentState.selectedSeats.sorted().joinToString(",")
+            val debitResult = debitCustomerAccountForService(
+                sessionManager = sessionManager,
+                accountRepository = accountRepository,
+                transactionService = transactionService,
+                amountVnd = currentState.totalPriceVnd,
+                note = "Vé xem phim $movieTitle (Ghế $seatsLabel)",
+            )
+            if (debitResult.isFailure) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = debitResult.exceptionOrNull()?.message ?: "Không thể thanh toán vé xem phim",
+                    )
+                }
+                return@launch
+            }
+
             val userId = sessionManager.currentSession?.userId ?: 1L
             val result = cinemaRepository.bookSeats(
                 showtimeId = showtime.id,

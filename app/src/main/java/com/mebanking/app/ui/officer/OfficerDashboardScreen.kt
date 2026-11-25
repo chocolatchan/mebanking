@@ -1,6 +1,8 @@
 package com.mebanking.app.ui.officer
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -26,15 +31,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -87,6 +96,10 @@ private fun OfficerDashboardContent(
     onEnrollFace: (Long, ByteArray) -> Unit = { _, _ -> },
 ) {
     var enrollingCustomerId by remember { mutableStateOf<Long?>(null) }
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val isDark = isSystemInDarkTheme()
+    com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isDark)
 
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
@@ -94,33 +107,100 @@ private fun OfficerDashboardContent(
         }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text("Quản lý khách hàng") },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Quay lại",
-                    )
-                }
-            },
-        )
-    }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val scrollToForm = {
+        val formIndex = 2 +
+            (if (state.isLoading) 1 else 0) +
+            (if (state.errorMessage != null) 1 else 0) +
+            state.customers.size
+        coroutineScope.launch {
+            listState.animateScrollToItem(formIndex)
+        }
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = { Text("Quản lý hồ sơ khách hàng") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Quay lại",
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            )
+        },
+    ) { padding ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             item {
-                OutlinedTextField(value = state.query, onValueChange = onQueryChanged, modifier = Modifier.fillMaxWidth(), label = { Text("Tìm theo CCCD hoặc họ tên") }, singleLine = true)
+                OutlinedTextField(
+                    value = state.query,
+                    onValueChange = onQueryChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Tìm theo CCCD hoặc họ tên") },
+                    shape = RoundedCornerShape(10.dp),
+                    singleLine = true,
+                )
             }
-            item { Button(onClick = onNew, modifier = Modifier.fillMaxWidth()) { Text("Tạo hồ sơ khách hàng mới") } }
+            item {
+                Button(
+                    onClick = {
+                        onNew()
+                        scrollToForm()
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Tạo hồ sơ khách hàng mới")
+                }
+            }
             if (state.isLoading) item { CircularProgressIndicator(Modifier.padding(12.dp)) }
-            state.errorMessage?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
+            state.errorMessage?.let { message ->
+                item {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            message,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(10.dp),
+                        )
+                    }
+                }
+            }
             state.customers.forEach { customer ->
                 item(key = "customer_${customer.id}") {
-                    Card(Modifier.fillMaxWidth().clickable { onSelect(customer) }) {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            onSelect(customer)
+                            scrollToForm()
+                        },
+                    ) {
                         Column(Modifier.padding(14.dp)) {
                             Text(customer.fullName, style = MaterialTheme.typography.titleMedium)
                             Text("CCCD: ${customer.nationalId ?: "Chưa cập nhật"} · ${customer.phone}")
-                            Text(if (customer.kycVerified) "KYC đã xác minh" else "KYC chưa xác minh", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                if (customer.kycVerified) "KYC đã xác minh" else "KYC chưa xác minh",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }

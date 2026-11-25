@@ -103,29 +103,39 @@ class ViewModelFactory(
                 FlightBookingViewModel(
                     flightRepository = container.flightRepository,
                     sessionManager = container.sessionManager,
+                    accountRepository = container.accountRepository,
+                    transactionService = container.transactionService,
                 ) as T
             }
             modelClass.isAssignableFrom(HotelBookingViewModel::class.java) -> {
                 HotelBookingViewModel(
                     hotelRepository = container.hotelRepository,
                     sessionManager = container.sessionManager,
+                    accountRepository = container.accountRepository,
+                    transactionService = container.transactionService,
                 ) as T
             }
             modelClass.isAssignableFrom(CinemaBookingViewModel::class.java) -> {
                 CinemaBookingViewModel(
                     cinemaRepository = container.cinemaRepository,
                     sessionManager = container.sessionManager,
+                    accountRepository = container.accountRepository,
+                    transactionService = container.transactionService,
                 ) as T
             }
             modelClass.isAssignableFrom(ShopViewModel::class.java) -> {
                 ShopViewModel(
                     shopRepository = container.shopRepository,
                     sessionManager = container.sessionManager,
+                    accountRepository = container.accountRepository,
+                    transactionService = container.transactionService,
                 ) as T
             }
             modelClass.isAssignableFrom(TopupViewModel::class.java) -> {
                 TopupViewModel(
                     sessionManager = container.sessionManager,
+                    accountRepository = container.accountRepository,
+                    transactionService = container.transactionService,
                 ) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
