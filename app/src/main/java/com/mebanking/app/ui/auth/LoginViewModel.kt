@@ -112,7 +112,7 @@ class LoginViewModel(
     }
 
     fun closeBiometricDialog() {
-        _uiState.update { it.copy(isBiometricDialogOpen = false) }
+        _uiState.update { it.copy(isBiometricDialogOpen = false, isSubmitting = false, errorMessage = null) }
     }
 
     fun login() {
@@ -248,11 +248,11 @@ class LoginViewModel(
                 }
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (t: Throwable) {
                 _uiState.update {
                     it.copy(
                         isSubmitting = false,
-                        errorMessage = e.message ?: "Lỗi xác thực khuôn mặt",
+                        errorMessage = t.message ?: "Lỗi xác thực khuôn mặt",
                     )
                 }
             }

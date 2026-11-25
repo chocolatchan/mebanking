@@ -5,9 +5,11 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,8 +67,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -81,11 +81,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
-import com.mebanking.app.ui.theme.BankGoldPrimary
 import com.mebanking.app.ui.theme.MEbankingTheme
-import com.mebanking.app.ui.theme.VcbGreenDark
-import com.mebanking.app.ui.theme.VcbGreenLight
-import com.mebanking.app.ui.theme.VcbGreenPrimary
+import com.mebanking.app.ui.theme.PastelPurplePrimary
+import com.mebanking.app.ui.theme.SynchronizedStatusBar
 
 @Composable
 fun LoginScreen(
@@ -165,28 +163,19 @@ fun LoginContent(
     var passwordVisible by remember { mutableStateOf(false) }
     val isRemembered = uiState.rememberedCustomer != null
 
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-    com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isDark)
+    val isDark = isSystemInDarkTheme()
+    SynchronizedStatusBar(darkIcons = !isDark)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF00381E),
-                            Color(0xFF005A36),
-                            Color(0xFFF4F6F9),
-                            Color(0xFFF4F6F9),
-                        ),
-                        startY = 0f,
-                        endY = 1200f,
-                    ),
-                ),
+                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.background),
         ) {
             Column(
                 modifier = Modifier
@@ -198,66 +187,70 @@ fun LoginContent(
                     .padding(horizontal = 20.dp, vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
 
-                // Clean Vector Brand Emblem Header
-                Box(
-                    modifier = Modifier
-                        .size(68.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF002413))
-                        .border(2.dp, BankGoldPrimary, CircleShape),
-                    contentAlignment = Alignment.Center,
+                // Minimalist Pastel Purple Brand Emblem
+                Surface(
+                    modifier = Modifier.size(64.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.AccountBalance,
-                        contentDescription = "MEbanking Brand",
-                        tint = BankGoldPrimary,
-                        modifier = Modifier.size(34.dp),
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.AccountBalance,
+                            contentDescription = "MEbanking Brand",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(30.dp),
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))
 
                 Text(
-                    text = "MEBANKING",
+                    text = "MEbanking",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
-                    letterSpacing = 2.sp,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    letterSpacing = 1.sp,
+                )
+                Text(
+                    text = "Ngân hàng số hiện đại & tối giản",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
                 Spacer(Modifier.height(24.dp))
 
-                // Modern Floating Login Card
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(elevation = 8.dp, shape = RoundedCornerShape(24.dp)),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                // Flat Login Card (12dp rounded corners, hairline border, no shadow)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
                     Column(
-                        modifier = Modifier.padding(22.dp),
+                        modifier = Modifier.padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         if (isRemembered) {
                             // -------------------------------------------------------------
                             // Case 1: Remembered Customer State (Greeting + Face ID + Password)
                             // -------------------------------------------------------------
-                            Box(
-                                modifier = Modifier
-                                    .size(60.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFE8F5E9)),
-                                contentAlignment = Alignment.Center,
+                            Surface(
+                                modifier = Modifier.size(56.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Person,
-                                    contentDescription = null,
-                                    tint = VcbGreenPrimary,
-                                    modifier = Modifier.size(36.dp),
-                                )
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Person,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(30.dp),
+                                    )
+                                }
                             }
 
                             Spacer(Modifier.height(10.dp))
@@ -276,7 +269,7 @@ fun LoginContent(
                             Text(
                                 text = maskPhone(uiState.rememberedCustomer.phone.ifBlank { uiState.rememberedCustomer.username }),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
 
                             Spacer(Modifier.height(18.dp))
@@ -293,7 +286,6 @@ fun LoginContent(
 
                             Spacer(Modifier.height(18.dp))
 
-                            // Phone Number Field (Replaces separate Username)
                             OutlinedTextField(
                                 value = uiState.username,
                                 onValueChange = onUsernameChanged,
@@ -303,21 +295,21 @@ fun LoginContent(
                                     Icon(
                                         imageVector = Icons.Filled.Phone,
                                         contentDescription = null,
-                                        tint = VcbGreenPrimary,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(20.dp),
                                     )
                                 },
                                 singleLine = true,
                                 enabled = !uiState.isSubmitting,
-                                shape = RoundedCornerShape(14.dp),
+                                shape = RoundedCornerShape(10.dp),
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Phone,
                                     imeAction = ImeAction.Next,
                                 ),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = VcbGreenPrimary,
-                                    focusedLabelColor = VcbGreenPrimary,
-                                    focusedLeadingIconColor = VcbGreenPrimary,
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                                    focusedLeadingIconColor = MaterialTheme.colorScheme.primary,
                                 ),
                                 modifier = Modifier.fillMaxWidth(),
                             )
@@ -334,13 +326,13 @@ fun LoginContent(
                                 Icon(
                                     imageVector = Icons.Filled.Lock,
                                     contentDescription = null,
-                                    tint = VcbGreenPrimary,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp),
                                 )
                             },
                             singleLine = true,
                             enabled = !uiState.isSubmitting,
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(10.dp),
                             visualTransformation = if (passwordVisible) {
                                 VisualTransformation.None
                             } else {
@@ -361,9 +353,9 @@ fun LoginContent(
                                 }
                             },
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = VcbGreenPrimary,
-                                focusedLabelColor = VcbGreenPrimary,
-                                focusedLeadingIconColor = VcbGreenPrimary,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                                focusedLeadingIconColor = MaterialTheme.colorScheme.primary,
                             ),
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -371,8 +363,8 @@ fun LoginContent(
                         if (uiState.errorMessage != null) {
                             Spacer(Modifier.height(12.dp))
                             Surface(
-                                color = Color(0xFFFFEBEE),
-                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = RoundedCornerShape(10.dp),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Row(
@@ -383,12 +375,12 @@ fun LoginContent(
                                     Icon(
                                         imageVector = Icons.Filled.Warning,
                                         contentDescription = null,
-                                        tint = Color(0xFFC62828),
+                                        tint = MaterialTheme.colorScheme.onErrorContainer,
                                         modifier = Modifier.size(18.dp),
                                     )
                                     Text(
                                         text = uiState.errorMessage,
-                                        color = Color(0xFFC62828),
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
                                         style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
@@ -397,24 +389,25 @@ fun LoginContent(
 
                         Spacer(Modifier.height(20.dp))
 
-                        // Primary Login Button (VCB Emerald Green)
+                        // Primary Login Button (Flat Pastel Purple)
                         Button(
                             onClick = onLogin,
                             enabled = uiState.canSubmit,
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = VcbGreenPrimary,
-                                disabledContainerColor = Color(0xFFA5D6A7),
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp),
+                                .height(48.dp),
                         ) {
                             if (uiState.isSubmitting) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(22.dp),
                                     strokeWidth = 2.dp,
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                 )
                             } else {
                                 Text(
@@ -428,11 +421,11 @@ fun LoginContent(
                         if (isRemembered) {
                             Spacer(Modifier.height(12.dp))
 
-                            // Biometrics Face Login Button (Only available when account is remembered)
                             OutlinedButton(
                                 onClick = onOpenBiometricDialog,
                                 enabled = !uiState.isSubmitting,
-                                shape = RoundedCornerShape(14.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp),
@@ -444,7 +437,7 @@ fun LoginContent(
                                     Icon(
                                         imageVector = Icons.Filled.Face,
                                         contentDescription = null,
-                                        tint = VcbGreenPrimary,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(22.dp),
                                     )
                                     Spacer(Modifier.width(8.dp))
@@ -452,13 +445,13 @@ fun LoginContent(
                                         "Đăng nhập bằng khuôn mặt",
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                 }
                             }
 
                             Spacer(Modifier.height(8.dp))
 
-                            // Switch Account Option
                             TextButton(
                                 onClick = onClearRememberedCustomer,
                                 enabled = !uiState.isSubmitting,
@@ -479,15 +472,14 @@ fun LoginContent(
                                 }
                             }
                         } else {
-                            Spacer(Modifier.height(14.dp))
+                            Spacer(Modifier.height(12.dp))
 
-                            // Open New Online Account Button (Only available in Clean state)
                             Button(
                                 onClick = onNavigateToRegister,
-                                shape = RoundedCornerShape(14.dp),
+                                shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFE8F5E9),
-                                    contentColor = VcbGreenPrimary,
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -500,7 +492,7 @@ fun LoginContent(
                                     Icon(
                                         imageVector = Icons.Filled.PersonAdd,
                                         contentDescription = null,
-                                        tint = VcbGreenPrimary,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.size(18.dp),
                                     )
                                     Spacer(Modifier.width(8.dp))
@@ -515,7 +507,7 @@ fun LoginContent(
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(20.dp))
 
                 // Fast Testing Demo Account Pills
                 DemoQuickCredentialsCard(
@@ -525,7 +517,7 @@ fun LoginContent(
                     },
                 )
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(20.dp))
 
                 // Bottom Banking Links
                 Row(
@@ -536,14 +528,14 @@ fun LoginContent(
                     Text(
                         text = "Quên mật khẩu?",
                         style = MaterialTheme.typography.bodySmall,
-                        color = VcbGreenPrimary,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text("•", color = MaterialTheme.colorScheme.outlineVariant)
                     Text(
                         text = "Kích hoạt Smart OTP",
                         style = MaterialTheme.typography.bodySmall,
-                        color = VcbGreenPrimary,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text("•", color = MaterialTheme.colorScheme.outlineVariant)
@@ -562,11 +554,10 @@ fun LoginContent(
 private fun DemoQuickCredentialsCard(
     onSelect: (String, String) -> Unit,
 ) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-        shape = RoundedCornerShape(16.dp),
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp)) {
@@ -579,6 +570,7 @@ private fun DemoQuickCredentialsCard(
                     text = "Tài khoản kiểm thử nhanh",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = "Chạm để chọn",
@@ -595,7 +587,7 @@ private fun DemoQuickCredentialsCard(
             ) {
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFE8F5E9),
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier
                         .weight(1f)
                         .clickable { onSelect("customer1", "Password@123") },
@@ -605,19 +597,28 @@ private fun DemoQuickCredentialsCard(
                             Icon(
                                 imageVector = Icons.Filled.Person,
                                 contentDescription = null,
-                                tint = VcbGreenPrimary,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(16.dp),
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text("Khách hàng", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = VcbGreenPrimary)
+                            Text(
+                                "Khách hàng",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
                         }
-                        Text("customer1", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "customer1",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        )
                     }
                 }
 
                 Surface(
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFFFF3E0),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
                     modifier = Modifier
                         .weight(1f)
                         .clickable { onSelect("officer1", "Password@123") },
@@ -627,13 +628,22 @@ private fun DemoQuickCredentialsCard(
                             Icon(
                                 imageVector = Icons.Filled.Badge,
                                 contentDescription = null,
-                                tint = Color(0xFFB45309),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(16.dp),
                             )
                             Spacer(Modifier.width(4.dp))
-                            Text("Cán bộ", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFB45309))
+                            Text(
+                                "Cán bộ",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
                         }
-                        Text("officer1", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "officer1",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                        )
                     }
                 }
             }

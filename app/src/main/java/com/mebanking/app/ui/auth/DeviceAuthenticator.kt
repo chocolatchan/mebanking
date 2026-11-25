@@ -35,6 +35,10 @@ class DeviceAuthenticator(private val activity: FragmentActivity) {
                 if (continuation.isActive) continuation.resume(DeviceAuthenticationResult.Authenticated)
             }
 
+            override fun onAuthenticationFailed() {
+                // Individual attempt did not match; BiometricPrompt handles retry or escalates to onAuthenticationError.
+            }
+
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 if (!continuation.isActive) return
                 val outcome = when (errorCode) {
@@ -48,17 +52,27 @@ class DeviceAuthenticator(private val activity: FragmentActivity) {
                 continuation.resume(outcome)
             }
         }
-        val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), callback)
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Xác thực giao dịch")
-            .setSubtitle("Xác nhận bằng sinh trắc học hoặc thông tin khóa thiết bị")
-            .setAllowedAuthenticators(authenticators)
-            .apply {
-                if (!modern) setNegativeButtonText("Hủy")
+        try {
+            val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), callback)
+            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Xác thực giao dịch")
+                .setSubtitle("Xác nhận bằng sinh trắc học hoặc thông tin khóa thiết bị")
+                .setAllowedAuthenticators(authenticators)
+                .apply {
+                    if (!modern) setNegativeButtonText("Hủy")
+                }
+                .build()
+            continuation.invokeOnCancellation {
+                try {
+                    prompt.cancelAuthentication()
+                } catch (_: Throwable) {}
             }
-            .build()
-        continuation.invokeOnCancellation { prompt.cancelAuthentication() }
-        prompt.authenticate(promptInfo)
+            prompt.authenticate(promptInfo)
+        } catch (t: Throwable) {
+            if (continuation.isActive) {
+                continuation.resume(DeviceAuthenticationResult.Failed(t.message ?: "Không thể khởi tạo xác thực thiết bị"))
+            }
+        }
     }
 
     private fun availabilityMessage(code: Int): String = when (code) {

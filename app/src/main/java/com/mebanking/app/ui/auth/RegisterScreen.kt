@@ -135,13 +135,13 @@ fun RegisterScreen(
                         modifier = Modifier
                             .size(60.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE8F5E9)),
+                            .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Filled.CheckCircle,
                             contentDescription = "Success",
-                            tint = VcbGreenPrimary,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(36.dp),
                         )
                     }
@@ -168,13 +168,13 @@ fun RegisterScreen(
                     Spacer(Modifier.height(4.dp))
 
                     Surface(
-                        color = Color(0xFFF1F5F9),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
-                            Text("Số tài khoản thanh toán:", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                            Text(result.accountNumber, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = VcbGreenPrimary)
+                            Text("Số tài khoản thanh toán:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(result.accountNumber, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
 
                             Spacer(Modifier.height(6.dp))
 
@@ -232,7 +232,7 @@ fun RegisterScreen(
                         )
                         Text(
                             text = "Đăng ký tài khoản thanh toán trực tuyến",
-                            color = Color(0xFFC7ECD3),
+                            color = Color.White.copy(alpha = 0.85f),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -431,7 +431,7 @@ fun RegisterScreen(
 
             // Notice on biometric requirement
             Surface(
-                color = Color(0xFFE8F5E9),
+                color = MaterialTheme.colorScheme.primaryContainer,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -443,13 +443,13 @@ fun RegisterScreen(
                     Icon(
                         imageVector = Icons.Filled.Face,
                         contentDescription = null,
-                        tint = VcbGreenPrimary,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(22.dp),
                     )
                     Text(
                         text = "Bước tiếp theo: Quét khuôn mặt để xác thực và kích hoạt tài khoản.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = VcbGreenDark,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
@@ -475,10 +475,10 @@ fun RegisterScreen(
                     }
                 },
                 enabled = !uiState.isSubmitting,
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = VcbGreenPrimary,
-                    disabledContainerColor = Color(0xFFA5D6A7),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -519,12 +519,12 @@ private fun StepChip(number: String, label: String, isActive: Boolean) {
             modifier = Modifier
                 .size(26.dp)
                 .clip(CircleShape)
-                .background(if (isActive) VcbGreenPrimary else Color(0xFFE0E0E0)),
+                .background(if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = number,
-                color = if (isActive) Color.White else Color.DarkGray,
+                color = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,
             )
@@ -533,7 +533,7 @@ private fun StepChip(number: String, label: String, isActive: Boolean) {
             text = label,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-            color = if (isActive) VcbGreenPrimary else Color.Gray,
+            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

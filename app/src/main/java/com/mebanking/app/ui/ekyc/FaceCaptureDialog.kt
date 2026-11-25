@@ -30,8 +30,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.AlertDialog
@@ -65,8 +67,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.mebanking.app.ui.theme.VcbGreenPrimary
+import com.mebanking.app.ui.theme.PastelPurpleLight
+import com.mebanking.app.ui.theme.PastelPurplePrimary
 
 /**
  * Interactive Live Camera Viewfinder and Face Verification Dialog.
@@ -113,8 +117,18 @@ fun FaceCaptureDialog(
     DisposableEffect(lifecycleOwner) {
         onDispose {
             try {
-                val cameraProvider = ProcessCameraProvider.getInstance(context).get()
-                cameraProvider.unbindAll()
+                val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+                if (cameraProviderFuture.isDone) {
+                    cameraProviderFuture.get().unbindAll()
+                } else {
+                    cameraProviderFuture.addListener({
+                        try {
+                            cameraProviderFuture.get().unbindAll()
+                        } catch (_: Throwable) {
+                            // Ignore if provider failed or already released
+                        }
+                    }, ContextCompat.getMainExecutor(context))
+                }
             } catch (_: Throwable) {
                 // Ignore if provider not initialized
             }
@@ -136,6 +150,7 @@ fun FaceCaptureDialog(
         onDismissRequest = { if (!isProcessing) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier.padding(16.dp),
+        shape = RoundedCornerShape(16.dp),
         title = {
             Column {
                 Text(
@@ -154,6 +169,7 @@ fun FaceCaptureDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -161,9 +177,9 @@ fun FaceCaptureDialog(
                 Box(
                     modifier = Modifier
                         .size(240.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF1A1C1E))
-                        .border(2.dp, Color(0xFF43474E), RoundedCornerShape(16.dp)),
+                        .border(2.dp, PastelPurplePrimary.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (hasCameraPermission) {
@@ -177,7 +193,10 @@ fun FaceCaptureDialog(
                                 val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
                                 cameraProviderFuture.addListener({
                                     try {
-                                        if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                        if (
+                                            lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.INITIALIZED) &&
+                                            ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                                        ) {
                                             val cameraProvider = cameraProviderFuture.get()
                                             val preview = Preview.Builder().build().also {
                                                 it.setSurfaceProvider(previewView.surfaceProvider)
@@ -193,7 +212,7 @@ fun FaceCaptureDialog(
                                             }
                                         }
                                     } catch (_: Throwable) {
-                                        // Fallback for tests/emulators
+                                        // Fallback for tests/emulators/dismissed dialog
                                     }
                                 }, ContextCompat.getMainExecutor(ctx))
                                 previewView
@@ -224,7 +243,8 @@ fun FaceCaptureDialog(
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(
                                     onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = VcbGreenPrimary),
+                                    colors = ButtonDefaults.buttonColors(containerColor = PastelPurplePrimary),
+                                    shape = RoundedCornerShape(10.dp),
                                 ) {
                                     Text("Cấp quyền", fontSize = 12.sp)
                                 }
@@ -256,7 +276,7 @@ fun FaceCaptureDialog(
 
                         // Outer oval boundary
                         drawOval(
-                            color = Color(0xFF4CAF50),
+                            color = PastelPurpleLight,
                             topLeft = topLeft,
                             size = Size(ovalWidth, ovalHeight),
                             style = Stroke(width = 3.dp.toPx()),
@@ -265,7 +285,7 @@ fun FaceCaptureDialog(
                         // Animated scanning beam
                         val currentScanY = size.height * scanLineY
                         drawLine(
-                            color = Color(0x8081C784),
+                            color = PastelPurpleLight.copy(alpha = 0.55f),
                             start = Offset(x = topLeft.x, y = currentScanY),
                             end = Offset(x = topLeft.x + ovalWidth, y = currentScanY),
                             strokeWidth = 2.dp.toPx(),
@@ -287,7 +307,7 @@ fun FaceCaptureDialog(
                         ) {
                             Text(
                                 text = if (hasCameraPermission) "● Live Camera" else "● Giả lập khuôn mặt",
-                                color = Color(0xFF81C784),
+                                color = PastelPurpleLight,
                                 fontSize = 11.sp,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                             )
@@ -322,7 +342,7 @@ fun FaceCaptureDialog(
                     modifier = Modifier
                         .size(64.dp)
                         .clip(CircleShape)
-                        .background(if (isProcessing) Color.Gray else VcbGreenPrimary)
+                        .background(if (isProcessing) Color.Gray else PastelPurplePrimary)
                         .border(3.dp, Color.White, CircleShape)
                         .clickable(enabled = !isProcessing) {
                             val clearFrame = "clear_face_live_camera_capture_112x112".toByteArray(Charsets.ISO_8859_1)
@@ -354,12 +374,19 @@ fun FaceCaptureDialog(
 
                 if (errorMessage != null) {
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = errorMessage,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                    )
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(10.dp),
+                        )
+                    }
                 }
             }
         },
@@ -372,7 +399,8 @@ fun FaceCaptureDialog(
                     }
                 },
                 enabled = !isProcessing,
-                colors = ButtonDefaults.buttonColors(containerColor = VcbGreenPrimary),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PastelPurplePrimary),
             ) {
                 if (isProcessing) {
                     CircularProgressIndicator(
@@ -391,6 +419,7 @@ fun FaceCaptureDialog(
             OutlinedButton(
                 onClick = onDismiss,
                 enabled = !isProcessing,
+                shape = RoundedCornerShape(10.dp),
             ) {
                 Text("Hủy")
             }

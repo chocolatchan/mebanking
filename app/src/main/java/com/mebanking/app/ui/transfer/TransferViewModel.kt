@@ -201,12 +201,12 @@ class TransferViewModel(
                 }
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (t: Throwable) {
                 _uiState.update {
                     it.copy(
                         isFaceVerifying = false,
                         showFaceVerificationDialog = false,
-                        errorMessage = e.toDomainError().message,
+                        errorMessage = t.toDomainError().message,
                     )
                 }
             }

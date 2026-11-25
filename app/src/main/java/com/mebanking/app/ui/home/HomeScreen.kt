@@ -1155,7 +1155,7 @@ private fun UtilityServicesGrid(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    UtilityGridItem(icon = Icons.Filled.SupervisorAccount, label = "Quản lý hồ sơ", bgColor = Color(0xFFE8F5E9), tintColor = VcbGreenPrimary, onClick = onNavigateToOfficerDashboard)
+                    UtilityGridItem(icon = Icons.Filled.SupervisorAccount, label = "Quản lý hồ sơ", bgColor = MaterialTheme.colorScheme.primaryContainer, tintColor = MaterialTheme.colorScheme.primary, onClick = onNavigateToOfficerDashboard)
                     UtilityGridItem(icon = Icons.Filled.Map, label = "Bản đồ PGD", bgColor = Color(0xFFE0F7FA), tintColor = Color(0xFF00838F), onClick = onNavigateToBranchLocator)
                     UtilityGridItem(icon = Icons.Filled.SupportAgent, label = "Trợ lý nội bộ", bgColor = Color(0xFFEDE7F6), tintColor = Color(0xFF512DA8), onClick = onNavigateToChatbot)
                     UtilityGridItem(icon = Icons.Filled.Assessment, label = "Báo cáo GD", bgColor = Color(0xFFFFF3E0), tintColor = Color(0xFFE65100), onClick = onNavigateToHistory)

@@ -1,5 +1,6 @@
 package com.mebanking.app.ui.services
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -85,7 +86,7 @@ fun ServicesScreen(
                         )
                         Text(
                             text = "Hệ sinh thái thanh toán & phong cách sống",
-                            color = Color(0xFFC7ECD3),
+                            color = Color.White.copy(alpha = 0.85f),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -100,7 +101,7 @@ fun ServicesScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = VcbGreenPrimary,
+                    containerColor = MaterialTheme.colorScheme.primary,
                 ),
             )
         },
@@ -109,7 +110,7 @@ fun ServicesScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFF8FAF9)),
+                .background(MaterialTheme.colorScheme.background),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
@@ -118,9 +119,10 @@ fun ServicesScreen(
                 ServiceSectionHeader("Thanh toán & Hóa đơn", "Điện, nước, internet & nạp tiền")
                 Spacer(Modifier.height(8.dp))
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
@@ -144,8 +146,8 @@ fun ServicesScreen(
                         ServiceDivider()
                         ServiceItemRow(
                             icon = Icons.AutoMirrored.Filled.Send,
-                            iconColor = VcbGreenPrimary,
-                            iconBg = Color(0xFFE8F5E9),
+                            iconColor = MaterialTheme.colorScheme.primary,
+                            iconBg = MaterialTheme.colorScheme.primaryContainer,
                             title = "Chuyển tiền nhanh 24/7",
                             subtitle = "Miễn phí chuyển khoản nội bộ & liên ngân hàng",
                             onClick = onNavigateToTransfer,
@@ -159,9 +161,10 @@ fun ServicesScreen(
                 ServiceSectionHeader("Du lịch & Giải trí", "Vé máy bay, khách sạn và phim ảnh")
                 Spacer(Modifier.height(8.dp))
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
@@ -200,9 +203,10 @@ fun ServicesScreen(
                 ServiceSectionHeader("Mua sắm & Tiêu dùng", "Đặc quyền mua sắm hoàn tiền")
                 Spacer(Modifier.height(8.dp))
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
@@ -223,18 +227,19 @@ fun ServicesScreen(
                 ServiceSectionHeader("Tiện ích ngân hàng", "Bản đồ chi nhánh & Trợ lý ảo")
                 Spacer(Modifier.height(8.dp))
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(modifier = Modifier.padding(vertical = 4.dp)) {
                         ServiceItemRow(
                             icon = Icons.Filled.LocationOn,
-                            iconColor = Color(0xFF388E3C),
-                            iconBg = Color(0xFFE8F5E9),
+                            iconColor = MaterialTheme.colorScheme.primary,
+                            iconBg = MaterialTheme.colorScheme.primaryContainer,
                             title = "Mạng lưới ATM & Chi nhánh",
-                            subtitle = "Bản đồ Google Maps, chỉ đường thông minh",
+                            subtitle = "Bản đồ trực quan, chỉ đường thông minh",
                             onClick = onNavigateToBranchLocator,
                         )
                         ServiceDivider()
