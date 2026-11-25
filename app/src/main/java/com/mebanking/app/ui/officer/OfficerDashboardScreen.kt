@@ -74,6 +74,7 @@ fun OfficerDashboardScreen(onBack: () -> Unit) {
         onKyc = viewModel::onKycChanged,
         onSave = viewModel::save,
         onEnrollFace = { customerId, frame -> viewModel.enrollFaceBiometrics(customerId, frame) },
+        onOpenAccount = viewModel::openAccountForSelectedCustomer,
     )
 }
 
@@ -94,6 +95,7 @@ private fun OfficerDashboardContent(
     onKyc: (Boolean) -> Unit,
     onSave: () -> Unit,
     onEnrollFace: (Long, ByteArray) -> Unit = { _, _ -> },
+    onOpenAccount: (com.mebanking.app.domain.model.AccountType) -> Unit = {},
 ) {
     var enrollingCustomerId by remember { mutableStateOf<Long?>(null) }
     val listState = rememberLazyListState()
@@ -222,9 +224,64 @@ private fun OfficerDashboardContent(
             }
             if (!state.isCreating && state.selectedCustomer != null) {
                 item {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = "Tài khoản liên kết (${state.selectedCustomerAccounts.size})",
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            if (state.selectedCustomerAccounts.isEmpty()) {
+                                Text(
+                                    text = "Khách hàng chưa có tài khoản nào.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                state.selectedCustomerAccounts.forEach { acc ->
+                                    Text(
+                                        text = "• ${acc.accountNumber} (${acc.accountType.name}) — ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(acc.balance)} [${acc.status}]",
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                OutlinedButton(
+                                    onClick = { onOpenAccount(com.mebanking.app.domain.model.AccountType.CHECKING) },
+                                    enabled = !state.isLoading,
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text("+ TK Thanh toán", style = MaterialTheme.typography.labelSmall)
+                                }
+                                OutlinedButton(
+                                    onClick = { onOpenAccount(com.mebanking.app.domain.model.AccountType.SAVING) },
+                                    enabled = !state.isLoading,
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text("+ TK Tiết kiệm", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
                     OutlinedButton(
                         onClick = { enrollingCustomerId = state.selectedCustomer.id },
                         enabled = !state.isLoading,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {

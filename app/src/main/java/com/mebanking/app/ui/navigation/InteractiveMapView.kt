@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -29,6 +32,7 @@ fun InteractiveMapView(
     branches: List<BranchDistance>,
     selectedBranch: BranchDistance?,
     onBranchClick: (BranchDistance) -> Unit,
+    onMapUnavailable: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -40,11 +44,29 @@ fun InteractiveMapView(
             settings.allowFileAccess = true
             settings.loadWithOverviewMode = true
             settings.useWideViewPort = true
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    view?.evaluateJavascript(
+                        "(function(){ if (typeof L === 'undefined' && window.AndroidBridge && window.AndroidBridge.onLeafletUnavailable) { window.AndroidBridge.onLeafletUnavailable(); } })();",
+                        null,
+                    )
+                }
+
+                override fun onReceivedError(
+                    view: WebView?,
+                    request: android.webkit.WebResourceRequest?,
+                    error: android.webkit.WebResourceError?,
+                ) {
+                    if (request?.isForMainFrame == true) {
+                        onMapUnavailable()
+                    }
+                }
+            }
         }
     }
 
-    val jsInterface = remember(branches, onBranchClick) {
+    val jsInterface = remember(branches, onBranchClick, onMapUnavailable) {
         object {
             @JavascriptInterface
             fun onMarkerClicked(branchId: Long) {
@@ -53,6 +75,13 @@ fun InteractiveMapView(
                     webView.post {
                         onBranchClick(matched)
                     }
+                }
+            }
+
+            @JavascriptInterface
+            fun onLeafletUnavailable() {
+                webView.post {
+                    onMapUnavailable()
                 }
             }
         }

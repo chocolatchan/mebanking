@@ -417,6 +417,7 @@ private fun ModernAccountsContent(
                     onTransfer = { onNavigateToTransfer(null, null, null, null) },
                     onDeposit = onNavigateToDeposit,
                     onHistory = onNavigateToHistory,
+                    onOfficerDashboard = onNavigateToOfficerDashboard,
                     isCustomer = isCustomer,
                 )
             }
@@ -467,56 +468,58 @@ private fun ModernAccountsContent(
             )
         }
 
-        // 6. Accounts List Section
-        item {
-            Spacer(Modifier.height(20.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Tài khoản thanh toán",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "${uiState.accounts.size} tài khoản",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-
-        if (uiState.accounts.isEmpty()) {
+        // 6. Accounts List Section (Customer only)
+        if (isCustomer) {
             item {
-                Card(
+                Spacer(Modifier.height(20.dp))
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = stringResource(R.string.home_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(20.dp),
+                        text = "Tài khoản thanh toán",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "${uiState.accounts.size} tài khoản",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
             }
-        } else {
-            items(uiState.accounts.distinctBy { it.id }, key = { "account-${it.id}" }) { account ->
-                ModernAccountItem(
-                    account = account,
-                    isBalanceHidden = isBalanceHidden,
-                    onClick = {
-                        account.id.toLongOrNull()?.let(onNavigateToAccountDetail)
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                )
+
+            if (uiState.accounts.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.home_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(20.dp),
+                        )
+                    }
+                }
+            } else {
+                items(uiState.accounts.distinctBy { it.id }, key = { "account-${it.id}" }) { account ->
+                    ModernAccountItem(
+                        account = account,
+                        isBalanceHidden = isBalanceHidden,
+                        onClick = {
+                            account.id.toLongOrNull()?.let(onNavigateToAccountDetail)
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                    )
+                }
             }
         }
     }
@@ -624,10 +627,11 @@ private fun VipBankMasterCard(
     onTransfer: () -> Unit,
     onDeposit: () -> Unit,
     onHistory: () -> Unit,
+    onOfficerDashboard: () -> Unit = {},
     isCustomer: Boolean,
 ) {
     val primaryAccount = uiState.accounts.firstOrNull()
-    val accountNumber = primaryAccount?.iban ?: "1001 2345 6789"
+    val accountNumber = primaryAccount?.iban ?: "Chưa có"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -682,89 +686,110 @@ private fun VipBankMasterCard(
 
                 Spacer(Modifier.height(14.dp))
 
-                // Account Number & Vector Copy Button
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                if (!isCustomer) {
                     Text(
-                        text = "STK: $accountNumber",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
+                        text = "Cổng Cán Bộ Quản Trị",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
                     )
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
-                            .clickable { onCopyAccount(accountNumber) }
-                            .padding(horizontal = 7.dp, vertical = 3.dp),
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Quản lý hồ sơ khách hàng, mở tài khoản thanh toán/tiết kiệm và xác minh eKYC.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Button(
+                        onClick = onOfficerDashboard,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Mở Quản lý hồ sơ khách hàng", fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    // Account Number & Vector Copy Button
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "STK: $accountNumber",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                                .clickable { onCopyAccount(accountNumber) }
+                                .padding(horizontal = 7.dp, vertical = 3.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Sao chép",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Filled.ContentCopy,
+                                    contentDescription = "Sao chép số tài khoản",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(12.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // Balance with Vector Eye Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column {
                             Text(
-                                text = "Sao chép",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                text = "Số dư khả dụng",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelMedium,
                             )
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = if (isBalanceHidden) "•••••••• đ" else CurrencyFormatter.formatVnd(uiState.totalBalance),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+
+                        // Vector Eye button
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                .clickable(onClick = onToggleBalanceVisibility),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Icon(
-                                imageVector = Icons.Filled.ContentCopy,
-                                contentDescription = "Sao chép số tài khoản",
+                                imageVector = if (isBalanceHidden) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                contentDescription = if (isBalanceHidden) "Hiện số dư" else "Ẩn số dư",
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(12.dp),
+                                modifier = Modifier.size(18.dp),
                             )
                         }
                     }
-                }
 
-                Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(12.dp))
 
-                // Balance with Vector Eye Toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column {
-                        Text(
-                            text = "Số dư khả dụng",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            text = if (isBalanceHidden) "•••••••• đ" else CurrencyFormatter.formatVnd(uiState.totalBalance),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-
-                    // Vector Eye button
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                            .clickable(onClick = onToggleBalanceVisibility),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = if (isBalanceHidden) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                            contentDescription = if (isBalanceHidden) "Hiện số dư" else "Ẩn số dư",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                // Bottom row inside card: Transaction History Link
-                if (isCustomer) {
+                    // Bottom row inside card: Transaction History Link
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,

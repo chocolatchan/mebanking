@@ -32,6 +32,16 @@ interface OfficerCustomerService {
         kycVerified: Boolean? = null,
         nationalId: String? = null,
     ): Result<Unit>
+
+    suspend fun getCustomerAccounts(targetUserId: Long): Result<List<com.mebanking.app.domain.model.Account>> =
+        Result.success(emptyList())
+
+    suspend fun openAccountForCustomer(
+        targetUserId: Long,
+        accountType: AccountType,
+        initialBalance: Long = 0L,
+    ): Result<com.mebanking.app.domain.model.Account> =
+        Result.failure(DomainError.SystemError("Tính năng mở tài khoản chưa được hỗ trợ"))
 }
 
 class DefaultOfficerCustomerService(
@@ -209,5 +219,53 @@ class DefaultOfficerCustomerService(
         )
         userDao.update(updated)
         return Result.success(Unit)
+    }
+
+    override suspend fun getCustomerAccounts(targetUserId: Long): Result<List<com.mebanking.app.domain.model.Account>> {
+        val session = sessionManager.currentSession
+            ?: return Result.failure(DomainError.Unauthorized("Authentication required"))
+        if (session.role != Role.OFFICER) {
+            return Result.failure(DomainError.Forbidden("Only bank officers can view customer accounts"))
+        }
+        return Result.success(accountDao.getAccountsByUserIdSync(targetUserId).map { it.toDomainModel() })
+    }
+
+    override suspend fun openAccountForCustomer(
+        targetUserId: Long,
+        accountType: AccountType,
+        initialBalance: Long,
+    ): Result<com.mebanking.app.domain.model.Account> {
+        val session = sessionManager.currentSession
+            ?: return Result.failure(DomainError.Unauthorized("Authentication required"))
+        if (session.role != Role.OFFICER) {
+            return Result.failure(DomainError.Forbidden("Only bank officers can open accounts"))
+        }
+        val customer = userDao.getById(targetUserId)
+            ?: return Result.failure(DomainError.NotFound("Không tìm thấy khách hàng"))
+        if (customer.role != Role.CUSTOMER) {
+            return Result.failure(DomainError.Forbidden("Chỉ mở tài khoản cho khách hàng"))
+        }
+        if (initialBalance < 0L) {
+            return Result.failure(DomainError.InvalidData("Số dư ban đầu không hợp lệ"))
+        }
+
+        val prefix = when (accountType) {
+            AccountType.CHECKING -> "100"
+            AccountType.SAVING -> "200"
+            AccountType.MORTGAGE -> "300"
+        }
+        val existingCount = accountDao.getAccountsByUserIdSync(targetUserId).size
+        val accountNumber = prefix + String.format("%05d%02d", targetUserId, existingCount + 1)
+
+        val entity = AccountEntity(
+            userId = targetUserId,
+            accountNumber = accountNumber,
+            accountType = accountType,
+            balance = initialBalance,
+            currency = "VND",
+            status = "ACTIVE",
+        )
+        val newId = accountDao.insert(entity)
+        return Result.success(entity.copy(id = newId).toDomainModel())
     }
 }

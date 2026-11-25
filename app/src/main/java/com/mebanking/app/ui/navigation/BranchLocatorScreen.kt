@@ -130,6 +130,7 @@ fun BranchLocatorContent(
                     branches = uiState.branches,
                     selectedBranch = uiState.selectedBranch,
                     onBranchClick = onBranchSelected,
+                    onMapUnavailable = { mapMode = MapViewMode.OFFLINE_VECTOR },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

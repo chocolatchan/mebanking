@@ -2,6 +2,8 @@ package com.mebanking.app.ui.officer
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mebanking.app.domain.model.Account
+import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.User
 import com.mebanking.app.domain.service.OfficerCustomerService
@@ -21,6 +23,7 @@ data class OfficerDashboardUiState(
     val customers: List<User> = emptyList(),
     val query: String = "",
     val selectedCustomer: User? = null,
+    val selectedCustomerAccounts: List<Account> = emptyList(),
     val username: String = "",
     val password: String = "",
     val fullName: String = "",
@@ -56,12 +59,43 @@ class OfficerDashboardViewModel(
     fun onKycChanged(value: Boolean) = _uiState.update { it.copy(kycVerified = value) }
 
     fun selectCustomer(customer: User) {
-        _uiState.update { it.copy(selectedCustomer = customer, username = customer.username, password = "", fullName = customer.fullName,
+        _uiState.update { it.copy(selectedCustomer = customer, selectedCustomerAccounts = emptyList(), username = customer.username, password = "", fullName = customer.fullName,
             email = customer.email, phone = customer.phone, nationalId = customer.nationalId.orEmpty(), kycVerified = customer.kycVerified,
             errorMessage = null, successMessage = null) }
+        viewModelScope.launch {
+            customerService.getCustomerAccounts(customer.id).onSuccess { accounts ->
+                if (_uiState.value.selectedCustomer?.id == customer.id) {
+                    _uiState.update { it.copy(selectedCustomerAccounts = accounts) }
+                }
+            }
+        }
     }
 
-    fun newCustomer() { _uiState.update { it.copy(selectedCustomer = null, username = "", password = "", fullName = "", email = "", phone = "", nationalId = "", kycVerified = false, errorMessage = null, successMessage = null) } }
+    fun newCustomer() { _uiState.update { it.copy(selectedCustomer = null, selectedCustomerAccounts = emptyList(), username = "", password = "", fullName = "", email = "", phone = "", nationalId = "", kycVerified = false, errorMessage = null, successMessage = null) } }
+
+    fun openAccountForSelectedCustomer(accountType: AccountType) {
+        val customer = _uiState.value.selectedCustomer ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+            customerService.openAccountForCustomer(customer.id, accountType).fold(
+                onSuccess = { newAcc ->
+                    val accounts = customerService.getCustomerAccounts(customer.id).getOrDefault(_uiState.value.selectedCustomerAccounts)
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            selectedCustomerAccounts = accounts,
+                            successMessage = "Đã mở tài khoản ${newAcc.accountNumber} cho khách hàng ${customer.fullName}",
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(isLoading = false, errorMessage = error.message ?: "Không thể mở tài khoản")
+                    }
+                },
+            )
+        }
+    }
 
     fun enrollFaceBiometrics(customerId: Long, imageBytes: ByteArray = "clear_face".toByteArray(Charsets.ISO_8859_1)) {
         val session = sessionManager.currentSession
