@@ -1,8 +1,12 @@
 package com.mebanking.app.ui.vnpay
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.net.Uri
+import android.net.http.SslError
 import android.view.ViewGroup
 import android.webkit.CookieManager
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -504,17 +508,29 @@ private fun VnPayWebViewScreen(
                 )
             }
             if (loadError != null) {
+                val ctx = LocalContext.current
                 Surface(
                     color = MaterialTheme.colorScheme.errorContainer,
                     modifier = Modifier.fillMaxWidth().padding(12.dp),
                     shape = RoundedCornerShape(10.dp),
                 ) {
-                    Text(
-                        text = "Không tải được trang VNPay Sandbox ($loadError). Bạn có thể kiểm tra mạng hoặc bấm 'Giả lập Thành công' bên dưới để test luồng HMAC-SHA512.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(12.dp),
-                    )
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = loadError!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(paymentUrl)))
+                                } catch (_: Throwable) {}
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Text("Mở cổng VNPay bằng trình duyệt", fontSize = 12.sp)
+                        }
+                    }
                 }
             }
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -562,8 +578,17 @@ private fun VnPayWebViewScreen(
                                     error: WebResourceError?,
                                 ) {
                                     if (request?.isForMainFrame == true) {
-                                        loadError = error?.description?.toString() ?: "Lỗi kết nối"
+                                        loadError = "Không tải được trang VNPay Sandbox (${error?.description ?: "Lỗi kết nối"})."
                                     }
+                                }
+
+                                override fun onReceivedSslError(
+                                    view: WebView?,
+                                    handler: SslErrorHandler?,
+                                    error: SslError?,
+                                ) {
+                                    handler?.cancel()
+                                    loadError = "Lỗi chứng chỉ SSL (mã ${error?.primaryError}): Thường do ngày/giờ trên thiết bị lệch với chứng chỉ của sandbox.vnpayment.vn. Hãy kiểm tra Ngày & Giờ trên điện thoại hoặc mở bằng trình duyệt."
                                 }
                             }
                             loadUrl(paymentUrl)
