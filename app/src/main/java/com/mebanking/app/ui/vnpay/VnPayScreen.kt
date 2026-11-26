@@ -81,6 +81,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mebanking.app.BuildConfig
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.service.vnpay.VnPayConfig
 import com.mebanking.app.domain.util.CurrencyFormatter
@@ -438,6 +439,47 @@ private fun VnPayWebViewScreen(
 
     var loadProgress by remember { mutableStateOf(0) }
     var loadError by remember { mutableStateOf<String?>(null) }
+    var pendingSslHandler by remember { mutableStateOf<SslErrorHandler?>(null) }
+    var pendingSslUrl by remember { mutableStateOf("") }
+
+    if (pendingSslHandler != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {
+                pendingSslHandler?.cancel()
+                pendingSslHandler = null
+            },
+            shape = RoundedCornerShape(16.dp),
+            title = { Text("Xác nhận SSL VNPay Sandbox", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Chứng chỉ SSL của $pendingSslUrl không khớp với đồng hồ thiết bị. Bạn có muốn tiếp tục tải trang VNPay Sandbox (chỉ dùng khi kiểm thử Debug) không?",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        pendingSslHandler?.proceed()
+                        pendingSslHandler = null
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                ) {
+                    Text("Tiếp tục tải Sandbox")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingSslHandler?.cancel()
+                        pendingSslHandler = null
+                        loadError = "Đã hủy kết nối SSL không hợp lệ"
+                    },
+                ) {
+                    Text("Hủy")
+                }
+            },
+        )
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -587,8 +629,14 @@ private fun VnPayWebViewScreen(
                                     handler: SslErrorHandler?,
                                     error: SslError?,
                                 ) {
-                                    handler?.cancel()
-                                    loadError = "Lỗi chứng chỉ SSL (mã ${error?.primaryError}): Thường do ngày/giờ trên thiết bị lệch với chứng chỉ của sandbox.vnpayment.vn. Hãy kiểm tra Ngày & Giờ trên điện thoại hoặc mở bằng trình duyệt."
+                                    val errUrl = error?.url.orEmpty()
+                                    if (BuildConfig.DEBUG && errUrl.contains("sandbox.vnpayment.vn", ignoreCase = true) && handler != null) {
+                                        pendingSslUrl = errUrl
+                                        pendingSslHandler = handler
+                                    } else {
+                                        handler?.cancel()
+                                        loadError = "Lỗi chứng chỉ SSL (mã ${error?.primaryError}): Thường do ngày/giờ trên thiết bị lệch với chứng chỉ của sandbox.vnpayment.vn. Hãy kiểm tra Ngày & Giờ trên điện thoại hoặc mở bằng trình duyệt."
+                                    }
                                 }
                             }
                             loadUrl(paymentUrl)
