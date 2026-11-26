@@ -39,6 +39,7 @@ import com.mebanking.app.ui.navigation.BranchLocatorScreen
 import com.mebanking.app.ui.officer.OfficerDashboardScreen
 import com.mebanking.app.ui.services.ServicesScreen
 import com.mebanking.app.ui.transfer.TransferScreen
+import com.mebanking.app.ui.vnpay.VnPayScreen
 
 /**
  * Root composable hosting authentication gating and top-level Compose
@@ -242,7 +243,11 @@ private fun AuthenticatedApp(
                 onNavigateToBranchLocator = { navController.navigate("branch_locator") { launchSingleTop = true } },
                 onNavigateToChatbot = { navController.navigate("chatbot") { launchSingleTop = true } },
                 onNavigateToTransfer = { navController.navigate("transfer") { launchSingleTop = true } },
+                onNavigateToVnPay = { navController.navigate("vnpay") { launchSingleTop = true } },
             )
+        }
+        composable("vnpay") {
+            VnPayScreen(onBack = { navController.popBackStack() })
         }
         composable("chatbot") {
             ChatbotScreen(

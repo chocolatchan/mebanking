@@ -19,6 +19,7 @@ import com.mebanking.app.ui.lifestyle.TopupViewModel
 import com.mebanking.app.ui.navigation.BranchLocatorViewModel
 import com.mebanking.app.ui.officer.OfficerDashboardViewModel
 import com.mebanking.app.ui.transfer.TransferViewModel
+import com.mebanking.app.ui.vnpay.VnPayViewModel
 
 class ViewModelFactory(
     private val container: AppContainer,
@@ -136,6 +137,13 @@ class ViewModelFactory(
                     sessionManager = container.sessionManager,
                     accountRepository = container.accountRepository,
                     transactionService = container.transactionService,
+                ) as T
+            }
+            modelClass.isAssignableFrom(VnPayViewModel::class.java) -> {
+                VnPayViewModel(
+                    accountRepository = container.accountRepository,
+                    transactionService = container.transactionService,
+                    sessionManager = container.sessionManager,
                 ) as T
             }
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

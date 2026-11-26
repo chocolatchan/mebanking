@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Hotel
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingBag
@@ -96,6 +97,7 @@ fun ServicesScreen(
     onNavigateToBranchLocator: () -> Unit,
     onNavigateToChatbot: () -> Unit,
     onNavigateToTransfer: () -> Unit,
+    onNavigateToVnPay: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isDark = isSystemInDarkTheme()
@@ -114,8 +116,17 @@ fun ServicesScreen(
         onNavigateToShop,
         onNavigateToBranchLocator,
         onNavigateToChatbot,
+        onNavigateToVnPay,
     ) {
         listOf(
+            ServiceMenuItem(
+                category = ServiceCategory.PAYMENT,
+                icon = Icons.Filled.QrCode2,
+                iconColor = PastelPurplePrimary,
+                title = "Cổng thanh toán VNPay",
+                subtitle = "Thanh toán liên ngân hàng qua VNPay Sandbox 2.1.0",
+                onClick = onNavigateToVnPay,
+            ),
             ServiceMenuItem(
                 category = ServiceCategory.PAYMENT,
                 icon = Icons.Filled.Receipt,
