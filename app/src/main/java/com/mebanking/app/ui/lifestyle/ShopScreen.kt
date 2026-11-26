@@ -159,6 +159,10 @@ fun ShopScreen(
                 }
             }
 
+            val requestShopAuth = com.mebanking.app.ui.components.rememberServicePaymentAuthGate {
+                viewModel.checkout()
+            }
+
             when (uiState.selectedTab) {
                 0 -> ProductCatalogContent(
                     uiState = uiState,
@@ -171,7 +175,7 @@ fun ShopScreen(
                     onRemoveItem = viewModel::removeFromCart,
                     onClearCart = viewModel::clearCart,
                     onAddressChanged = viewModel::onDeliveryAddressChanged,
-                    onCheckout = viewModel::checkout,
+                    onCheckout = { requestShopAuth("Xác thực thanh toán đơn hàng ME Shop") },
                 )
                 2 -> OrdersContent(
                     orders = uiState.userOrders,

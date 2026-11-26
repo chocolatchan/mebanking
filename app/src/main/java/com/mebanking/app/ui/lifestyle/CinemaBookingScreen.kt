@@ -157,13 +157,17 @@ fun CinemaBookingScreen(
                 }
             }
 
+            val requestCinemaAuth = com.mebanking.app.ui.components.rememberServicePaymentAuthGate {
+                viewModel.bookSeats()
+            }
+
             if (uiState.selectedTab == 0) {
                 CinemaSeatSelectionContent(
                     uiState = uiState,
                     onMovieSelected = viewModel::onMovieSelected,
                     onShowtimeSelected = viewModel::onShowtimeSelected,
                     onToggleSeat = viewModel::toggleSeat,
-                    onBookSeats = viewModel::bookSeats,
+                    onBookSeats = { requestCinemaAuth("Xác thực thanh toán vé xem phim") },
                 )
             } else {
                 MyCinemaTicketsContent(

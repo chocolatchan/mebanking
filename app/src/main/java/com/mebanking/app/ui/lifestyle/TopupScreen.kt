@@ -160,13 +160,17 @@ fun TopupScreen(
                 }
             }
 
+            val requestTopupAuth = com.mebanking.app.ui.components.rememberServicePaymentAuthGate {
+                viewModel.executeTopup()
+            }
+
             when (uiState.selectedTab) {
                 0 -> MobileTopupContent(
                     uiState = uiState,
                     onPhoneChanged = viewModel::onPhoneNumberChanged,
                     onCarrierSelected = viewModel::onCarrierSelected,
                     onAmountSelected = viewModel::onAmountSelected,
-                    onExecuteTopup = viewModel::executeTopup,
+                    onExecuteTopup = { requestTopupAuth("Xác thực nạp tiền điện thoại ${uiState.phoneNumber}") },
                 )
                 1 -> BillLookupContent(
                     uiState = uiState,

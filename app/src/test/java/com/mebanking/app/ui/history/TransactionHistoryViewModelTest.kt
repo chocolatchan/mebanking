@@ -61,8 +61,26 @@ class TransactionHistoryViewModelTest {
         assertEquals(listOf(TransactionType.INTERNAL_TRANSFER), viewModel.uiState.value.filteredTransactions.map { it.type })
     }
 
-    @Test fun historyAndDetailRejectOfficerSession() = runTest {
+    @Test fun historyAndDetailAllowOfficerToViewAllTransactions() = runTest {
+        val txId = db.transactionDao().insert(TransactionEntity(
+            fromAccountId = 1L, toAccountId = 2L, amount = 55_000L,
+            type = TransactionType.INTERNAL_TRANSFER, status = TransactionStatus.SUCCESS, timestamp = 300L,
+        ))
         sessions.startSession(UserSession(2L, "officer1", Role.OFFICER, "Cán bộ"))
+        val history = TransactionHistoryViewModel(repository, sessions).uiState.first { !it.isLoading }
+        assertTrue(history.isOfficerView)
+        assertNull(history.errorMessage)
+        assertTrue(history.transactions.any { it.id == txId })
+
+        val detail = TransactionDetailViewModel(repository, sessions)
+        detail.load(txId)
+        val state = detail.uiState.first { !it.isLoading }
+        assertEquals(txId, state.transaction?.id)
+        assertNull(state.errorMessage)
+    }
+
+    @Test fun historyAndDetailRejectUnauthenticatedSession() = runTest {
+        sessions.logout()
         val history = TransactionHistoryViewModel(repository, sessions).uiState.first { !it.isLoading }
         assertTrue(history.errorMessage?.contains("quyền") == true)
 

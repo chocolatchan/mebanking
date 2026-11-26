@@ -155,6 +155,10 @@ fun HotelBookingScreen(
                 }
             }
 
+            val requestHotelAuth = com.mebanking.app.ui.components.rememberServicePaymentAuthGate {
+                viewModel.bookHotel()
+            }
+
             if (uiState.selectedTab == 0) {
                 HotelSearchAndBookContent(
                     uiState = uiState,
@@ -162,7 +166,7 @@ fun HotelBookingScreen(
                     onHotelSelected = viewModel::onHotelSelected,
                     onGuestNameChanged = viewModel::onGuestNameChanged,
                     onNightsChanged = viewModel::onNightsChanged,
-                    onBookHotel = viewModel::bookHotel,
+                    onBookHotel = { requestHotelAuth("Xác thực thanh toán đặt phòng khách sạn") },
                 )
             } else {
                 MyHotelBookingsContent(

@@ -159,6 +159,10 @@ fun FlightBookingScreen(
                 }
             }
 
+            val requestFlightAuth = com.mebanking.app.ui.components.rememberServicePaymentAuthGate {
+                viewModel.bookFlight()
+            }
+
             if (uiState.selectedTab == 0) {
                 FlightSearchAndBookContent(
                     uiState = uiState,
@@ -167,7 +171,7 @@ fun FlightBookingScreen(
                     onFlightSelected = viewModel::onFlightSelected,
                     onPassengerNameChanged = viewModel::onPassengerNameChanged,
                     onSeatClassChanged = viewModel::onSeatClassChanged,
-                    onBookFlight = viewModel::bookFlight,
+                    onBookFlight = { requestFlightAuth("Xác thực thanh toán vé máy bay") },
                 )
             } else {
                 MyBookingsContent(

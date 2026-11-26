@@ -33,6 +33,7 @@ data class TransactionHistoryUiState(
     val isLoading: Boolean = true,
     val transactions: List<TransactionEntity> = emptyList(),
     val filter: TransactionFilter = TransactionFilter.ALL,
+    val isOfficerView: Boolean = false,
     val errorMessage: String? = null,
 ) {
     val filteredTransactions: List<TransactionEntity> get() = transactions.filter { filter.includes(it.type) }
@@ -53,18 +54,33 @@ class TransactionHistoryViewModel(
 
     private fun observeTransactions() {
         val session = sessionManager.currentSession
-        if (session == null || session.role != Role.CUSTOMER) {
+        if (session == null) {
             _uiState.update { it.copy(isLoading = false, errorMessage = "Không có quyền xem lịch sử giao dịch") }
             return
         }
+        val isOfficer = session.role == Role.OFFICER
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            transactionRepository.getTransactionsForUser(session.userId)
+            _uiState.update { it.copy(isLoading = true, isOfficerView = isOfficer, errorMessage = null) }
+            val sourceFlow = if (isOfficer) {
+                transactionRepository.getAllTransactions()
+            } else {
+                transactionRepository.getTransactionsForUser(session.userId)
+            }
+            sourceFlow
                 .catch { error ->
                     if (error is CancellationException) throw error
                     _uiState.update { it.copy(isLoading = false, errorMessage = "Không tải được lịch sử giao dịch") }
                 }
-                .collect { transactions -> _uiState.update { it.copy(isLoading = false, transactions = transactions, errorMessage = null) } }
+                .collect { transactions ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            transactions = transactions,
+                            isOfficerView = isOfficer,
+                            errorMessage = null,
+                        )
+                    }
+                }
         }
     }
 }
@@ -82,12 +98,16 @@ class TransactionDetailViewModel(
         viewModelScope.launch {
             _uiState.value = TransactionDetailUiState()
             val session = sessionManager.currentSession
-            if (session == null || session.role != Role.CUSTOMER) {
+            if (session == null) {
                 _uiState.value = TransactionDetailUiState(false, errorMessage = "Không có quyền xem giao dịch này")
                 return@launch
             }
             try {
-                val entity = transactionRepository.getTransactionByIdForUser(transactionId, session.userId)
+                val entity = if (session.role == Role.OFFICER) {
+                    transactionRepository.getAllTransactions().first().firstOrNull { it.id == transactionId }
+                } else {
+                    transactionRepository.getTransactionByIdForUser(transactionId, session.userId)
+                }
                 _uiState.value = if (entity == null) TransactionDetailUiState(false, errorMessage = "Không tìm thấy giao dịch")
                 else TransactionDetailUiState(isLoading = false, transaction = entity)
             } catch (error: CancellationException) {

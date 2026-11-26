@@ -67,7 +67,7 @@ private fun TransactionHistoryContent(
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("Lịch sử giao dịch") },
+            title = { Text(if (state.isOfficerView) "Báo cáo giao dịch hệ thống" else "Lịch sử giao dịch") },
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
