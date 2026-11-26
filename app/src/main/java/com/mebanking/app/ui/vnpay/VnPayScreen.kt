@@ -1,9 +1,15 @@
 package com.mebanking.app.ui.vnpay
 
 import android.annotation.SuppressLint
+import android.view.ViewGroup
+import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -46,6 +52,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -68,8 +75,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
@@ -111,15 +116,18 @@ fun VnPayScreen(
         viewModel.simulateOfflinePayment("00")
     }
 
-    uiState.activePaymentUrl?.let { paymentUrl ->
-        VnPayWebViewDialog(
-            paymentUrl = paymentUrl,
+    val activeUrl = uiState.activePaymentUrl
+    if (activeUrl != null) {
+        VnPayWebViewScreen(
+            paymentUrl = activeUrl,
             returnUrlPrefix = VnPayConfig.DEFAULT_RETURN_URL,
             onReturnUrlIntercepted = viewModel::handleReturnUrl,
             onSimulateSuccess = { viewModel.simulateOfflinePayment("00") },
             onSimulateCancel = { viewModel.simulateOfflinePayment("24") },
             onDismiss = { viewModel.closeWebView(cancelledByUser = true) },
+            modifier = modifier,
         )
+        return
     }
 
     Scaffold(
@@ -410,67 +418,55 @@ fun VnPayScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun VnPayWebViewDialog(
+private fun VnPayWebViewScreen(
     paymentUrl: String,
     returnUrlPrefix: String,
     onReturnUrlIntercepted: (String) -> Unit,
     onSimulateSuccess: () -> Unit,
     onSimulateCancel: () -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Cổng thanh toán VNPay Sandbox", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    BackHandler(onBack = onDismiss)
+
+    var loadProgress by remember { mutableStateOf(0) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Cổng thanh toán VNPay Sandbox", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (loadProgress in 1..99) "Đang tải trang VNPay ($loadProgress%)..." else "sandbox.vnpayment.vn",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                navigationIcon = {
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Filled.Close, contentDescription = "Đóng")
                     }
-                }
-
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    AndroidView(
-                        modifier = Modifier.fillMaxSize(),
-                        factory = { ctx ->
-                            WebView(ctx).apply {
-                                settings.javaScriptEnabled = true
-                                settings.domStorageEnabled = true
-                                webViewClient = object : WebViewClient() {
-                                    override fun shouldOverrideUrlLoading(
-                                        view: WebView?,
-                                        request: WebResourceRequest?,
-                                    ): Boolean {
-                                        val url = request?.url?.toString().orEmpty()
-                                        if (url.startsWith(returnUrlPrefix)) {
-                                            onReturnUrlIntercepted(url)
-                                            return true
-                                        }
-                                        return false
-                                    }
-                                }
-                                loadUrl(paymentUrl)
-                            }
-                        },
-                    )
-                }
-
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            )
+        },
+        bottomBar = {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -492,6 +488,88 @@ private fun VnPayWebViewDialog(
                         Text("Giả lập Thành công", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .imePadding(),
+        ) {
+            if (loadProgress in 1..99) {
+                LinearProgressIndicator(
+                    progress = { loadProgress / 100f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (loadError != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    shape = RoundedCornerShape(10.dp),
+                ) {
+                    Text(
+                        text = "Không tải được trang VNPay Sandbox ($loadError). Bạn có thể kiểm tra mạng hoặc bấm 'Giả lập Thành công' bên dưới để test luồng HMAC-SHA512.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+            }
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                            )
+                            setBackgroundColor(android.graphics.Color.WHITE)
+                            CookieManager.getInstance().setAcceptCookie(true)
+                            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                            settings.apply {
+                                javaScriptEnabled = true
+                                domStorageEnabled = true
+                                loadWithOverviewMode = true
+                                useWideViewPort = true
+                                builtInZoomControls = true
+                                displayZoomControls = false
+                                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                            }
+                            webChromeClient = object : WebChromeClient() {
+                                override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                    loadProgress = newProgress
+                                }
+                            }
+                            webViewClient = object : WebViewClient() {
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView?,
+                                    request: WebResourceRequest?,
+                                ): Boolean {
+                                    val url = request?.url?.toString().orEmpty()
+                                    if (url.startsWith(returnUrlPrefix)) {
+                                        onReturnUrlIntercepted(url)
+                                        return true
+                                    }
+                                    return false
+                                }
+
+                                override fun onReceivedError(
+                                    view: WebView?,
+                                    request: WebResourceRequest?,
+                                    error: WebResourceError?,
+                                ) {
+                                    if (request?.isForMainFrame == true) {
+                                        loadError = error?.description?.toString() ?: "Lỗi kết nối"
+                                    }
+                                }
+                            }
+                            loadUrl(paymentUrl)
+                        }
+                    },
+                )
             }
         }
     }
