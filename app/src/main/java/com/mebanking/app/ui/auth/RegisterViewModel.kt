@@ -136,14 +136,16 @@ class RegisterViewModel(
                 val result = registrationService.registerCustomerWithBiometrics(request, faceFrameBytes)
                 result.fold(
                     onSuccess = { regResult ->
-                        rememberedCustomerStore?.saveCustomer(
-                            RememberedCustomer(
-                                userId = regResult.user.id,
-                                fullName = regResult.user.fullName,
-                                phone = regResult.user.phone,
-                                username = regResult.user.username,
+                        try {
+                            rememberedCustomerStore?.saveCustomer(
+                                RememberedCustomer(
+                                    userId = regResult.user.id,
+                                    fullName = regResult.user.fullName,
+                                    phone = regResult.user.phone,
+                                    username = regResult.user.username,
+                                )
                             )
-                        )
+                        } catch (_: Throwable) {}
                         _uiState.update {
                             it.copy(
                                 isSubmitting = false,

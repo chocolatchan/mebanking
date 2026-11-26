@@ -49,9 +49,12 @@ class QrCodeAnalyzer(
                 isEnabled = false
                 onQrCodeScanned(result.text)
             }
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             // No QR detected in current frame, ignore and proceed
         } finally {
+            try {
+                reader.reset()
+            } catch (_: Throwable) {}
             image.close()
         }
     }

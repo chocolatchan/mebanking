@@ -1433,8 +1433,16 @@ private fun QrPayModalDialog(
     DisposableEffect(lifecycleOwner) {
         onDispose {
             try {
-                val cameraProvider = ProcessCameraProvider.getInstance(context).get()
-                cameraProvider.unbindAll()
+                val future = ProcessCameraProvider.getInstance(context)
+                if (future.isDone) {
+                    future.get().unbindAll()
+                } else {
+                    future.addListener({
+                        try {
+                            future.get().unbindAll()
+                        } catch (_: Throwable) {}
+                    }, ContextCompat.getMainExecutor(context))
+                }
             } catch (_: Throwable) {
                 // Ignore if provider not initialized
             }
@@ -1529,51 +1537,55 @@ private fun QrPayModalDialog(
                                             scaleType = PreviewView.ScaleType.FILL_CENTER
                                             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                                         }
-                                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                                        cameraProviderFuture.addListener({
-                                            try {
-                                                if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                                                    val cameraProvider = cameraProviderFuture.get()
-                                                    val preview = CameraPreview.Builder().build().also {
-                                                        it.setSurfaceProvider(previewView.surfaceProvider)
-                                                    }
+                                        try {
+                                            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                                            cameraProviderFuture.addListener({
+                                                try {
+                                                    if (ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                                        val cameraProvider = cameraProviderFuture.get()
+                                                        val preview = CameraPreview.Builder().build().also {
+                                                            it.setSurfaceProvider(previewView.surfaceProvider)
+                                                        }
 
-                                                    val imageAnalysis = ImageAnalysis.Builder()
-                                                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                                        .build()
+                                                        val imageAnalysis = ImageAnalysis.Builder()
+                                                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                                            .build()
 
-                                                    val qrAnalyzer = QrCodeAnalyzer { scannedText ->
-                                                        val parsed = VietQrParser.parse(scannedText)
-                                                        if (parsed != null) {
-                                                            onTransferTo(
-                                                                parsed.accountNumber,
-                                                                parsed.recipientName ?: parsed.bankName,
-                                                                parsed.amount,
-                                                                parsed.note,
-                                                            )
-                                                        } else {
-                                                            val digits = scannedText.filter { it.isDigit() }
-                                                            if (digits.length in 6..24) {
-                                                                onTransferTo(digits, null, null, null)
+                                                        val qrAnalyzer = QrCodeAnalyzer { scannedText ->
+                                                            val parsed = VietQrParser.parse(scannedText)
+                                                            if (parsed != null) {
+                                                                onTransferTo(
+                                                                    parsed.accountNumber,
+                                                                    parsed.recipientName ?: parsed.bankName,
+                                                                    parsed.amount,
+                                                                    parsed.note,
+                                                                )
+                                                            } else {
+                                                                val digits = scannedText.filter { it.isDigit() }
+                                                                if (digits.length in 6..24) {
+                                                                    onTransferTo(digits, null, null, null)
+                                                                }
                                                             }
                                                         }
-                                                    }
-                                                    imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(ctx), qrAnalyzer)
+                                                        imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(ctx), qrAnalyzer)
 
-                                                    val cameraSelector = when {
-                                                        cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
-                                                        cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
-                                                        else -> null
+                                                        val cameraSelector = when {
+                                                            cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
+                                                            cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
+                                                            else -> null
+                                                        }
+                                                        if (cameraSelector != null) {
+                                                            cameraProvider.unbindAll()
+                                                            cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis)
+                                                        }
                                                     }
-                                                    if (cameraSelector != null) {
-                                                        cameraProvider.unbindAll()
-                                                        cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis)
-                                                    }
+                                                } catch (_: Throwable) {
+                                                    // Fallback for tests/emulators
                                                 }
-                                            } catch (_: Throwable) {
-                                                // Fallback for tests/emulators
-                                            }
-                                        }, ContextCompat.getMainExecutor(ctx))
+                                            }, ContextCompat.getMainExecutor(ctx))
+                                        } catch (_: Throwable) {
+                                            // Ignore if CameraX provider unavailable
+                                        }
                                         previewView
                                     },
                                 )

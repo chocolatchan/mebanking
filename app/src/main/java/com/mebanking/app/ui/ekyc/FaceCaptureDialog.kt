@@ -101,6 +101,7 @@ fun FaceCaptureDialog(
             ) == PackageManager.PERMISSION_GRANTED,
         )
     }
+    var cameraUnavailable by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -182,7 +183,7 @@ fun FaceCaptureDialog(
                         .border(2.dp, PastelPurplePrimary.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (hasCameraPermission) {
+                    if (hasCameraPermission && !cameraUnavailable) {
                         AndroidView(
                             modifier = Modifier.fillMaxSize(),
                             factory = { ctx ->
@@ -190,34 +191,62 @@ fun FaceCaptureDialog(
                                     scaleType = PreviewView.ScaleType.FILL_CENTER
                                     implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                                 }
-                                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                                cameraProviderFuture.addListener({
-                                    try {
-                                        if (
-                                            lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.INITIALIZED) &&
-                                            ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-                                        ) {
-                                            val cameraProvider = cameraProviderFuture.get()
-                                            val preview = Preview.Builder().build().also {
-                                                it.setSurfaceProvider(previewView.surfaceProvider)
+                                try {
+                                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                                    cameraProviderFuture.addListener({
+                                        try {
+                                            if (
+                                                lifecycleOwner.lifecycle.currentState != Lifecycle.State.DESTROYED &&
+                                                ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                                            ) {
+                                                val cameraProvider = cameraProviderFuture.get()
+                                                val preview = Preview.Builder().build().also {
+                                                    it.setSurfaceProvider(previewView.surfaceProvider)
+                                                }
+                                                val cameraSelector = when {
+                                                    cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
+                                                    cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
+                                                    else -> null
+                                                }
+                                                if (cameraSelector != null) {
+                                                    cameraProvider.unbindAll()
+                                                    cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview)
+                                                } else {
+                                                    cameraUnavailable = true
+                                                }
                                             }
-                                            val cameraSelector = when {
-                                                cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
-                                                cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
-                                                else -> null
-                                            }
-                                            if (cameraSelector != null) {
-                                                cameraProvider.unbindAll()
-                                                cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview)
-                                            }
+                                        } catch (_: Throwable) {
+                                            cameraUnavailable = true
                                         }
-                                    } catch (_: Throwable) {
-                                        // Fallback for tests/emulators/dismissed dialog
-                                    }
-                                }, ContextCompat.getMainExecutor(ctx))
+                                    }, ContextCompat.getMainExecutor(ctx))
+                                } catch (_: Throwable) {
+                                    cameraUnavailable = true
+                                }
                                 previewView
                             },
                         )
+                    } else if (hasCameraPermission && cameraUnavailable) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.PhotoCamera,
+                                contentDescription = null,
+                                tint = PastelPurpleLight,
+                                modifier = Modifier.size(36.dp),
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Camera không khả dụng\nChạm nút chụp để xác thực",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.LightGray,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                     } else {
                         Column(
                             modifier = Modifier

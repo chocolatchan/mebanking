@@ -38,32 +38,41 @@ fun InteractiveMapView(
     val context = LocalContext.current
 
     val webView = remember(context) {
-        WebView(context).apply {
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.allowFileAccess = true
-            settings.loadWithOverviewMode = true
-            settings.useWideViewPort = true
-            webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    super.onPageFinished(view, url)
-                    view?.evaluateJavascript(
-                        "(function(){ if (typeof L === 'undefined' && window.AndroidBridge && window.AndroidBridge.onLeafletUnavailable) { window.AndroidBridge.onLeafletUnavailable(); } })();",
-                        null,
-                    )
-                }
+        try {
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.allowFileAccess = true
+                settings.loadWithOverviewMode = true
+                settings.useWideViewPort = true
+                webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        view?.evaluateJavascript(
+                            "(function(){ if (typeof L === 'undefined' && window.AndroidBridge && window.AndroidBridge.onLeafletUnavailable) { window.AndroidBridge.onLeafletUnavailable(); } })();",
+                            null,
+                        )
+                    }
 
-                override fun onReceivedError(
-                    view: WebView?,
-                    request: android.webkit.WebResourceRequest?,
-                    error: android.webkit.WebResourceError?,
-                ) {
-                    if (request?.isForMainFrame == true) {
-                        onMapUnavailable()
+                    override fun onReceivedError(
+                        view: WebView?,
+                        request: android.webkit.WebResourceRequest?,
+                        error: android.webkit.WebResourceError?,
+                    ) {
+                        if (request?.isForMainFrame == true) {
+                            onMapUnavailable()
+                        }
                     }
                 }
             }
+        } catch (_: Throwable) {
+            null
         }
+    }
+
+    if (webView == null) {
+        LaunchedEffect(Unit) { onMapUnavailable() }
+        return
     }
 
     val jsInterface = remember(branches, onBranchClick, onMapUnavailable) {
