@@ -82,4 +82,45 @@ class FacePipelineTest {
         val sim = extractor.computeCosineSimilarity(u, v)
         assertTrue(sim < 0.90f)
     }
+
+    @Test
+    fun spatialExtractor_distinguishesDifferent112x112FacesAndMatchesSameFace() {
+        val size = FaceEmbeddingExtractor.INPUT_IMAGE_SIZE
+        val faceA = ByteArray(size * size * 3)
+        val faceAShiftedBrightness = ByteArray(size * size * 3)
+        val faceB = ByteArray(size * size * 3)
+
+        for (y in 0 until size) {
+            for (x in 0 until size) {
+                val idx = (y * size + x) * 3
+                // Face A: bright left-top, darker lower-right gradient
+                val valA = ((x * 2 + y) % 200 + 30).coerceIn(40, 230)
+                val valAShifted = (valA + 15).coerceIn(40, 250)
+                // Face B: inverted/orthogonal pattern
+                val valB = (240 - ((x * 2 + (size - y)) % 180)).coerceIn(40, 230)
+
+                faceA[idx] = valA.toByte()
+                faceA[idx + 1] = valA.toByte()
+                faceA[idx + 2] = valA.toByte()
+
+                faceAShiftedBrightness[idx] = valAShifted.toByte()
+                faceAShiftedBrightness[idx + 1] = valAShifted.toByte()
+                faceAShiftedBrightness[idx + 2] = valAShifted.toByte()
+
+                faceB[idx] = valB.toByte()
+                faceB[idx + 1] = valB.toByte()
+                faceB[idx + 2] = valB.toByte()
+            }
+        }
+
+        val embA1 = extractor.extractEmbedding(faceA)
+        val embA2 = extractor.extractEmbedding(faceAShiftedBrightness)
+        val embB = extractor.extractEmbedding(faceB)
+
+        val sameSim = extractor.computeCosineSimilarity(embA1, embA2)
+        val diffSim = extractor.computeCosineSimilarity(embA1, embB)
+
+        assertTrue("Same face under slightly different brightness should match ($sameSim)", sameSim >= 0.85f)
+        assertTrue("Different face must not match ($diffSim)", diffSim < 0.85f)
+    }
 }

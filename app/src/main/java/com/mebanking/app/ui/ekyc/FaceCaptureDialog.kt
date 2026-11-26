@@ -7,6 +7,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -102,6 +103,50 @@ fun FaceCaptureDialog(
         )
     }
     var cameraUnavailable by remember { mutableStateOf(false) }
+    var liveFaceState by remember { mutableStateOf(FaceDetectionLiveState.INITIALIZING) }
+    var latestFaceBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var localWarning by remember { mutableStateOf<String?>(null) }
+
+    val faceAnalyzer = remember {
+        FaceFrameAnalyzer { status, bytes ->
+            liveFaceState = status
+            if (status == FaceDetectionLiveState.READY && bytes != null) {
+                latestFaceBytes = bytes
+                localWarning = null
+            } else if (status != FaceDetectionLiveState.READY) {
+                latestFaceBytes = null
+            }
+        }
+    }
+
+    val submitCapture: () -> Unit = {
+        when {
+            !hasCameraPermission -> {
+                localWarning = "Cần cấp quyền Máy ảnh để xác thực khuôn mặt."
+                onFrameCaptured("permission_denied".toByteArray(Charsets.ISO_8859_1))
+            }
+            cameraUnavailable -> {
+                localWarning = "Camera trên thiết bị không khả dụng."
+                onFrameCaptured(ByteArray(0))
+            }
+            liveFaceState == FaceDetectionLiveState.MULTIPLE_FACES -> {
+                localWarning = "Phát hiện nhiều khuôn mặt. Vui lòng chỉ giữ 1 khuôn mặt."
+                onFrameCaptured("multiple_faces".toByteArray(Charsets.ISO_8859_1))
+            }
+            liveFaceState == FaceDetectionLiveState.LOW_LIGHT -> {
+                localWarning = "Ánh sáng quá yếu. Vui lòng di chuyển tới nơi đủ sáng."
+                onFrameCaptured("low_light".toByteArray(Charsets.ISO_8859_1))
+            }
+            liveFaceState != FaceDetectionLiveState.READY || latestFaceBytes == null -> {
+                localWarning = "Không tìm thấy khuôn mặt trong khung hình. Vui lòng đưa mặt vào khung oval."
+                onFrameCaptured(ByteArray(0))
+            }
+            else -> {
+                localWarning = null
+                onFrameCaptured(latestFaceBytes!!)
+            }
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -117,6 +162,7 @@ fun FaceCaptureDialog(
 
     DisposableEffect(lifecycleOwner) {
         onDispose {
+            faceAnalyzer.close()
             try {
                 val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
                 if (cameraProviderFuture.isDone) {
@@ -209,8 +255,14 @@ fun FaceCaptureDialog(
                                                     else -> null
                                                 }
                                                 if (cameraSelector != null) {
+                                                    val imageAnalysis = ImageAnalysis.Builder()
+                                                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                                        .build()
+                                                        .also {
+                                                            it.setAnalyzer(ContextCompat.getMainExecutor(ctx), faceAnalyzer)
+                                                        }
                                                     cameraProvider.unbindAll()
-                                                    cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview)
+                                                    cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview, imageAnalysis)
                                                 } else {
                                                     cameraUnavailable = true
                                                 }
@@ -334,9 +386,18 @@ fun FaceCaptureDialog(
                             shape = CircleShape,
                             modifier = Modifier.padding(top = 4.dp),
                         ) {
+                            val (statusText, statusColor) = when {
+                                !hasCameraPermission -> "● Chưa có quyền Camera" to Color(0xFFFFB74D)
+                                cameraUnavailable -> "● Camera không khả dụng" to Color(0xFFFFB74D)
+                                liveFaceState == FaceDetectionLiveState.READY -> "● Đã nhận diện khuôn mặt" to Color(0xFF81C784)
+                                liveFaceState == FaceDetectionLiveState.MULTIPLE_FACES -> "● Phát hiện nhiều khuôn mặt" to Color(0xFFE57373)
+                                liveFaceState == FaceDetectionLiveState.LOW_LIGHT -> "● Ánh sáng quá yếu" to Color(0xFFFFB74D)
+                                liveFaceState == FaceDetectionLiveState.NO_FACE -> "● Không tìm thấy khuôn mặt" to Color(0xFFE57373)
+                                else -> "● Đang quét khuôn mặt..." to PastelPurpleLight
+                            }
                             Text(
-                                text = if (hasCameraPermission) "● Live Camera" else "● Giả lập khuôn mặt",
-                                color = PastelPurpleLight,
+                                text = statusText,
+                                color = statusColor,
                                 fontSize = 11.sp,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                             )
@@ -355,7 +416,11 @@ fun FaceCaptureDialog(
                             modifier = Modifier.padding(bottom = 4.dp),
                         ) {
                             Text(
-                                text = "Ánh sáng: Tốt | Căn giữa",
+                                text = if (liveFaceState == FaceDetectionLiveState.READY) {
+                                    "Ánh sáng: Tốt | Sẵn sàng chụp"
+                                } else {
+                                    "Đưa 1 khuôn mặt vào khung oval"
+                                },
                                 color = Color.White,
                                 fontSize = 11.sp,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -371,11 +436,16 @@ fun FaceCaptureDialog(
                     modifier = Modifier
                         .size(64.dp)
                         .clip(CircleShape)
-                        .background(if (isProcessing) Color.Gray else PastelPurplePrimary)
+                        .background(
+                            when {
+                                isProcessing -> Color.Gray
+                                liveFaceState == FaceDetectionLiveState.READY -> PastelPurplePrimary
+                                else -> MaterialTheme.colorScheme.outline
+                            },
+                        )
                         .border(3.dp, Color.White, CircleShape)
                         .clickable(enabled = !isProcessing) {
-                            val clearFrame = "clear_face_live_camera_capture_112x112".toByteArray(Charsets.ISO_8859_1)
-                            onFrameCaptured(clearFrame)
+                            submitCapture()
                         },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -401,7 +471,8 @@ fun FaceCaptureDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
-                if (errorMessage != null) {
+                val displayError = localWarning ?: errorMessage
+                if (displayError != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
@@ -409,7 +480,7 @@ fun FaceCaptureDialog(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            text = errorMessage,
+                            text = displayError,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                             style = MaterialTheme.typography.bodySmall,
                             textAlign = TextAlign.Center,
@@ -423,8 +494,7 @@ fun FaceCaptureDialog(
             Button(
                 onClick = {
                     if (!isProcessing) {
-                        val clearFrame = "clear_face_live_camera_capture_112x112".toByteArray(Charsets.ISO_8859_1)
-                        onFrameCaptured(clearFrame)
+                        submitCapture()
                     }
                 },
                 enabled = !isProcessing,

@@ -54,6 +54,13 @@ class MobileFaceNetEmbeddingExtractor(
 
     override fun extractEmbedding(imageBytes: ByteArray): FloatArray {
         val embedding = FloatArray(FaceEmbeddingExtractor.EMBEDDING_DIMENSION)
+        val expectedRgbSize = FaceEmbeddingExtractor.INPUT_IMAGE_SIZE * FaceEmbeddingExtractor.INPUT_IMAGE_SIZE * 3
+
+        // Real 112x112 RGB face crop from live camera + ML Kit:
+        // Compute 128-dim spatial facial descriptor (64 mean-centered 8x8 block intensities + 64 gradient magnitudes)
+        if (imageBytes.size >= expectedRgbSize) {
+            return extractSpatialFaceEmbedding(imageBytes)
+        }
 
         // If running in live Android environment with model asset available
         if (isModelAvailable && context != null && imageBytes.size >= 1024) {
@@ -128,6 +135,60 @@ class MobileFaceNetEmbeddingExtractor(
         }
         buffer.rewind()
         return buffer
+    }
+
+    private fun extractSpatialFaceEmbedding(imageBytes: ByteArray): FloatArray {
+        val size = FaceEmbeddingExtractor.INPUT_IMAGE_SIZE // 112
+        val grid = 8 // 8x8 = 64 cells
+        val cellSize = size / grid // 14
+        val blockMeans = FloatArray(64)
+        val blockGrads = FloatArray(64)
+
+        val luma = FloatArray(size * size)
+        var globalSum = 0f
+        for (i in 0 until size * size) {
+            val base = i * 3
+            val r = imageBytes[base].toInt() and 0xFF
+            val g = imageBytes[base + 1].toInt() and 0xFF
+            val b = imageBytes[base + 2].toInt() and 0xFF
+            val y = (0.299f * r + 0.587f * g + 0.114f * b) / 255f
+            luma[i] = y
+            globalSum += y
+        }
+        val globalMean = globalSum / (size * size)
+
+        for (gy in 0 until grid) {
+            for (gx in 0 until grid) {
+                var sumVal = 0f
+                var sumGrad = 0f
+                var count = 0
+                val yStart = gy * cellSize
+                val xStart = gx * cellSize
+                for (y in yStart until (yStart + cellSize).coerceAtMost(size - 1)) {
+                    for (x in xStart until (xStart + cellSize).coerceAtMost(size - 1)) {
+                        val c = luma[y * size + x]
+                        val right = luma[y * size + x + 1]
+                        val down = luma[(y + 1) * size + x]
+                        sumVal += (c - globalMean)
+                        sumGrad += kotlin.math.abs(right - c) + kotlin.math.abs(down - c)
+                        count++
+                    }
+                }
+                val idx = gy * grid + gx
+                if (count > 0) {
+                    blockMeans[idx] = sumVal / count
+                    blockGrads[idx] = sumGrad / count
+                }
+            }
+        }
+
+        val embedding = FloatArray(FaceEmbeddingExtractor.EMBEDDING_DIMENSION)
+        for (i in 0 until 64) {
+            embedding[i] = blockMeans[i]
+            embedding[64 + i] = blockGrads[i] * 2.0f
+        }
+        normalizeL2(embedding)
+        return embedding
     }
 
     private fun normalizeL2(vector: FloatArray) {

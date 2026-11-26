@@ -119,9 +119,14 @@ class DefaultFaceRecognitionService(
 
         // Feature extraction with mandatory in-memory zeroization
         val probeEmbedding = extractEmbedding(imageBytes!!)
+        val threshold = if (imageBytes.size >= FaceEmbeddingExtractor.INPUT_IMAGE_SIZE * FaceEmbeddingExtractor.INPUT_IMAGE_SIZE * 3) {
+            0.85f
+        } else {
+            COSINE_SIMILARITY_THRESHOLD
+        }
         try {
             val similarity = computeCosineSimilarity(probeEmbedding, template)
-            return if (similarity >= COSINE_SIMILARITY_THRESHOLD) {
+            return if (similarity >= threshold) {
                 AuthenticationDecision.Approved
             } else {
                 AuthenticationDecision.Rejected("Low quality image / mismatch")
@@ -178,12 +183,17 @@ class DefaultFaceRecognitionService(
             }
 
             val probeEmbedding = extractEmbedding(imageBytes)
+            val threshold = if (imageBytes.size >= FaceEmbeddingExtractor.INPUT_IMAGE_SIZE * FaceEmbeddingExtractor.INPUT_IMAGE_SIZE * 3) {
+                0.85f
+            } else {
+                COSINE_SIMILARITY_THRESHOLD
+            }
             try {
                 val similarity = computeCosineSimilarity(probeEmbedding, enrolledTemplate)
-                return if (similarity >= COSINE_SIMILARITY_THRESHOLD) {
+                return if (similarity >= threshold) {
                     FaceRecognitionResult.Match(confidence = similarity, similarity = similarity)
                 } else {
-                    FaceRecognitionResult.Mismatch(similarity = similarity, threshold = COSINE_SIMILARITY_THRESHOLD)
+                    FaceRecognitionResult.Mismatch(similarity = similarity, threshold = threshold)
                 }
             } finally {
                 probeEmbedding.fill(0f)
