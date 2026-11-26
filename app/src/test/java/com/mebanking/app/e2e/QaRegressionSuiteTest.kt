@@ -63,6 +63,7 @@ class QaRegressionSuiteTest {
         db = AppDatabase.buildInMemoryDatabase(context)
         runBlocking {
             DatabaseSeeder.seed(db)
+            DatabaseSeeder.seedShortcutRecipients(db)
         }
         sessionManager = DefaultSessionManager(db.userDao(), PasswordHasher)
         val authRepo = DefaultAuthRepository(db.userDao())
@@ -256,5 +257,32 @@ class QaRegressionSuiteTest {
         val profitRes = accountService.calculateMonthlySavingProfit(saving.id, session)
         assertTrue(profitRes.isFailure)
         assertTrue(profitRes.exceptionOrNull() is DomainError.UnapprovedFormula)
+    }
+
+    @Test
+    fun shortcutRecipients_allExistAndReceiveTransfersFromCustomerChecking() = runBlocking {
+        val session = authService.login(DatabaseSeeder.TestFixtures.CUSTOMER_USERNAME, DatabaseSeeder.TestFixtures.TEST_PASSWORD).getOrThrow()
+        val shortcutNumbers = listOf("100555666777", "200987654321", "200123456789", "100888999111", "100666777222")
+
+        for ((idx, accNum) in shortcutNumbers.withIndex()) {
+            val dest = accountRepo.getAccountByNumber(accNum)
+            assertNotNull("Shortcut account $accNum must exist", dest)
+            val beforeSrc = db.accountDao().getById(1L)!!.balance
+            val beforeDest = dest!!.balance
+
+            val res = txService.executeTransfer(
+                TransferRequest(
+                    fromAccountId = 1L,
+                    toAccountId = dest.id,
+                    amount = 50_000L,
+                    idempotencyKey = "shortcut-test-$idx",
+                    note = "Transfer to $accNum",
+                ),
+                session,
+            )
+            assertTrue("Transfer to $accNum failed: ${res.exceptionOrNull()?.message}", res.isSuccess)
+            assertEquals(beforeSrc - 50_000L, db.accountDao().getById(1L)!!.balance)
+            assertEquals(beforeDest + 50_000L, db.accountDao().getById(dest.id)!!.balance)
+        }
     }
 }

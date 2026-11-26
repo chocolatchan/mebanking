@@ -81,6 +81,7 @@ class DefaultAppContainer(
      */
     override val databaseReady: Deferred<Unit> = initializationScope.async {
         DatabaseSeeder.seed(database)
+        DatabaseSeeder.seedShortcutRecipients(database)
         LifestyleDatabaseSeeder.seed(database)
     }
 

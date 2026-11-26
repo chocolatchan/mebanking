@@ -88,7 +88,7 @@ data class RecipientShortcut(
 
 val DefaultRecipientShortcuts = listOf(
     RecipientShortcut(name = "Tiết kiệm", accountNumber = "200123456789", bank = "MEbanking", initials = "TK"),
-    RecipientShortcut(name = "Lan Anh", accountNumber = "100123456789", bank = "MEbanking", initials = "LA"),
+    RecipientShortcut(name = "Lan Anh", accountNumber = "100555666777", bank = "MEbanking", initials = "LA"),
     RecipientShortcut(name = "Văn Bình", accountNumber = "200987654321", bank = "MEbanking", initials = "VB"),
     RecipientShortcut(name = "Hoàng Yến", accountNumber = "100888999111", bank = "MEbanking", initials = "HY"),
     RecipientShortcut(name = "Quang Huy", accountNumber = "100666777222", bank = "MEbanking", initials = "QH"),

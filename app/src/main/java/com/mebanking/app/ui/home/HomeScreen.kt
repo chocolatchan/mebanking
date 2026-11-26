@@ -967,7 +967,7 @@ private fun RecentRecipientsSection(
                 name = "Lan Anh",
                 bank = "VCB",
                 initials = "LA",
-                onClick = { onRecipientClick("100123456789", "Nguyễn Lan Anh") },
+                onClick = { onRecipientClick("100555666777", "Nguyễn Lan Anh") },
             )
             RecipientAvatarItem(
                 name = "Văn Bình",

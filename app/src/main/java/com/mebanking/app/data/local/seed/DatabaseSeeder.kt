@@ -261,4 +261,106 @@ object DatabaseSeeder {
         db.billDao().insertAll(TestFixtures.initialBills())
         db.chatIntentDao().insertAll(TestFixtures.initialChatIntents())
     }
+
+    /**
+     * Seeds recipient shortcut users and accounts idempotently using non-conflicting IDs (101..104)
+     * so quick-transfer shortcuts ("Lan Anh", "Văn Bình", "Hoàng Yến", "Quang Huy") always resolve
+     * to real persisted accounts in Room.
+     */
+    suspend fun seedShortcutRecipients(db: AppDatabase) {
+        val shortcutUsers = listOf(
+            UserEntity(
+                id = 101L,
+                username = "lananh",
+                passwordHash = TestFixtures.customerPasswordHash,
+                fullName = "Nguyễn Lan Anh",
+                email = "lananh.nguyen@example.com",
+                phone = "0903334445",
+                role = Role.CUSTOMER,
+                kycVerified = true,
+                createdAt = 1700000000000L,
+            ),
+            UserEntity(
+                id = 102L,
+                username = "vanbinh",
+                passwordHash = TestFixtures.customerPasswordHash,
+                fullName = "Trần Văn Bình",
+                email = "vanbinh.tran@example.com",
+                phone = "0904445556",
+                role = Role.CUSTOMER,
+                kycVerified = true,
+                createdAt = 1700000000000L,
+            ),
+            UserEntity(
+                id = 103L,
+                username = "hoangyen",
+                passwordHash = TestFixtures.customerPasswordHash,
+                fullName = "Lê Hoàng Yến",
+                email = "hoangyen.le@example.com",
+                phone = "0905556667",
+                role = Role.CUSTOMER,
+                kycVerified = true,
+                createdAt = 1700000000000L,
+            ),
+            UserEntity(
+                id = 104L,
+                username = "quanghuy",
+                passwordHash = TestFixtures.customerPasswordHash,
+                fullName = "Phạm Quang Huy",
+                email = "quanghuy.pham@example.com",
+                phone = "0906667778",
+                role = Role.CUSTOMER,
+                kycVerified = true,
+                createdAt = 1700000000000L,
+            ),
+        )
+        val shortcutAccounts = listOf(
+            AccountEntity(
+                id = 101L,
+                userId = 101L,
+                accountNumber = "100555666777",
+                accountType = AccountType.CHECKING,
+                balance = 12_000_000L,
+                currency = "VND",
+                interestRate = 0.0,
+                status = "ACTIVE",
+                createdAt = 1700000000000L,
+            ),
+            AccountEntity(
+                id = 102L,
+                userId = 102L,
+                accountNumber = "200987654321",
+                accountType = AccountType.CHECKING,
+                balance = 8_500_000L,
+                currency = "VND",
+                interestRate = 0.0,
+                status = "ACTIVE",
+                createdAt = 1700000000000L,
+            ),
+            AccountEntity(
+                id = 103L,
+                userId = 103L,
+                accountNumber = "100888999111",
+                accountType = AccountType.CHECKING,
+                balance = 15_000_000L,
+                currency = "VND",
+                interestRate = 0.0,
+                status = "ACTIVE",
+                createdAt = 1700000000000L,
+            ),
+            AccountEntity(
+                id = 104L,
+                userId = 104L,
+                accountNumber = "100666777222",
+                accountType = AccountType.CHECKING,
+                balance = 20_000_000L,
+                currency = "VND",
+                interestRate = 0.0,
+                status = "ACTIVE",
+                createdAt = 1700000000000L,
+            ),
+        )
+        db.userDao().insertAll(shortcutUsers)
+        db.accountDao().insertAll(shortcutAccounts)
+    }
 }

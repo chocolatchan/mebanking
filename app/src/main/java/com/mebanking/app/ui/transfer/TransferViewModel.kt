@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.domain.model.Account
+import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.model.TransferRequest
 import com.mebanking.app.domain.model.UserSession
 import com.mebanking.app.domain.model.toDomainError
@@ -263,7 +264,7 @@ class TransferViewModel(
                     return@launch
                 }
                 val accounts = accountRepository.getAccountsByUserIdSync(session.userId)
-                    .filter { it.status == "ACTIVE" }
+                    .filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
                 _uiState.update { state ->
                     val selected = state.selectedFromAccountId
                         ?.takeIf { id -> accounts.any { account -> account.id == id } }
@@ -435,7 +436,7 @@ class TransferViewModel(
     private suspend fun refreshBalances(session: UserSession) {
         try {
             val accounts = accountRepository.getAccountsByUserIdSync(session.userId)
-                .filter { it.status == "ACTIVE" }
+                .filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
             _uiState.update { state ->
                 val selected = state.selectedFromAccountId
                     ?.takeIf { id -> accounts.any { account -> account.id == id } }
