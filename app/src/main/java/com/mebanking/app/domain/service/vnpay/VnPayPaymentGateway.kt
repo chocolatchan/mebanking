@@ -18,8 +18,8 @@ data class VnPayConfig(
     companion object {
         const val SANDBOX_PAYMENT_URL = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
         const val DEFAULT_RETURN_URL = "https://mebanking.local/vnpay_return"
-        const val DEFAULT_DEMO_TMN_CODE = "MEBANK01"
-        const val DEFAULT_DEMO_HASH_SECRET = "MEBANKING_VNPAY_SANDBOX_SECRET_2026"
+        const val DEFAULT_DEMO_TMN_CODE = "TZE0DLYO"
+        const val DEFAULT_DEMO_HASH_SECRET = "HTXCWFRAFINVXJYFHCADGNSPIDOGWZNW"
     }
 }
 
