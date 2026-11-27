@@ -115,25 +115,20 @@ class BranchLocatorViewModel(
             )
         }
         return viewModelScope.launch {
-            if (branch.routeResult == null) {
-                try {
-                    val route = repository.calculateRouteToBranch(
-                        userLocation = _uiState.value.userLocation,
-                        branchId = branch.branch.id,
-                    )
-                    if (route != null && _uiState.value.selectedBranch?.branch?.id == branch.branch.id) {
-                        _uiState.update { state ->
-                            val updatedBranches = state.branches.map { b ->
-                                if (b.branch.id == branch.branch.id) b.copy(routeResult = route) else b
-                            }
-                            state.copy(
-                                currentRoute = route,
-                                branches = updatedBranches,
-                                selectedBranch = state.selectedBranch?.copy(routeResult = route),
-                            )
-                        }
+            val route = branch.routeResult ?: runCatching {
+                resolveRouteForBranch(_uiState.value.userLocation, branch)
+            }.getOrNull()
+            if (route != null && _uiState.value.selectedBranch?.branch?.id == branch.branch.id) {
+                _uiState.update { state ->
+                    val updatedBranches = state.branches.map { b ->
+                        if (b.branch.id == branch.branch.id) b.copy(routeResult = route) else b
                     }
-                } catch (_: Exception) {}
+                    state.copy(
+                        currentRoute = route,
+                        branches = updatedBranches,
+                        selectedBranch = state.selectedBranch?.copy(routeResult = route),
+                    )
+                }
             }
         }
     }

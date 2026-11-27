@@ -94,12 +94,14 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -371,6 +373,9 @@ fun BranchLocatorContent(
 }
 
 private const val OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
+private const val ROUTE_SOURCE_ID = "route-source"
+private const val ROUTE_CASING_LAYER_ID = "route-casing-layer"
+private const val ROUTE_LAYER_ID = "route-layer"
 private const val BRANCHES_SOURCE_ID = "branches-source"
 private const val BRANCHES_LAYER_ID = "branches-layer"
 private const val PROP_BRANCH_ID = "branchId"
@@ -460,7 +465,13 @@ private fun MapLibreContainer(
         }
     }
 
-    LaunchedEffect(loadedStyle, uiState.branches, uiState.selectedBranch) {
+    LaunchedEffect(
+        loadedStyle,
+        uiState.branches,
+        uiState.selectedBranch,
+        uiState.currentRoute,
+        uiState.userLocation,
+    ) {
         val style = loadedStyle ?: return@LaunchedEffect
         updateMapData(style, uiState)
     }
@@ -506,6 +517,27 @@ private fun ensureMapLayers(style: Style) {
     }
     if (style.getImage(ICON_SELECTED) == null) {
         style.addImage(ICON_SELECTED, createPinBitmap(0xFFFF6D00.toInt(), scale = 1.25f))
+    }
+
+    if (style.getSource(ROUTE_SOURCE_ID) == null) {
+        style.addSource(GeoJsonSource(ROUTE_SOURCE_ID))
+        style.addLayer(
+            LineLayer(ROUTE_CASING_LAYER_ID, ROUTE_SOURCE_ID).withProperties(
+                PropertyFactory.lineColor("#FFFFFF"),
+                PropertyFactory.lineWidth(8.5f),
+                PropertyFactory.lineOpacity(0.92f),
+                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            ),
+        )
+        style.addLayer(
+            LineLayer(ROUTE_LAYER_ID, ROUTE_SOURCE_ID).withProperties(
+                PropertyFactory.lineColor("#1A73E8"),
+                PropertyFactory.lineWidth(5.2f),
+                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            ),
+        )
     }
 
     if (style.getSource(BRANCHES_SOURCE_ID) == null) {
@@ -593,6 +625,33 @@ private fun updateMapData(style: Style, uiState: BranchLocatorUiState) {
     }
     style.getSourceAs<GeoJsonSource>(BRANCHES_SOURCE_ID)
         ?.setGeoJson(FeatureCollection.fromFeatures(branchFeatures))
+
+    val routeSource = style.getSourceAs<GeoJsonSource>(ROUTE_SOURCE_ID) ?: return
+    val selected = uiState.selectedBranch
+    val activeRoute = selected?.routeResult ?: uiState.currentRoute
+    if (selected != null && activeRoute != null && activeRoute.nodes.isNotEmpty()) {
+        val points = buildList {
+            add(Point.fromLngLat(uiState.userLocation.longitude, uiState.userLocation.latitude))
+            activeRoute.nodes.forEach { node ->
+                val pt = Point.fromLngLat(node.longitude, node.latitude)
+                if (lastOrNull()?.let { it.latitude() == pt.latitude() && it.longitude() == pt.longitude() } != true) {
+                    add(pt)
+                }
+            }
+            val destPt = Point.fromLngLat(selected.branch.longitude, selected.branch.latitude)
+            if (lastOrNull()?.let { it.latitude() == destPt.latitude() && it.longitude() == destPt.longitude() } != true) {
+                add(destPt)
+            }
+        }
+        val featureCollection = if (points.size >= 2) {
+            FeatureCollection.fromFeature(Feature.fromGeometry(LineString.fromLngLats(points)))
+        } else {
+            FeatureCollection.fromFeatures(emptyList())
+        }
+        routeSource.setGeoJson(featureCollection)
+    } else {
+        routeSource.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+    }
 }
 
 @Composable
@@ -735,8 +794,9 @@ private fun BranchDetailsCard(
     val isAtm = b.name.contains("ATM", ignoreCase = true) || b.type.equals("ATM", ignoreCase = true)
     var expanded by remember(b.id) { mutableStateOf(false) }
 
-    val distText = formatDistance(branchDistance.directDistanceMeters)
-    val motoMinutes = (branchDistance.directDistanceMeters / 500.0).roundToInt().coerceAtLeast(1)
+    val effectiveDistanceMeters = branchDistance.routeResult?.totalDistanceMeters ?: branchDistance.directDistanceMeters
+    val distText = formatDistance(effectiveDistanceMeters)
+    val motoMinutes = (effectiveDistanceMeters / 500.0).roundToInt().coerceAtLeast(1)
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -852,6 +912,20 @@ private fun BranchDetailsCard(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    val streetNames = branchDistance.routeResult?.edges
+                        ?.map { it.streetName }
+                        ?.filter { it.isNotBlank() }
+                        ?.distinct()
+                        .orEmpty()
+                    if (streetNames.isNotEmpty()) {
+                        Text(
+                            text = "Tuyến đường (Bi-A*): ${streetNames.joinToString(" → ")}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }

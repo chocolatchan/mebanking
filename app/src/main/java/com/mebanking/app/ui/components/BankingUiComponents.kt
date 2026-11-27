@@ -21,14 +21,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,6 +54,8 @@ import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.carousel.HorizontalCenteredHeroCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -113,8 +114,9 @@ fun tonalTextFieldColors(
 )
 
 /**
- * Shared borderless Material 3 Carousel for selecting a source / target bank account.
+ * Shared borderless Material 3 Expressive Centered Hero Carousel for selecting a source / target bank account.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountSelectionCarousel(
     accounts: List<Account>,
@@ -138,170 +140,208 @@ fun AccountSelectionCarousel(
         return
     }
 
-    val initialPage = accounts.indexOfFirst { it.id == selectedAccountId }.coerceAtLeast(0)
-    val pagerState = rememberPagerState(initialPage = initialPage) { accounts.size }
+    if (accounts.size == 1) {
+        AccountHeroCard(
+            account = accounts.first(),
+            selected = true,
+            detailAlpha = 1f,
+            onClick = { onAccountSelected(accounts.first().id) },
+            modifier = modifier.fillMaxWidth(),
+        )
+        return
+    }
+
+    val initialItem = accounts.indexOfFirst { it.id == selectedAccountId }.coerceAtLeast(0)
+    val carouselState = rememberCarouselState(initialItem = initialItem) { accounts.size }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(selectedAccountId, accounts) {
         val targetIdx = accounts.indexOfFirst { it.id == selectedAccountId }
-        if (targetIdx >= 0 && targetIdx != pagerState.currentPage && !pagerState.isScrollInProgress) {
-            pagerState.animateScrollToPage(targetIdx)
+        if (targetIdx >= 0 && targetIdx != carouselState.currentItem && !carouselState.isScrollInProgress) {
+            carouselState.animateScrollToItem(targetIdx, animationSpec = M3EMotion.spatialSpring())
         }
     }
 
-    LaunchedEffect(pagerState.settledPage, accounts) {
-        accounts.getOrNull(pagerState.settledPage)?.let { settledAccount ->
-            if (settledAccount.id != selectedAccountId) {
-                onAccountSelected(settledAccount.id)
+    LaunchedEffect(carouselState.currentItem, carouselState.isScrollInProgress, accounts) {
+        if (!carouselState.isScrollInProgress) {
+            accounts.getOrNull(carouselState.currentItem)?.let { centered ->
+                if (centered.id != selectedAccountId) {
+                    onAccountSelected(centered.id)
+                }
             }
         }
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        HorizontalPager(
-            state = pagerState,
-            contentPadding = PaddingValues(horizontal = if (accounts.size > 1) 24.dp else 0.dp),
-            pageSpacing = 12.dp,
-            modifier = Modifier.fillMaxWidth(),
+        HorizontalCenteredHeroCarousel(
+            state = carouselState,
+            maxItemWidth = 286.dp,
+            itemSpacing = 10.dp,
+            minSmallItemWidth = 52.dp,
+            maxSmallItemWidth = 72.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(152.dp),
         ) { page ->
             val account = accounts[page]
-            val selected = account.id == selectedAccountId || page == pagerState.currentPage
-            val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
-            val cardScale = (1f - (pageOffset * 0.06f)).coerceIn(0.92f, 1f)
-            val cardAlpha = (1f - (pageOffset * 0.25f)).coerceIn(0.75f, 1f)
+            val selected = account.id == selectedAccountId || page == carouselState.currentItem
+            val visibleRatio = (carouselItemDrawInfo.size / carouselItemDrawInfo.maxSize.coerceAtLeast(1f))
+                .coerceIn(0f, 1f)
+            val detailAlpha = ((visibleRatio - 0.30f) / 0.70f).coerceIn(0f, 1f)
 
-            Card(
+            AccountHeroCard(
+                account = account,
+                selected = selected,
+                detailAlpha = detailAlpha,
                 onClick = {
                     onAccountSelected(account.id)
-                    coroutineScope.launch { pagerState.animateScrollToPage(page) }
+                    coroutineScope.launch {
+                        carouselState.animateScrollToItem(page, animationSpec = M3EMotion.spatialSpring())
+                    }
                 },
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (selected) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceContainerHigh
-                    },
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer {
-                        scaleX = cardScale
-                        scaleY = cardScale
-                        alpha = cardAlpha
-                    },
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (selected) {
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainerHighest
-                            },
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.AccountBalanceWallet,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                                Text(
-                                    text = account.accountType.label(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-
-                        if (selected) {
-                            Icon(
-                                imageVector = Icons.Filled.CheckCircle,
-                                contentDescription = "Đang chọn",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        }
-                    }
-
-                    Text(
-                        text = account.accountNumber,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (selected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-
-                    Column {
-                        Text(
-                            text = "Số dư khả dụng",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (selected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        )
-                        Text(
-                            text = CurrencyFormatter.formatVnd(account.balance),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (selected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.primary
-                            },
-                        )
-                    }
-                }
-            }
+                    .fillMaxHeight()
+                    .maskClip(RoundedCornerShape(26.dp)),
+            )
         }
 
-        if (accounts.size > 1) {
-            Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            repeat(accounts.size) { idx ->
+                val isCurrent = idx == carouselState.currentItem
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .height(6.dp)
+                        .width(if (isCurrent) 18.dp else 6.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isCurrent) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceContainerHighest,
+                        )
+                        .clickable {
+                            onAccountSelected(accounts[idx].id)
+                            coroutineScope.launch {
+                                carouselState.animateScrollToItem(idx, animationSpec = M3EMotion.spatialSpring())
+                            }
+                        },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountHeroCard(
+    account: Account,
+    selected: Boolean,
+    detailAlpha: Float,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            },
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                repeat(accounts.size) { idx ->
-                    val isCurrent = idx == pagerState.currentPage
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 3.dp)
-                            .height(6.dp)
-                            .width(if (isCurrent) 18.dp else 6.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isCurrent) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surfaceContainerHighest,
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHighest
+                    },
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.AccountBalanceWallet,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        if (detailAlpha > 0.1f) {
+                            Text(
+                                text = account.accountType.label(),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = detailAlpha),
+                                maxLines = 1,
                             )
-                            .clickable {
-                                onAccountSelected(accounts[idx].id)
-                                coroutineScope.launch { pagerState.animateScrollToPage(idx) }
-                            },
+                        }
+                    }
+                }
+
+                if (selected && detailAlpha > 0.4f) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = "Đang chọn",
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = detailAlpha),
+                        modifier = Modifier.size(22.dp),
                     )
                 }
+            }
+
+            Text(
+                text = account.accountNumber,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f * detailAlpha)
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = detailAlpha)
+                },
+            )
+
+            Column(modifier = Modifier.graphicsLayer { alpha = detailAlpha }) {
+                Text(
+                    text = "Số dư khả dụng",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                )
+                Text(
+                    text = CurrencyFormatter.formatVnd(account.balance),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    maxLines = 1,
+                )
             }
         }
     }

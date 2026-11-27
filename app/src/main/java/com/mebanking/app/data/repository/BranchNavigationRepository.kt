@@ -8,7 +8,7 @@ import com.mebanking.app.domain.model.navigation.BranchFilter
 import com.mebanking.app.domain.model.navigation.GeoPoint
 import com.mebanking.app.domain.model.navigation.RoadGraph
 import com.mebanking.app.domain.model.navigation.RouteResult
-import com.mebanking.app.domain.navigation.AStarPathFinder
+import com.mebanking.app.domain.navigation.BidirectionalAStarPathFinder
 import com.mebanking.app.domain.navigation.GeoDistanceCalculator
 import com.mebanking.app.domain.navigation.PathFinder
 import kotlinx.coroutines.CoroutineDispatcher
@@ -26,7 +26,7 @@ import java.io.FileInputStream
 class BranchNavigationRepository(
     private val branchDao: BranchDao,
     private val roadGraphLoader: RoadGraphLoader,
-    private val pathFinder: PathFinder = AStarPathFinder(),
+    private val pathFinder: PathFinder = BidirectionalAStarPathFinder(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val graphMutex = Mutex()
