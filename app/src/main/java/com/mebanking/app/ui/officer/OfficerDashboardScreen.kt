@@ -32,7 +32,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -40,8 +40,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -146,30 +146,32 @@ private fun OfficerDashboardContent(
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text("Quản lý hồ sơ khách hàng") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Quay lại",
-                        )
-                    }
+            LargeTopAppBar(
+                title = {
+                    Text(
+                        text = "Quản lý hồ sơ khách hàng",
+                        fontWeight = FontWeight.Bold,
+                    )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 104.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
@@ -234,19 +236,105 @@ private fun OfficerDashboardContent(
                     }
                 }
             }
-            item { Text(if (state.isCreating) "Tạo hồ sơ" else "Cập nhật hồ sơ", style = MaterialTheme.typography.titleLarge) }
-            if (state.isCreating) {
-                item { OutlinedTextField(state.username, onUsername, Modifier.fillMaxWidth(), label = { Text("Tên đăng nhập") }, singleLine = true) }
-                item { OutlinedTextField(state.password, onPassword, Modifier.fillMaxWidth(), label = { Text("Mật khẩu tạm (tối thiểu 8 ký tự)") }, singleLine = true) }
-            }
-            item { OutlinedTextField(state.fullName, onName, Modifier.fillMaxWidth(), label = { Text("Họ và tên") }, singleLine = true) }
-            item { OutlinedTextField(state.nationalId, onNationalId, Modifier.fillMaxWidth(), label = { Text("CCCD (12 số)") }, singleLine = true) }
-            item { OutlinedTextField(state.email, onEmail, Modifier.fillMaxWidth(), label = { Text("Email") }, singleLine = true) }
-            item { OutlinedTextField(state.phone, onPhone, Modifier.fillMaxWidth(), label = { Text("Số điện thoại") }, singleLine = true) }
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = state.kycVerified, onCheckedChange = onKyc)
-                    Text("Đã xác minh KYC")
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = if (state.isCreating) "Tạo hồ sơ" else "Cập nhật hồ sơ",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        if (state.isCreating) {
+                            OutlinedTextField(
+                                value = state.username,
+                                onValueChange = onUsername,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Tên đăng nhập") },
+                                singleLine = true,
+                            )
+                            OutlinedTextField(
+                                value = state.password,
+                                onValueChange = onPassword,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Mật khẩu tạm (tối thiểu 8 ký tự)") },
+                                singleLine = true,
+                            )
+                        }
+                        OutlinedTextField(
+                            value = state.fullName,
+                            onValueChange = onName,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Họ và tên") },
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = state.nationalId,
+                            onValueChange = onNationalId,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("CCCD (12 số)") },
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = state.email,
+                            onValueChange = onEmail,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Email") },
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = state.phone,
+                            onValueChange = onPhone,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Số điện thoại") },
+                            singleLine = true,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = state.kycVerified, onCheckedChange = onKyc)
+                            Text("Đã xác minh KYC")
+                        }
+                        if (!state.isCreating && state.selectedCustomer != null) {
+                            OutlinedButton(
+                                onClick = { enrollingCustomerId = state.selectedCustomer.id },
+                                enabled = !state.isLoading,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Face,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Thu thập sinh trắc học khuôn mặt eKYC")
+                                }
+                            }
+                        }
+                        state.successMessage?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Button(
+                            onClick = onSave,
+                            enabled = !state.isLoading,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Lưu hồ sơ")
+                        }
+                    }
                 }
             }
             if (!state.isCreating && state.selectedCustomer != null) {
@@ -318,27 +406,7 @@ private fun OfficerDashboardContent(
                         }
                     }
                 }
-                item {
-                    OutlinedButton(
-                        onClick = { enrollingCustomerId = state.selectedCustomer.id },
-                        enabled = !state.isLoading,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Filled.Face,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text("Thu thập sinh trắc học khuôn mặt eKYC")
-                        }
-                    }
-                }
             }
-            state.successMessage?.let { item { Text(it, color = MaterialTheme.colorScheme.primary) } }
-            item { Button(onClick = onSave, enabled = !state.isLoading, modifier = Modifier.fillMaxWidth()) { Text("Lưu hồ sơ") } }
         }
     }
 

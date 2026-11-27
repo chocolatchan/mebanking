@@ -353,7 +353,7 @@ fun RegisterScreen(
                         value = uiState.password,
                         onValueChange = viewModel::onPasswordChanged,
                         label = { Text("Mật khẩu (tối thiểu 8 ký tự)") },
-                        supportingText = { Text("Tối thiểu 8 ký tự bảo mật") },
+                        supportingText = { Text("Tối thiểu 8 ký tự") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Lock,

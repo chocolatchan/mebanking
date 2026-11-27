@@ -108,8 +108,9 @@ private fun AuthenticatedApp(
     val selectedMainTab = when (currentRoute) {
         "home" -> 0
         "transaction_history" -> 1
-        "services" -> 3
+        "services" -> if (isCustomer) 3 else null
         "account_detail/{accountId}" -> 4
+        "officer_dashboard" -> if (!isCustomer) 5 else null
         else -> null
     }
 
@@ -315,6 +316,7 @@ private fun AuthenticatedApp(
     if (selectedMainTab != null) {
         ModernBankingFloatingToolbar(
             selectedTab = selectedMainTab,
+            isCustomer = isCustomer,
             onTabSelected = { tab ->
                 when (tab) {
                     0 -> navController.navigate("home") {
@@ -326,7 +328,7 @@ private fun AuthenticatedApp(
                         launchSingleTop = true
                         restoreState = true
                     }
-                    2 -> {
+                    2 -> if (isCustomer) {
                         openQrTrigger += 1
                         if (currentRoute != "home") {
                             navController.navigate("home") {
@@ -335,15 +337,24 @@ private fun AuthenticatedApp(
                             }
                         }
                     }
-                    3 -> navController.navigate("services") {
-                        popUpTo("home") { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                    3 -> if (isCustomer) {
+                        navController.navigate("services") {
+                            popUpTo("home") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                     4 -> navController.navigate("account_detail/$primaryAccountId") {
                         popUpTo("home") { saveState = true }
                         launchSingleTop = true
                         restoreState = true
+                    }
+                    5 -> if (!isCustomer) {
+                        navController.navigate("officer_dashboard") {
+                            popUpTo("home") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 }
             },

@@ -1318,6 +1318,7 @@ private fun ModernAccountItem(
 internal fun ModernBankingFloatingToolbar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
+    isCustomer: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -1343,20 +1344,22 @@ internal fun ModernBankingFloatingToolbar(
                     onClick = { onTabSelected(0) },
                 )
                 ToolbarIconAction(
-                    icon = Icons.Filled.History,
-                    contentDescription = "Lịch sử",
+                    icon = if (isCustomer) Icons.Filled.History else Icons.Filled.Assessment,
+                    contentDescription = if (isCustomer) "Lịch sử" else "Báo cáo giao dịch",
                     selected = selectedTab == 1,
                     onClick = { onTabSelected(1) },
                 )
-                ToolbarIconAction(
-                    icon = Icons.Filled.Receipt,
-                    contentDescription = "Dịch vụ",
-                    selected = selectedTab == 3,
-                    onClick = { onTabSelected(3) },
-                )
+                if (isCustomer) {
+                    ToolbarIconAction(
+                        icon = Icons.Filled.Receipt,
+                        contentDescription = "Dịch vụ",
+                        selected = selectedTab == 3,
+                        onClick = { onTabSelected(3) },
+                    )
+                }
                 ToolbarIconAction(
                     icon = Icons.Filled.Person,
-                    contentDescription = "Tài khoản",
+                    contentDescription = if (isCustomer) "Tài khoản" else "Hồ sơ cán bộ",
                     selected = selectedTab == 4,
                     onClick = { onTabSelected(4) },
                 )
@@ -1364,15 +1367,15 @@ internal fun ModernBankingFloatingToolbar(
         }
 
         FloatingActionButton(
-            onClick = { onTabSelected(2) },
+            onClick = { onTabSelected(if (isCustomer) 2 else 5) },
             shape = RoundedCornerShape(18.dp),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),
         ) {
             Icon(
-                imageVector = Icons.Filled.QrCodeScanner,
-                contentDescription = "Quét QR",
+                imageVector = if (isCustomer) Icons.Filled.QrCodeScanner else Icons.Filled.SupervisorAccount,
+                contentDescription = if (isCustomer) "Quét QR" else "Quản lý hồ sơ khách hàng",
             )
         }
     }

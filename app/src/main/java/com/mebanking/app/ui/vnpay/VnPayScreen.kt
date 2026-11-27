@@ -89,7 +89,7 @@ import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
 import com.mebanking.app.ui.theme.SynchronizedStatusBar
 
 private val VnPayBankOptions = listOf(
-    "NCB" to "NCB (Sandbox Demo)",
+    "NCB" to "NCB",
     "VNPAYQR" to "VNPAY-QR",
     "VNBANK" to "Thẻ ATM nội địa",
     "INTCARD" to "Thẻ quốc tế",
@@ -353,7 +353,7 @@ fun VnPayScreen(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Icon(Icons.Filled.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                                Text("Cấu hình Merchant VNPay Sandbox", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                                Text("Cấu hình Merchant VNPay", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                             }
                             Icon(if (showSandboxConfig) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null)
                         }
@@ -399,13 +399,13 @@ fun VnPayScreen(
                         } else {
                             Icon(Icons.Filled.QrCode2, contentDescription = null, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Thanh toán qua VNPay Sandbox", fontWeight = FontWeight.Bold)
+                            Text("Thanh toán qua VNPay", fontWeight = FontWeight.Bold)
                         }
                     }
 
                     OutlinedButton(
                         onClick = {
-                            authForOfflineSim("Xác thực mô phỏng VNPay ${CurrencyFormatter.formatVnd(uiState.parsedAmount ?: 0L)}")
+                            authForOfflineSim("Xác thực thanh toán VNPay ${CurrencyFormatter.formatVnd(uiState.parsedAmount ?: 0L)}")
                         },
                         enabled = uiState.canPay,
                         shape = RoundedCornerShape(10.dp),
@@ -415,7 +415,7 @@ fun VnPayScreen(
                     ) {
                         Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Mô phỏng phản hồi VNPay (Offline Test)", fontWeight = FontWeight.SemiBold)
+                        Text("Xác nhận thanh toán nhanh", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -449,10 +449,10 @@ private fun VnPayWebViewScreen(
                 pendingSslHandler = null
             },
             shape = RoundedCornerShape(16.dp),
-            title = { Text("Xác nhận SSL VNPay Sandbox", fontWeight = FontWeight.Bold) },
+            title = { Text("Xác nhận kết nối VNPay", fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "Chứng chỉ SSL của $pendingSslUrl không khớp với đồng hồ thiết bị. Bạn có muốn tiếp tục tải trang VNPay Sandbox (chỉ dùng khi kiểm thử Debug) không?",
+                    "Chứng chỉ kết nối của $pendingSslUrl chưa khớp với thiết bị. Bạn có muốn tiếp tục tải trang thanh toán không?",
                     style = MaterialTheme.typography.bodySmall,
                 )
             },
@@ -464,7 +464,7 @@ private fun VnPayWebViewScreen(
                     },
                     shape = RoundedCornerShape(10.dp),
                 ) {
-                    Text("Tiếp tục tải Sandbox")
+                    Text("Tiếp tục")
                 }
             },
             dismissButton = {
@@ -488,7 +488,7 @@ private fun VnPayWebViewScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Cổng thanh toán VNPay Sandbox", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("Cổng thanh toán VNPay", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                         Text(
                             text = if (loadProgress in 1..99) "Đang tải trang VNPay ($loadProgress%)..." else "sandbox.vnpayment.vn",
                             style = MaterialTheme.typography.labelSmall,

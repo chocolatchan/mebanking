@@ -251,21 +251,6 @@ fun AccountDetailContent(
                 uiState.mortgageDetails?.let { details ->
                     item { MortgageCard(details = details) }
                 }
-
-                // 7. Bottom Back Button
-                item {
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Text("Quay lại trang chủ")
-                    }
-                    Spacer(Modifier.height(16.dp))
-                }
             }
 
             uiState.userSession != null -> LazyColumn(
@@ -327,20 +312,6 @@ fun AccountDetailContent(
 
                 item {
                     CustomerProfileCard(uiState = uiState)
-                }
-
-                item {
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Text("Quay lại trang chủ")
-                    }
-                    Spacer(Modifier.height(16.dp))
                 }
             }
         }
@@ -794,32 +765,9 @@ private fun SavingCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
-            Spacer(Modifier.height(12.dp))
             if (profit != null) {
+                Spacer(Modifier.height(8.dp))
                 DetailRow("Lợi nhuận tháng", CurrencyFormatter.formatVnd(profit))
-            } else {
-                Card(
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(
-                            text = "Tính lợi nhuận đang tạm khóa",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = formulaNotice
-                                ?: "Công thức tính lãi định kỳ chưa được phê duyệt.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
             }
         }
     }
@@ -872,12 +820,6 @@ private fun MortgageCard(details: MortgageAccountDetails) {
             DetailRow("Dư nợ còn lại", CurrencyFormatter.formatVnd(details.remainingBalance))
             DetailRow("Thanh toán định kỳ", CurrencyFormatter.formatVnd(details.monthlyPayment))
             DetailRow("Chu kỳ", details.payCycle)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Lịch trả nợ chi tiết và công thức phân bổ lãi chưa được phê duyệt nên không hiển thị.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
@@ -919,7 +861,6 @@ private fun AccountDetailPreview() {
                     balance = 100_000_000L,
                     interestRate = 5.8,
                 ),
-                formulaNotice = "Công thức tính lãi suất định kỳ chưa được phê duyệt (OPEN/BLOCKED)",
             ),
             onBack = {},
         )
