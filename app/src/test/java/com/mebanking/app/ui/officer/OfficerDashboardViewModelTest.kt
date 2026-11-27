@@ -6,8 +6,11 @@ import com.mebanking.app.data.local.entity.UserEntity
 import com.mebanking.app.data.local.security.NationalIdProtector
 import com.mebanking.app.data.local.security.PasswordHasher
 import com.mebanking.app.data.local.security.ProtectedNationalId
+import com.mebanking.app.data.repository.DefaultAccountRepository
+import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.UserSession
+import com.mebanking.app.domain.service.DefaultAccountService
 import com.mebanking.app.domain.service.DefaultFaceRecognitionService
 import com.mebanking.app.domain.service.DefaultOfficerCustomerService
 import com.mebanking.app.domain.service.DefaultSessionManager
@@ -118,5 +121,90 @@ class OfficerDashboardViewModelTest {
         assertNotNull(created)
         assertEquals("Nguyễn Văn Mới", created?.fullName)
         assertEquals(1, db.accountDao().getAccountsByUserIdSync(created!!.id).size)
+    }
+
+    @Test
+    fun savingLifecycle_createEditRateLockUnlockAndCloseRequiresZeroBalance() = runTest {
+        val accountService = DefaultAccountService(DefaultAccountRepository(db.accountDao()), sessionManager)
+        val viewModel = OfficerDashboardViewModel(officerService, sessionManager, faceService, accountService)
+        val customer = viewModel.uiState.first { !it.isLoading && it.customers.isNotEmpty() }.customers.first { it.id == 2L }
+        viewModel.selectCustomer(customer)
+        advanceUntilIdle()
+
+        // Create Saving with deposit 5_000_000, rate 6.2%, term 12 months
+        viewModel.openSavingAccount("5000000", "6.2", "12")
+        val afterCreate = viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("tiết kiệm") == true }
+        var saving = afterCreate.selectedCustomerAccounts.first { it.accountType == AccountType.SAVING }
+        assertEquals(5_000_000L, saving.balance)
+        assertEquals(6.2, saving.interestRate, 0.001)
+        assertEquals("12 tháng", saving.payCycle)
+        assertEquals("ACTIVE", saving.status)
+
+        // Edit rate
+        viewModel.updateInterestRate(saving.id, "7.0")
+        val afterRate = viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("lãi suất") == true }
+        saving = afterRate.selectedCustomerAccounts.first { it.id == saving.id }
+        assertEquals(7.0, saving.interestRate, 0.001)
+
+        // Lock then Unlock
+        viewModel.toggleAccountLock(saving.id, lock = true)
+        val afterLock = viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("khóa") == true }
+        assertEquals("LOCKED", afterLock.selectedCustomerAccounts.first { it.id == saving.id }.status)
+        viewModel.toggleAccountLock(saving.id, lock = false)
+        val afterUnlock = viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("mở khóa") == true }
+        assertEquals("ACTIVE", afterUnlock.selectedCustomerAccounts.first { it.id == saving.id }.status)
+
+        // Close fails while balance > 0
+        viewModel.closeAccount(saving.id)
+        val afterFailClose = viewModel.uiState.first { !it.isLoading && it.errorMessage != null }
+        assertNotNull(afterFailClose.errorMessage)
+        assertEquals("ACTIVE", db.accountDao().getById(saving.id)?.status)
+
+        // Zero out balance, then close -> status CLOSED (record preserved in DB)
+        val entity = db.accountDao().getById(saving.id)!!
+        db.accountDao().update(entity.copy(balance = 0L))
+        viewModel.closeAccount(saving.id)
+        viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("CLOSED") == true }
+        assertEquals("CLOSED", db.accountDao().getById(saving.id)?.status)
+    }
+
+    @Test
+    fun mortgageLifecycle_createBiweeklyPayOffLockAndCloseRequiresZeroDebt() = runTest {
+        val viewModel = OfficerDashboardViewModel(officerService, sessionManager, faceService)
+        val customer = viewModel.uiState.first { !it.isLoading && it.customers.isNotEmpty() }.customers.first { it.id == 2L }
+        viewModel.selectCustomer(customer)
+        viewModel.uiState.first { !it.isLoading }
+
+        // Create Mortgage 120M, 8.5%, 12 months, BIWEEKLY (24 periods -> 5M/period)
+        viewModel.openMortgageAccount("120000000", "8.5", "12", "BIWEEKLY")
+        val afterCreate = viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("thế chấp") == true }
+        val mortgage = afterCreate.selectedCustomerAccounts.first { it.accountType == AccountType.MORTGAGE }
+        assertEquals(120_000_000L, mortgage.loanAmount)
+        assertEquals(120_000_000L, mortgage.balance)
+        assertEquals(5_000_000L, mortgage.monthlyPayment)
+        assertEquals("BIWEEKLY", mortgage.payCycle)
+        assertEquals("ACTIVE", mortgage.status)
+
+        // Cannot close while remaining debt > 0
+        viewModel.closeAccount(mortgage.id)
+        val afterFailClose = viewModel.uiState.first { !it.isLoading && it.errorMessage != null }
+        assertNotNull(afterFailClose.errorMessage)
+        assertEquals("ACTIVE", db.accountDao().getById(mortgage.id)?.status)
+
+        // Lock then Unlock
+        viewModel.toggleAccountLock(mortgage.id, lock = true)
+        viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("khóa") == true }
+        assertEquals("LOCKED", db.accountDao().getById(mortgage.id)?.status)
+        viewModel.toggleAccountLock(mortgage.id, lock = false)
+        viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("mở khóa") == true }
+        assertEquals("ACTIVE", db.accountDao().getById(mortgage.id)?.status)
+
+        // Pay off full debt -> 0L -> close succeeds with status CLOSED
+        viewModel.recordMortgagePayment(mortgage.id, "120000000")
+        viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("thanh toán") == true }
+        assertEquals(0L, db.accountDao().getById(mortgage.id)?.balance)
+        viewModel.closeAccount(mortgage.id)
+        viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("CLOSED") == true }
+        assertEquals("CLOSED", db.accountDao().getById(mortgage.id)?.status)
     }
 }

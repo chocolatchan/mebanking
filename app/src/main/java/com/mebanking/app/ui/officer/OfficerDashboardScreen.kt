@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +29,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +53,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -78,11 +84,16 @@ fun OfficerDashboardScreen(onBack: () -> Unit) {
         onSave = viewModel::save,
         onEnrollFace = { customerId, frame -> viewModel.enrollFaceBiometrics(customerId, frame) },
         onOpenAccount = viewModel::openAccountForSelectedCustomer,
+        onOpenSavingAccount = viewModel::openSavingAccount,
+        onOpenMortgageAccount = viewModel::openMortgageAccount,
         onUpdateInterestRate = viewModel::updateInterestRate,
+        onToggleAccountLock = viewModel::toggleAccountLock,
+        onRecordMortgagePayment = viewModel::recordMortgagePayment,
+        onCloseAccount = viewModel::closeAccount,
     )
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun OfficerDashboardContent(
     state: OfficerDashboardUiState,
@@ -100,11 +111,20 @@ private fun OfficerDashboardContent(
     onSave: () -> Unit,
     onEnrollFace: (Long, ByteArray) -> Unit = { _, _ -> },
     onOpenAccount: (com.mebanking.app.domain.model.AccountType) -> Unit = {},
+    onOpenSavingAccount: (String, String, String) -> Unit = { _, _, _ -> },
+    onOpenMortgageAccount: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     onUpdateInterestRate: (Long, String) -> Unit = { _, _ -> },
+    onToggleAccountLock: (Long, Boolean) -> Unit = { _, _ -> },
+    onRecordMortgagePayment: (Long, String) -> Unit = { _, _ -> },
+    onCloseAccount: (Long) -> Unit = {},
 ) {
     var enrollingCustomerId by remember { mutableStateOf<Long?>(null) }
     var editingRateAccount by remember { mutableStateOf<com.mebanking.app.domain.model.Account?>(null) }
     var editingRateInput by remember { mutableStateOf("") }
+    var showCreateSavingDialog by remember { mutableStateOf(false) }
+    var showCreateMortgageDialog by remember { mutableStateOf(false) }
+    var payingMortgageAccount by remember { mutableStateOf<com.mebanking.app.domain.model.Account?>(null) }
+    var closingTargetAccount by remember { mutableStateOf<com.mebanking.app.domain.model.Account?>(null) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val isDark = isSystemInDarkTheme()
@@ -253,58 +273,46 @@ private fun OfficerDashboardContent(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             } else {
-                                state.selectedCustomerAccounts.forEach { acc ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "• ${acc.accountNumber} (${acc.accountType.name}) — ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(acc.balance)} [${acc.status}]",
-                                                style = MaterialTheme.typography.bodySmall,
-                                            )
-                                            if (acc.accountType != com.mebanking.app.domain.model.AccountType.MORTGAGE) {
-                                                Text(
-                                                    text = "  Lãi suất: ${acc.interestRate}%/năm",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                )
-                                            }
-                                        }
-                                        if (acc.accountType != com.mebanking.app.domain.model.AccountType.MORTGAGE) {
-                                            TextButton(
-                                                onClick = {
-                                                    editingRateAccount = acc
-                                                    editingRateInput = acc.interestRate.toString()
-                                                },
-                                                enabled = !state.isLoading,
-                                            ) {
-                                                Text("Sửa lãi suất")
-                                            }
-                                        }
-                                    }
+                                state.selectedCustomerAccounts.forEachIndexed { idx, acc ->
+                                    if (idx > 0) HorizontalDivider()
+                                    CustomerAccountManagementRow(
+                                        account = acc,
+                                        enabled = !state.isLoading,
+                                        onEditRate = {
+                                            editingRateAccount = acc
+                                            editingRateInput = acc.interestRate.toString()
+                                        },
+                                        onToggleLock = { lock -> onToggleAccountLock(acc.id, lock) },
+                                        onRecordMortgagePayment = { payingMortgageAccount = acc },
+                                        onRequestClose = { closingTargetAccount = acc },
+                                    )
                                 }
                             }
-                            Row(
+                            FlowRow(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 OutlinedButton(
                                     onClick = { onOpenAccount(com.mebanking.app.domain.model.AccountType.CHECKING) },
                                     enabled = !state.isLoading,
                                     shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.weight(1f),
                                 ) {
                                     Text("+ TK Thanh toán", style = MaterialTheme.typography.labelSmall)
                                 }
                                 OutlinedButton(
-                                    onClick = { onOpenAccount(com.mebanking.app.domain.model.AccountType.SAVING) },
+                                    onClick = { showCreateSavingDialog = true },
                                     enabled = !state.isLoading,
                                     shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.weight(1f),
                                 ) {
                                     Text("+ TK Tiết kiệm", style = MaterialTheme.typography.labelSmall)
+                                }
+                                OutlinedButton(
+                                    onClick = { showCreateMortgageDialog = true },
+                                    enabled = !state.isLoading,
+                                    shape = RoundedCornerShape(10.dp),
+                                ) {
+                                    Text("+ TK Vay Mortgage", style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                         }
@@ -388,4 +396,374 @@ private fun OfficerDashboardContent(
             },
         )
     }
+
+    if (showCreateSavingDialog) {
+        CreateSavingAccountDialog(
+            isLoading = state.isLoading,
+            onDismiss = { showCreateSavingDialog = false },
+            onConfirm = { deposit, rate, term ->
+                onOpenSavingAccount(deposit, rate, term)
+                showCreateSavingDialog = false
+            },
+        )
+    }
+
+    if (showCreateMortgageDialog) {
+        CreateMortgageAccountDialog(
+            isLoading = state.isLoading,
+            onDismiss = { showCreateMortgageDialog = false },
+            onConfirm = { loan, rate, term, cycle ->
+                onOpenMortgageAccount(loan, rate, term, cycle)
+                showCreateMortgageDialog = false
+            },
+        )
+    }
+
+    payingMortgageAccount?.let { mortgageAcc ->
+        MortgagePaymentDialog(
+            account = mortgageAcc,
+            isLoading = state.isLoading,
+            onDismiss = { payingMortgageAccount = null },
+            onConfirm = { amount ->
+                onRecordMortgagePayment(mortgageAcc.id, amount)
+                payingMortgageAccount = null
+            },
+        )
+    }
+
+    closingTargetAccount?.let { targetAcc ->
+        val isMortgage = targetAcc.accountType == com.mebanking.app.domain.model.AccountType.MORTGAGE
+        val eligible = targetAcc.balance == 0L
+        AlertDialog(
+            onDismissRequest = { closingTargetAccount = null },
+            title = { Text(if (isMortgage) "Đóng khoản vay thế chấp" else "Đóng tài khoản") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Tài khoản: ${targetAcc.accountNumber}")
+                    Text(
+                        text = if (isMortgage) {
+                            "Dư nợ hiện tại: ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(targetAcc.balance)}"
+                        } else {
+                            "Số dư hiện tại: ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(targetAcc.balance)}"
+                        },
+                    )
+                    Text(
+                        text = if (eligible) {
+                            "Tài khoản sẽ chuyển sang trạng thái CLOSED (không xóa vật lý để bảo toàn lịch sử tài chính)."
+                        } else if (isMortgage) {
+                            "Chưa đủ điều kiện đóng: chỉ được đóng khoản vay khi đã trả hết nợ (dư nợ = 0 đ)."
+                        } else {
+                            "Chưa đủ điều kiện đóng: số dư phải bằng 0 đ trước khi đóng tài khoản."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (eligible) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onCloseAccount(targetAcc.id)
+                        closingTargetAccount = null
+                    },
+                    enabled = !state.isLoading && eligible,
+                ) {
+                    Text("Xác nhận đóng (CLOSED)")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { closingTargetAccount = null }) {
+                    Text("Hủy")
+                }
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CustomerAccountManagementRow(
+    account: com.mebanking.app.domain.model.Account,
+    enabled: Boolean,
+    onEditRate: () -> Unit,
+    onToggleLock: (Boolean) -> Unit,
+    onRecordMortgagePayment: () -> Unit,
+    onRequestClose: () -> Unit,
+) {
+    val isClosed = account.status == "CLOSED"
+    val isLocked = account.status == "LOCKED"
+    val isMortgage = account.accountType == com.mebanking.app.domain.model.AccountType.MORTGAGE
+    val isSaving = account.accountType == com.mebanking.app.domain.model.AccountType.SAVING
+    val statusColor = when (account.status) {
+        "ACTIVE" -> Color(0xFF00796B)
+        "LOCKED" -> Color(0xFFE65100)
+        else -> MaterialTheme.colorScheme.error
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "${account.accountNumber} (${account.accountType.name})",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = account.status,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = statusColor,
+            )
+        }
+
+        if (isMortgage) {
+            Text(
+                text = "Dư nợ: ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(account.balance)} · Vay gốc: ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(account.loanAmount ?: 0L)}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                text = "Phải trả: ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(account.monthlyPayment ?: 0L)} (${account.payCycle ?: "MONTHLY"}) · Lãi suất: ${account.interestRate}%/năm",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        } else {
+            Text(
+                text = "Số dư: ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(account.balance)}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            val savingMeta = buildString {
+                append("Lãi suất: ${account.interestRate}%/năm")
+                if (isSaving && !account.payCycle.isNullOrBlank()) {
+                    append(" · Kỳ hạn: ${account.payCycle}")
+                }
+            }
+            Text(
+                text = savingMeta,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+
+        if (!isClosed) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (!isMortgage) {
+                    TextButton(onClick = onEditRate, enabled = enabled) {
+                        Text("Sửa lãi suất")
+                    }
+                } else {
+                    TextButton(
+                        onClick = onRecordMortgagePayment,
+                        enabled = enabled && !isLocked && account.balance > 0L,
+                    ) {
+                        Text("Trả nợ")
+                    }
+                }
+                TextButton(
+                    onClick = { onToggleLock(!isLocked) },
+                    enabled = enabled,
+                ) {
+                    Text(if (isLocked) "Mở khóa" else "Khóa")
+                }
+                TextButton(
+                    onClick = onRequestClose,
+                    enabled = enabled,
+                ) {
+                    Text(
+                        text = if (isMortgage) "Đóng khoản vay" else "Đóng TK",
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        } else {
+            Text(
+                text = "Đã đóng (CLOSED) — lịch sử giao dịch vẫn được lưu giữ",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CreateSavingAccountDialog(
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (initialDeposit: String, interestRate: String, termMonths: String) -> Unit,
+) {
+    var depositInput by remember { mutableStateOf("10000000") }
+    var rateInput by remember { mutableStateOf("5.8") }
+    var termInput by remember { mutableStateOf("12") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Tạo tài khoản Tiết kiệm") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = depositInput,
+                    onValueChange = { depositInput = it.filter(Char::isDigit) },
+                    label = { Text("Tiền gửi ban đầu (VND)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = rateInput,
+                    onValueChange = { rateInput = it },
+                    label = { Text("Lãi suất năm (%/năm, 0.0 - 15.0)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = termInput,
+                    onValueChange = { termInput = it.filter(Char::isDigit) },
+                    label = { Text("Kỳ hạn (tháng, 1 - 120)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(depositInput, rateInput, termInput) },
+                enabled = !isLoading,
+            ) {
+                Text("Tạo TK Tiết kiệm")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Hủy") }
+        },
+    )
+}
+
+@Composable
+private fun CreateMortgageAccountDialog(
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (loanAmount: String, interestRate: String, termMonths: String, payCycle: String) -> Unit,
+) {
+    var loanInput by remember { mutableStateOf("500000000") }
+    var rateInput by remember { mutableStateOf("8.5") }
+    var termInput by remember { mutableStateOf("120") }
+    var selectedCycle by remember { mutableStateOf("MONTHLY") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Tạo tài khoản Vay (Mortgage)") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = loanInput,
+                    onValueChange = { loanInput = it.filter(Char::isDigit) },
+                    label = { Text("Số tiền vay (VND)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = rateInput,
+                    onValueChange = { rateInput = it },
+                    label = { Text("Lãi suất năm (%/năm)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = termInput,
+                    onValueChange = { termInput = it.filter(Char::isDigit) },
+                    label = { Text("Thời hạn vay (tháng)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = "Chu kỳ trả nợ",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = selectedCycle == "MONTHLY",
+                        onClick = { selectedCycle = "MONTHLY" },
+                        label = { Text("Hàng tháng") },
+                    )
+                    FilterChip(
+                        selected = selectedCycle == "BIWEEKLY",
+                        onClick = { selectedCycle = "BIWEEKLY" },
+                        label = { Text("Mỗi 2 tuần") },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(loanInput, rateInput, termInput, selectedCycle) },
+                enabled = !isLoading,
+            ) {
+                Text("Tạo khoản vay")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Hủy") }
+        },
+    )
+}
+
+@Composable
+private fun MortgagePaymentDialog(
+    account: com.mebanking.app.domain.model.Account,
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (amount: String) -> Unit,
+) {
+    val defaultPay = (account.monthlyPayment ?: account.balance).coerceAtMost(account.balance)
+    var amountInput by remember { mutableStateOf(defaultPay.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Thanh toán dư nợ Mortgage") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Dư nợ còn lại: ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(account.balance)}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedTextField(
+                    value = amountInput,
+                    onValueChange = { amountInput = it.filter(Char::isDigit) },
+                    label = { Text("Số tiền thanh toán (VND)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TextButton(onClick = { amountInput = account.balance.toString() }) {
+                    Text("Điền toàn bộ dư nợ (${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(account.balance)})")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(amountInput) },
+                enabled = !isLoading,
+            ) {
+                Text("Xác nhận thanh toán")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Hủy") }
+        },
+    )
 }

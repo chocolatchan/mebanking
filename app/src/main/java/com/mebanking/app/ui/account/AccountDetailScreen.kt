@@ -782,6 +782,9 @@ private fun SavingCard(
             }
             Spacer(Modifier.height(8.dp))
             DetailRow("Lãi suất năm", "${account.interestRate}%")
+            account.payCycle?.takeIf { it.isNotBlank() }?.let { term ->
+                DetailRow("Kỳ hạn", term)
+            }
             DetailRow("Trạng thái", account.status)
             rateNotice?.let { notice ->
                 Spacer(Modifier.height(6.dp))

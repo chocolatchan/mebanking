@@ -42,6 +42,40 @@ interface OfficerCustomerService {
         initialBalance: Long = 0L,
     ): Result<com.mebanking.app.domain.model.Account> =
         Result.failure(DomainError.SystemError("Tính năng mở tài khoản chưa được hỗ trợ"))
+
+    suspend fun openSavingAccountForCustomer(
+        targetUserId: Long,
+        initialDeposit: Long,
+        interestRate: Double,
+        termMonths: Int,
+    ): Result<com.mebanking.app.domain.model.Account> =
+        Result.failure(DomainError.SystemError("Tính năng mở tài khoản tiết kiệm chưa được hỗ trợ"))
+
+    suspend fun openMortgageAccountForCustomer(
+        targetUserId: Long,
+        loanAmount: Long,
+        interestRate: Double,
+        termMonths: Int,
+        payCycle: String,
+    ): Result<com.mebanking.app.domain.model.Account> =
+        Result.failure(DomainError.SystemError("Tính năng mở tài khoản vay chưa được hỗ trợ"))
+
+    suspend fun toggleAccountLock(
+        accountId: Long,
+        lock: Boolean,
+    ): Result<com.mebanking.app.domain.model.Account> =
+        Result.failure(DomainError.SystemError("Tính năng khóa/mở khóa chưa được hỗ trợ"))
+
+    suspend fun recordMortgagePayment(
+        accountId: Long,
+        amount: Long,
+    ): Result<com.mebanking.app.domain.model.Account> =
+        Result.failure(DomainError.SystemError("Tính năng thanh toán dư nợ chưa được hỗ trợ"))
+
+    suspend fun closeAccount(
+        accountId: Long,
+    ): Result<com.mebanking.app.domain.model.Account> =
+        Result.failure(DomainError.SystemError("Tính năng đóng tài khoản chưa được hỗ trợ"))
 }
 
 class DefaultOfficerCustomerService(
@@ -267,5 +301,195 @@ class DefaultOfficerCustomerService(
         )
         val newId = accountDao.insert(entity)
         return Result.success(entity.copy(id = newId).toDomainModel())
+    }
+
+    override suspend fun openSavingAccountForCustomer(
+        targetUserId: Long,
+        initialDeposit: Long,
+        interestRate: Double,
+        termMonths: Int,
+    ): Result<com.mebanking.app.domain.model.Account> {
+        val officerError = requireOfficerOrFailure<com.mebanking.app.domain.model.Account>()
+        if (officerError != null) return officerError
+
+        val customer = userDao.getById(targetUserId)
+            ?: return Result.failure(DomainError.NotFound("Không tìm thấy khách hàng"))
+        if (customer.role != Role.CUSTOMER) {
+            return Result.failure(DomainError.Forbidden("Chỉ mở tài khoản tiết kiệm cho khách hàng"))
+        }
+        if (initialDeposit < 0L) {
+            return Result.failure(DomainError.InvalidData("Tiền gửi ban đầu không được âm"))
+        }
+        if (interestRate < 0.0 || interestRate > 15.0) {
+            return Result.failure(DomainError.InvalidData("Lãi suất năm phải từ 0.0% đến 15.0%"))
+        }
+        if (termMonths !in 1..120) {
+            return Result.failure(DomainError.InvalidData("Kỳ hạn gửi phải từ 1 đến 120 tháng"))
+        }
+
+        val accountNumber = nextAccountNumber(targetUserId, AccountType.SAVING)
+        val entity = AccountEntity(
+            userId = targetUserId,
+            accountNumber = accountNumber,
+            accountType = AccountType.SAVING,
+            balance = initialDeposit,
+            currency = "VND",
+            interestRate = interestRate,
+            status = "ACTIVE",
+            payCycle = "$termMonths tháng",
+        )
+        val newId = accountDao.insert(entity)
+        return Result.success(entity.copy(id = newId).toDomainModel())
+    }
+
+    override suspend fun openMortgageAccountForCustomer(
+        targetUserId: Long,
+        loanAmount: Long,
+        interestRate: Double,
+        termMonths: Int,
+        payCycle: String,
+    ): Result<com.mebanking.app.domain.model.Account> {
+        val officerError = requireOfficerOrFailure<com.mebanking.app.domain.model.Account>()
+        if (officerError != null) return officerError
+
+        val customer = userDao.getById(targetUserId)
+            ?: return Result.failure(DomainError.NotFound("Không tìm thấy khách hàng"))
+        if (customer.role != Role.CUSTOMER) {
+            return Result.failure(DomainError.Forbidden("Chỉ mở tài khoản vay cho khách hàng"))
+        }
+        if (loanAmount <= 0L) {
+            return Result.failure(DomainError.InvalidData("Số tiền vay phải lớn hơn 0"))
+        }
+        if (interestRate < 0.0 || interestRate > 25.0) {
+            return Result.failure(DomainError.InvalidData("Lãi suất vay phải từ 0.0% đến 25.0%"))
+        }
+        if (termMonths !in 1..360) {
+            return Result.failure(DomainError.InvalidData("Thời hạn vay phải từ 1 đến 360 tháng"))
+        }
+        val normalizedCycle = payCycle.trim().uppercase()
+        if (normalizedCycle != "MONTHLY" && normalizedCycle != "BIWEEKLY") {
+            return Result.failure(DomainError.InvalidData("Chu kỳ trả chỉ hỗ trợ MONTHLY hoặc BIWEEKLY"))
+        }
+
+        val totalPeriods = if (normalizedCycle == "BIWEEKLY") termMonths * 2 else termMonths
+        val periodicPrincipal = kotlin.math.ceil(loanAmount.toDouble() / totalPeriods.toDouble())
+            .toLong()
+            .coerceAtLeast(1L)
+
+        val accountNumber = nextAccountNumber(targetUserId, AccountType.MORTGAGE)
+        val entity = AccountEntity(
+            userId = targetUserId,
+            accountNumber = accountNumber,
+            accountType = AccountType.MORTGAGE,
+            balance = loanAmount, // Dư nợ còn lại ban đầu = số tiền vay
+            currency = "VND",
+            interestRate = interestRate,
+            status = "ACTIVE",
+            loanAmount = loanAmount,
+            monthlyPayment = periodicPrincipal,
+            payCycle = normalizedCycle,
+        )
+        val newId = accountDao.insert(entity)
+        return Result.success(entity.copy(id = newId).toDomainModel())
+    }
+
+    override suspend fun toggleAccountLock(
+        accountId: Long,
+        lock: Boolean,
+    ): Result<com.mebanking.app.domain.model.Account> {
+        val officerError = requireOfficerOrFailure<com.mebanking.app.domain.model.Account>()
+        if (officerError != null) return officerError
+
+        val entity = accountDao.getById(accountId)
+            ?: return Result.failure(DomainError.NotFound("Không tìm thấy tài khoản"))
+        if (entity.status == "CLOSED") {
+            return Result.failure(DomainError.InvalidData("Tài khoản đã đóng (CLOSED), không thể khóa hoặc mở khóa"))
+        }
+        if (lock && entity.status == "LOCKED") {
+            return Result.failure(DomainError.InvalidData("Tài khoản đã ở trạng thái khóa"))
+        }
+        if (!lock && entity.status == "ACTIVE") {
+            return Result.failure(DomainError.InvalidData("Tài khoản đang hoạt động"))
+        }
+        if (!lock && entity.accountType == AccountType.MORTGAGE && (entity.loanAmount == null || entity.loanAmount <= 0L)) {
+            return Result.failure(DomainError.InvalidData("Khoản vay không hợp lệ, không thể mở khóa"))
+        }
+
+        val updated = entity.copy(status = if (lock) "LOCKED" else "ACTIVE")
+        accountDao.update(updated)
+        return Result.success(updated.toDomainModel())
+    }
+
+    override suspend fun recordMortgagePayment(
+        accountId: Long,
+        amount: Long,
+    ): Result<com.mebanking.app.domain.model.Account> {
+        val officerError = requireOfficerOrFailure<com.mebanking.app.domain.model.Account>()
+        if (officerError != null) return officerError
+
+        val entity = accountDao.getById(accountId)
+            ?: return Result.failure(DomainError.NotFound("Không tìm thấy tài khoản vay"))
+        if (entity.accountType != AccountType.MORTGAGE) {
+            return Result.failure(DomainError.InvalidData("Chỉ áp dụng trả nợ cho tài khoản vay (MORTGAGE)"))
+        }
+        if (entity.status == "CLOSED") {
+            return Result.failure(DomainError.InvalidData("Khoản vay đã đóng"))
+        }
+        if (entity.status != "ACTIVE") {
+            return Result.failure(DomainError.AccountInactive("Khoản vay đang bị khóa, cần mở khóa trước khi ghi nhận trả nợ"))
+        }
+        if (amount <= 0L) {
+            return Result.failure(DomainError.InvalidData("Số tiền trả nợ phải lớn hơn 0"))
+        }
+        if (amount > entity.balance) {
+            return Result.failure(DomainError.InvalidData("Số tiền trả nợ vượt quá dư nợ hiện tại"))
+        }
+
+        val updated = entity.copy(balance = entity.balance - amount)
+        accountDao.update(updated)
+        return Result.success(updated.toDomainModel())
+    }
+
+    override suspend fun closeAccount(
+        accountId: Long,
+    ): Result<com.mebanking.app.domain.model.Account> {
+        val officerError = requireOfficerOrFailure<com.mebanking.app.domain.model.Account>()
+        if (officerError != null) return officerError
+
+        val entity = accountDao.getById(accountId)
+            ?: return Result.failure(DomainError.NotFound("Không tìm thấy tài khoản"))
+        if (entity.status == "CLOSED") {
+            return Result.failure(DomainError.InvalidData("Tài khoản đã ở trạng thái đóng (CLOSED)"))
+        }
+        if (entity.accountType == AccountType.MORTGAGE && entity.balance > 0L) {
+            return Result.failure(DomainError.InvalidData("Chỉ được đóng khoản vay khi đã trả hết nợ (dư nợ = 0 đ)"))
+        }
+        if (entity.accountType != AccountType.MORTGAGE && entity.balance > 0L) {
+            return Result.failure(DomainError.InvalidData("Chỉ được đóng tài khoản khi số dư bằng 0 đ để bảo toàn lịch sử tài chính"))
+        }
+
+        // Preserve ledger & financial history via CLOSED status instead of physical deletion
+        val updated = entity.copy(status = "CLOSED")
+        accountDao.update(updated)
+        return Result.success(updated.toDomainModel())
+    }
+
+    private fun <T> requireOfficerOrFailure(): Result<T>? {
+        val session = sessionManager.currentSession
+            ?: return Result.failure(DomainError.Unauthorized("Authentication required"))
+        if (session.role != Role.OFFICER) {
+            return Result.failure(DomainError.Forbidden("Chỉ cán bộ ngân hàng mới có quyền thực hiện thao tác này"))
+        }
+        return null
+    }
+
+    private suspend fun nextAccountNumber(targetUserId: Long, accountType: AccountType): String {
+        val prefix = when (accountType) {
+            AccountType.CHECKING -> "100"
+            AccountType.SAVING -> "200"
+            AccountType.MORTGAGE -> "300"
+        }
+        val existingCount = accountDao.getAccountsByUserIdSync(targetUserId).size
+        return prefix + String.format("%05d%02d", targetUserId, existingCount + 1)
     }
 }

@@ -98,6 +98,119 @@ class OfficerDashboardViewModel(
         }
     }
 
+    fun openSavingAccount(initialDepositRaw: String, interestRateRaw: String, termMonthsRaw: String) {
+        val customer = _uiState.value.selectedCustomer ?: return
+        val initialDeposit = initialDepositRaw.trim().filter(Char::isDigit).toLongOrNull()
+        val interestRate = interestRateRaw.trim().replace(',', '.').toDoubleOrNull()
+        val termMonths = termMonthsRaw.trim().toIntOrNull()
+        if (initialDeposit == null) {
+            _uiState.update { it.copy(errorMessage = "Tiền gửi ban đầu không hợp lệ") }
+            return
+        }
+        if (interestRate == null) {
+            _uiState.update { it.copy(errorMessage = "Lãi suất năm không hợp lệ") }
+            return
+        }
+        if (termMonths == null) {
+            _uiState.update { it.copy(errorMessage = "Kỳ hạn (tháng) không hợp lệ") }
+            return
+        }
+        runAccountMutation("Đã mở TK tiết kiệm") {
+            customerService.openSavingAccountForCustomer(customer.id, initialDeposit, interestRate, termMonths)
+        }
+    }
+
+    fun openMortgageAccount(
+        loanAmountRaw: String,
+        interestRateRaw: String,
+        termMonthsRaw: String,
+        payCycle: String,
+    ) {
+        val customer = _uiState.value.selectedCustomer ?: return
+        val loanAmount = loanAmountRaw.trim().filter(Char::isDigit).toLongOrNull()
+        val interestRate = interestRateRaw.trim().replace(',', '.').toDoubleOrNull()
+        val termMonths = termMonthsRaw.trim().toIntOrNull()
+        if (loanAmount == null) {
+            _uiState.update { it.copy(errorMessage = "Số tiền vay không hợp lệ") }
+            return
+        }
+        if (interestRate == null) {
+            _uiState.update { it.copy(errorMessage = "Lãi suất vay không hợp lệ") }
+            return
+        }
+        if (termMonths == null) {
+            _uiState.update { it.copy(errorMessage = "Thời hạn vay (tháng) không hợp lệ") }
+            return
+        }
+        runAccountMutation("Đã mở khoản vay thế chấp") {
+            customerService.openMortgageAccountForCustomer(customer.id, loanAmount, interestRate, termMonths, payCycle)
+        }
+    }
+
+    fun toggleAccountLock(accountId: Long, lock: Boolean) {
+        val label = if (lock) "Đã khóa tài khoản" else "Đã mở khóa tài khoản"
+        runAccountMutation(label) {
+            customerService.toggleAccountLock(accountId, lock)
+        }
+    }
+
+    fun recordMortgagePayment(accountId: Long, amountRaw: String) {
+        val amount = amountRaw.trim().filter(Char::isDigit).toLongOrNull()
+        if (amount == null || amount <= 0L) {
+            _uiState.update { it.copy(errorMessage = "Số tiền trả nợ không hợp lệ") }
+            return
+        }
+        runAccountMutation("Đã ghi nhận thanh toán dư nợ") {
+            customerService.recordMortgagePayment(accountId, amount)
+        }
+    }
+
+    fun closeAccount(accountId: Long) {
+        runAccountMutation("Đã đóng tài khoản (trạng thái CLOSED, giữ nguyên lịch sử)") {
+            customerService.closeAccount(accountId)
+        }
+    }
+
+    private fun runAccountMutation(
+        successPrefix: String,
+        block: suspend () -> Result<Account>,
+    ) {
+        val customer = _uiState.value.selectedCustomer ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+            block().fold(
+                onSuccess = { updatedAcc ->
+                    val accounts = customerService.getCustomerAccounts(customer.id)
+                        .getOrDefault(
+                            _uiState.value.selectedCustomerAccounts.let { list ->
+                                if (list.any { it.id == updatedAcc.id }) {
+                                    list.map { if (it.id == updatedAcc.id) updatedAcc else it }
+                                } else {
+                                    list + updatedAcc
+                                }
+                            },
+                        )
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            selectedCustomerAccounts = accounts,
+                            successMessage = "$successPrefix: ${updatedAcc.accountNumber}",
+                            errorMessage = null,
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.message ?: "Thao tác tài khoản thất bại",
+                        )
+                    }
+                },
+            )
+        }
+    }
+
     fun enrollFaceBiometrics(customerId: Long, imageBytes: ByteArray = "clear_face".toByteArray(Charsets.ISO_8859_1)) {
         val session = sessionManager.currentSession
         if (session?.role != Role.OFFICER) {
