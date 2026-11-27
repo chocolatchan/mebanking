@@ -393,8 +393,16 @@ object NearbyBanksProvider {
     )
 
     fun searchNearby(query: String, filter: BranchFilter): List<BranchEntity> {
+        return filterBranches(NEARBY_BANKS, query, filter)
+    }
+
+    fun filterBranches(
+        branches: List<BranchEntity>,
+        query: String,
+        filter: BranchFilter,
+    ): List<BranchEntity> {
         val trimmed = query.trim()
-        return NEARBY_BANKS.filter { branch ->
+        return branches.filter { branch ->
             val matchesFilter = when (filter) {
                 BranchFilter.ALL -> true
                 BranchFilter.BRANCH_ONLY -> branch.type.equals("BRANCH", ignoreCase = true)
@@ -404,7 +412,10 @@ object NearbyBanksProvider {
                 true
             } else {
                 branch.name.contains(trimmed, ignoreCase = true) ||
-                    branch.address.contains(trimmed, ignoreCase = true)
+                    branch.address.contains(trimmed, ignoreCase = true) ||
+                    (trimmed.equals("ngân hàng", ignoreCase = true) && branch.type.equals("BRANCH", ignoreCase = true)) ||
+                    (trimmed.equals("bank", ignoreCase = true) &&
+                        (branch.type.equals("BRANCH", ignoreCase = true) || branch.name.contains("bank", ignoreCase = true)))
             }
             matchesFilter && matchesQuery
         }

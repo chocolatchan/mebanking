@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.data.local.AppDatabase
+import com.mebanking.app.data.local.entity.BranchEntity
+import com.mebanking.app.data.navigation.HcmcBankPoiRemoteSource
 import com.mebanking.app.data.navigation.RoadGraphLoader
 import com.mebanking.app.data.repository.BranchNavigationRepository
 import com.mebanking.app.domain.model.navigation.BranchDistance
@@ -33,13 +35,18 @@ import kotlinx.coroutines.launch
  */
 class BranchLocatorViewModel(
     private val repository: BranchNavigationRepository,
+    private val poiRemoteSource: HcmcBankPoiRemoteSource? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BranchLocatorUiState())
     val uiState: StateFlow<BranchLocatorUiState> = _uiState.asStateFlow()
 
+    @Volatile
+    private var remoteHcmcPois: List<BranchEntity> = emptyList()
+
     init {
         loadData()
+        loadRemoteHcmcPois()
     }
 
     fun loadData(): Job = viewModelScope.launch {
@@ -233,13 +240,26 @@ class BranchLocatorViewModel(
         }
     }
 
+    private fun loadRemoteHcmcPois() {
+        val remote = poiRemoteSource ?: return
+        viewModelScope.launch {
+            val pois = runSuspendCatching { remote.fetchHcmcBankAndAtmPois() }.getOrNull().orEmpty()
+            if (pois.isNotEmpty()) {
+                remoteHcmcPois = pois
+                refreshBranches(selectNearest = false, recalculateRoute = false)
+            }
+        }
+    }
+
     private suspend fun computeSortedBranches(
         userLocation: GeoPoint,
         query: String,
         filter: BranchFilter,
     ): List<BranchDistance> {
-        val entities = repository.searchBranches(query = query, filter = filter) +
+        val localEntities = repository.searchBranches(query = query, filter = filter) +
             NearbyBanksProvider.searchNearby(query = query, filter = filter)
+        val filteredRemote = NearbyBanksProvider.filterBranches(remoteHcmcPois, query, filter)
+        val entities = mergeDistinctBranches(localEntities, filteredRemote)
 
         return entities.map { b ->
             val dist = GeoDistanceCalculator.haversineDistanceMeters(
@@ -253,6 +273,27 @@ class BranchLocatorViewModel(
                 estimatedMinutes = PathFinder.calculateEstimatedMinutes(dist),
             )
         }.sortedBy { it.directDistanceMeters }
+    }
+
+    private fun mergeDistinctBranches(
+        primary: List<BranchEntity>,
+        extra: List<BranchEntity>,
+    ): List<BranchEntity> {
+        if (extra.isEmpty()) return primary
+        val merged = primary.toMutableList()
+        for (candidate in extra) {
+            val candidatePoint = GeoPoint(candidate.latitude, candidate.longitude)
+            val isDuplicate = merged.any { existing ->
+                GeoDistanceCalculator.haversineDistanceMeters(
+                    GeoPoint(existing.latitude, existing.longitude),
+                    candidatePoint,
+                ) < 25.0
+            }
+            if (!isDuplicate) {
+                merged.add(candidate)
+            }
+        }
+        return merged
     }
 
     private fun selectNearestTarget(branchDistances: List<BranchDistance>): BranchDistance? {
@@ -320,7 +361,7 @@ class BranchLocatorViewModel(
                     val db = AppDatabase.buildDatabase(context)
                     val loader = RoadGraphLoader(context)
                     val repo = BranchNavigationRepository(db.branchDao(), loader)
-                    return BranchLocatorViewModel(repo) as T
+                    return BranchLocatorViewModel(repo, HcmcBankPoiRemoteSource()) as T
                 }
             }
         }
