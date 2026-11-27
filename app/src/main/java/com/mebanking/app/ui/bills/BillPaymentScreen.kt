@@ -265,8 +265,10 @@ fun BillPaymentContent(
                                         fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                                         fontFeatureSettings = "tnum",
                                     ),
-                                    fontWeight = FontWeight.ExtraBold,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    softWrap = false,
                                 )
 
                                 Spacer(Modifier.height(14.dp))

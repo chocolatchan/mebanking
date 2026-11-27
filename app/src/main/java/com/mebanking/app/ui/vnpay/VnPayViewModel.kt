@@ -67,14 +67,27 @@ class VnPayViewModel(
                     return@launch
                 }
                 val list = accountRepository.getAccountsByUserIdSync(session.userId)
-                    .filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
+                    .filter { it.status == "ACTIVE" }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         accounts = list,
                         selectedAccountId = it.selectedAccountId?.takeIf { id -> list.any { a -> a.id == id } }
+                            ?: list.firstOrNull { a -> a.accountType == AccountType.CHECKING }?.id
                             ?: list.firstOrNull()?.id,
                     )
+                }
+                accountRepository.observeAccountsByUserId(session.userId).collect { liveList ->
+                    val active = liveList.filter { it.status == "ACTIVE" }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            accounts = active,
+                            selectedAccountId = it.selectedAccountId?.takeIf { id -> active.any { a -> a.id == id } }
+                                ?: active.firstOrNull { a -> a.accountType == AccountType.CHECKING }?.id
+                                ?: active.firstOrNull()?.id,
+                        )
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e

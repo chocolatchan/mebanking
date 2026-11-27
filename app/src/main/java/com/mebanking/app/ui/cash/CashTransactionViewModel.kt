@@ -14,9 +14,11 @@ import com.mebanking.app.domain.service.OtpService
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -60,11 +62,13 @@ abstract class CashTransactionViewModel(
     val uiState: StateFlow<CashTransactionUiState> = _uiState.asStateFlow()
     private var idempotencyKey: String? = null
     private var authorizationGranted = false
+    private var accountsObserverJob: Job? = null
 
     init { loadAccounts() }
 
     fun loadAccounts() {
-        viewModelScope.launch {
+        accountsObserverJob?.cancel()
+        accountsObserverJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
                 val session = sessionManager.currentSession
@@ -72,15 +76,28 @@ abstract class CashTransactionViewModel(
                     _uiState.update { it.copy(isLoading = false, errorMessage = "Phiên đăng nhập đã hết hạn") }
                     return@launch
                 }
-                val accounts = accountRepository.getAccountsByUserIdSync(session.userId)
-                    .filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
+                val initial = accountRepository.getAccountsByUserIdSync(session.userId)
+                    .filter { it.status == "ACTIVE" }
                 _uiState.update { state ->
                     state.copy(
                         isLoading = false,
-                        accounts = accounts,
-                        selectedAccountId = state.selectedAccountId?.takeIf { id -> accounts.any { it.id == id } }
-                            ?: accounts.firstOrNull()?.id,
+                        accounts = initial,
+                        selectedAccountId = state.selectedAccountId?.takeIf { id -> initial.any { it.id == id } }
+                            ?: initial.firstOrNull { it.accountType == AccountType.CHECKING }?.id
+                            ?: initial.firstOrNull()?.id,
                     )
+                }
+                accountRepository.observeAccountsByUserId(session.userId).collectLatest { list ->
+                    val active = list.filter { it.status == "ACTIVE" }
+                    _uiState.update { state ->
+                        state.copy(
+                            isLoading = false,
+                            accounts = active,
+                            selectedAccountId = state.selectedAccountId?.takeIf { id -> active.any { it.id == id } }
+                                ?: active.firstOrNull { it.accountType == AccountType.CHECKING }?.id
+                                ?: active.firstOrNull()?.id,
+                        )
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e

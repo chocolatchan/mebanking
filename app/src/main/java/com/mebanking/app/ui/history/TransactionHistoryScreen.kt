@@ -475,8 +475,11 @@ private fun SegmentedTransactionRow(
                         fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                         fontFeatureSettings = "tnum",
                     ),
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.SemiBold,
                     color = amountColor,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Icon(
                     imageVector = Icons.Filled.ChevronRight,
@@ -594,8 +597,11 @@ private fun TransactionDetailFields(transaction: TransactionEntity, onBack: () -
                         fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                         fontFeatureSettings = "tnum",
                     ),
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

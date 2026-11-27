@@ -76,12 +76,23 @@ class BillPaymentViewModel(
         viewModelScope.launch {
             try {
                 val accounts = accountRepository.getAccountsByUserIdSync(session.userId)
-                    .filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
+                    .filter { it.status == "ACTIVE" }
                 _uiState.update { state ->
                     val selected = state.selectedAccountId
                         ?.takeIf { id -> accounts.any { it.id == id } }
+                        ?: accounts.firstOrNull { it.accountType == AccountType.CHECKING }?.id
                         ?: accounts.firstOrNull()?.id
                     state.copy(accounts = accounts, selectedAccountId = selected)
+                }
+                accountRepository.observeAccountsByUserId(session.userId).collect { list ->
+                    val active = list.filter { it.status == "ACTIVE" }
+                    _uiState.update { state ->
+                        val selected = state.selectedAccountId
+                            ?.takeIf { id -> active.any { it.id == id } }
+                            ?: active.firstOrNull { it.accountType == AccountType.CHECKING }?.id
+                            ?: active.firstOrNull()?.id
+                        state.copy(accounts = active, selectedAccountId = selected)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -195,7 +206,7 @@ class BillPaymentViewModel(
     private suspend fun refreshAccounts(userId: Long) {
         try {
             val accounts = accountRepository.getAccountsByUserIdSync(userId)
-                .filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
+                .filter { it.status == "ACTIVE" }
             _uiState.update { state ->
                 val selected = state.selectedAccountId
                     ?.takeIf { id -> accounts.any { it.id == id } }

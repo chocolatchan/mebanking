@@ -278,7 +278,8 @@ fun HotelBookingScreen(
                             fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                             fontFeatureSettings = "tnum",
                         ),
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }

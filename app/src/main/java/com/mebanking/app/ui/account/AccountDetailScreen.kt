@@ -227,23 +227,7 @@ fun AccountDetailContent(
                 }
 
                 // 4. Cài đặt & Tiện ích (Settings & Utilities)
-                item {
-                    AccountSettingsCard(
-                        isOttEnabled = uiState.isOttEnabled,
-                        isBiometricEnabled = uiState.isBiometricEnabled,
-                        onToggleOtt = onToggleOtt,
-                        onToggleBiometric = onToggleBiometric,
-                    )
-                }
-
-                // 5. Thông tin khách hàng & Định danh (Profile & eKYC Info)
-                item {
-                    CustomerProfileCard(
-                        uiState = uiState,
-                    )
-                }
-
-                // 6. Savings or Mortgage specialized details (if applicable)
+                // 4. Savings or Mortgage specialized details (if applicable)
                 if (uiState.account.accountType == AccountType.SAVING) {
                     item {
                         SavingCard(
@@ -293,7 +277,7 @@ fun AccountDetailContent(
                             Text(
                                 text = uiState.userSession.fullName,
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
                             Text(
@@ -308,19 +292,6 @@ fun AccountDetailContent(
                             )
                         }
                     }
-                }
-
-                item {
-                    AccountSettingsCard(
-                        isOttEnabled = uiState.isOttEnabled,
-                        isBiometricEnabled = uiState.isBiometricEnabled,
-                        onToggleOtt = onToggleOtt,
-                        onToggleBiometric = onToggleBiometric,
-                    )
-                }
-
-                item {
-                    CustomerProfileCard(uiState = uiState)
                 }
             }
         }
@@ -443,8 +414,11 @@ private fun ModernPrimaryAccountCard(
                     fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                     fontFeatureSettings = "tnum",
                 ),
-                fontWeight = FontWeight.ExtraBold,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                softWrap = false,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
 
             Spacer(Modifier.height(12.dp))

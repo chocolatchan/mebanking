@@ -870,7 +870,7 @@ private fun VipBankMasterCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                             Text(
                                 text = "Số dư khả dụng",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -884,7 +884,10 @@ private fun VipBankMasterCard(
                                     fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                                     fontFeatureSettings = "tnum",
                                 ),
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
 
@@ -1376,8 +1379,11 @@ private fun ModernAccountItem(
                         fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                         fontFeatureSettings = "tnum",
                     ),
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

@@ -346,7 +346,7 @@ class Phase4ViewModelIntegrationTest {
     }
 
     @Test
-    fun paymentAndTransferViewModels_excludeMortgageAccountsFromSourceSelection() = runBlocking {
+    fun paymentAndTransferViewModels_includeAllOpenedActiveAccountsInSourceSelection() = runBlocking {
         authenticate()
         val userId = sessionManager.currentSession!!.userId
         val existing = accountRepository.getAccountsByUserIdSync(userId)
@@ -360,7 +360,11 @@ class Phase4ViewModelIntegrationTest {
                 ),
             )
         }
-        assertTrue(accountRepository.getAccountsByUserIdSync(userId).any { it.accountType == AccountType.MORTGAGE })
+        val expectedIds = accountRepository.getAccountsByUserIdSync(userId)
+            .filter { it.status == "ACTIVE" }
+            .map { it.id }
+            .toSet()
+        assertTrue(expectedIds.size >= 3)
 
         val transferVm = TransferViewModel(transactionService, accountRepository, sessionManager)
         val billVm = BillPaymentViewModel(simulatorService, accountRepository, sessionManager)
@@ -376,11 +380,10 @@ class Phase4ViewModelIntegrationTest {
 
         val lifestyleAccounts = observeActivePaymentAccounts(sessionManager, accountRepository).first()
 
-        assertTrue(transferVm.uiState.value.accounts.isNotEmpty())
-        assertTrue(transferVm.uiState.value.accounts.none { it.accountType == AccountType.MORTGAGE })
-        assertTrue(billVm.uiState.value.accounts.none { it.accountType == AccountType.MORTGAGE })
-        assertTrue(depositVm.uiState.value.accounts.none { it.accountType == AccountType.MORTGAGE })
-        assertTrue(withdrawVm.uiState.value.accounts.none { it.accountType == AccountType.MORTGAGE })
-        assertTrue(lifestyleAccounts.none { it.accountType == AccountType.MORTGAGE })
+        assertEquals(expectedIds, transferVm.uiState.value.accounts.map { it.id }.toSet())
+        assertEquals(expectedIds, billVm.uiState.value.accounts.map { it.id }.toSet())
+        assertEquals(expectedIds, depositVm.uiState.value.accounts.map { it.id }.toSet())
+        assertEquals(expectedIds, withdrawVm.uiState.value.accounts.map { it.id }.toSet())
+        assertEquals(expectedIds, lifestyleAccounts.map { it.id }.toSet())
     }
 }

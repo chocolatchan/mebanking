@@ -18,8 +18,14 @@ internal fun observeActivePaymentAccounts(
     val userId = sessionManager.currentSession?.userId
     if (accountRepository == null || userId == null) return flowOf(emptyList())
     return accountRepository.observeAccountsByUserId(userId).map { list ->
-        list.filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
-            .sortedBy { if (it.accountType == AccountType.CHECKING) 0 else 1 }
+        list.filter { it.status == "ACTIVE" }
+            .sortedBy {
+                when (it.accountType) {
+                    AccountType.CHECKING -> 0
+                    AccountType.SAVING -> 1
+                    AccountType.MORTGAGE -> 2
+                }
+            }
     }
 }
 
@@ -51,7 +57,7 @@ internal suspend fun debitCustomerAccountForService(
         ?: return Result.failure(IllegalStateException("Phiên đăng nhập đã hết hạn"))
     return try {
         val accounts = accountRepository.getAccountsByUserIdSync(session.userId)
-            .filter { it.accountType != AccountType.MORTGAGE }
+            .filter { it.status == "ACTIVE" }
         val account = accounts.firstOrNull { it.id == selectedAccountId && it.status == "ACTIVE" }
             ?: accounts.firstOrNull { it.accountType == AccountType.CHECKING && it.status == "ACTIVE" }
             ?: accounts.firstOrNull { it.status == "ACTIVE" }

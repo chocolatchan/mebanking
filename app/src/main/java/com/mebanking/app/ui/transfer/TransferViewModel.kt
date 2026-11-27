@@ -15,9 +15,11 @@ import com.mebanking.app.domain.service.FaceRecognitionService
 import com.mebanking.app.domain.service.DefaultTransactionAuthenticationPolicy
 import com.mebanking.app.domain.model.AuthenticationDecision
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -88,6 +90,7 @@ class TransferViewModel(
 
     private var idempotencyKey: String? = null
     private var authorizationGranted = false
+    private var accountsObserverJob: Job? = null
 
     fun beginAuthenticationChallenge() {
         val state = _uiState.value
@@ -253,7 +256,8 @@ class TransferViewModel(
     }
 
     fun loadAccounts() {
-        viewModelScope.launch {
+        accountsObserverJob?.cancel()
+        accountsObserverJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
                 val session = sessionManager.currentSession
@@ -263,13 +267,24 @@ class TransferViewModel(
                     }
                     return@launch
                 }
-                val accounts = accountRepository.getAccountsByUserIdSync(session.userId)
-                    .filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
+                val initial = accountRepository.getAccountsByUserIdSync(session.userId)
+                    .filter { it.status == "ACTIVE" }
                 _uiState.update { state ->
                     val selected = state.selectedFromAccountId
-                        ?.takeIf { id -> accounts.any { account -> account.id == id } }
-                        ?: accounts.firstOrNull()?.id
-                    state.copy(isLoading = false, accounts = accounts, selectedFromAccountId = selected)
+                        ?.takeIf { id -> initial.any { account -> account.id == id } }
+                        ?: initial.firstOrNull { it.accountType == AccountType.CHECKING }?.id
+                        ?: initial.firstOrNull()?.id
+                    state.copy(isLoading = false, accounts = initial, selectedFromAccountId = selected)
+                }
+                accountRepository.observeAccountsByUserId(session.userId).collectLatest { list ->
+                    val active = list.filter { it.status == "ACTIVE" }
+                    _uiState.update { state ->
+                        val selected = state.selectedFromAccountId
+                            ?.takeIf { id -> active.any { account -> account.id == id } }
+                            ?: active.firstOrNull { it.accountType == AccountType.CHECKING }?.id
+                            ?: active.firstOrNull()?.id
+                        state.copy(isLoading = false, accounts = active, selectedFromAccountId = selected)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -436,7 +451,7 @@ class TransferViewModel(
     private suspend fun refreshBalances(session: UserSession) {
         try {
             val accounts = accountRepository.getAccountsByUserIdSync(session.userId)
-                .filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
+                .filter { it.status == "ACTIVE" }
             _uiState.update { state ->
                 val selected = state.selectedFromAccountId
                     ?.takeIf { id -> accounts.any { account -> account.id == id } }

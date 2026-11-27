@@ -79,9 +79,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -161,8 +165,11 @@ fun AccountSelectionCarousel(
         return
     }
 
+    val accountKeys = accounts.map { it.id }
     val initialItem = accounts.indexOfFirst { it.id == selectedAccountId }.coerceAtLeast(0)
-    val carouselState = rememberCarouselState(initialItem = initialItem) { accounts.size }
+    val carouselState = remember(accountKeys) {
+        androidx.compose.material3.carousel.CarouselState(currentItem = initialItem) { accounts.size }
+    }
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(selectedAccountId, accounts) {
@@ -343,17 +350,19 @@ private fun AccountHeroCard(
                 )
                 Text(
                     text = CurrencyFormatter.formatVnd(account.balance),
-                    style = MaterialTheme.typography.headlineSmall.copy(
+                    style = MaterialTheme.typography.titleLarge.copy(
                         fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                         fontFeatureSettings = "tnum",
                     ),
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.SemiBold,
                     color = if (selected) {
                         MaterialTheme.colorScheme.onPrimaryContainer
                     } else {
                         MaterialTheme.colorScheme.primary
                     },
                     maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -399,12 +408,13 @@ fun LargeAmountInputSection(
                     placeholder = {
                         Text(
                             text = "0",
-                            style = MaterialTheme.typography.headlineLarge.copy(
-                                fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
-                                fontSize = 30.sp,
+                            style = MaterialTheme.typography.displaySmall.copy(
+                                fontFamily = com.mebanking.app.ui.theme.CalcDisplayNumericFontFamily,
+                                fontSize = 36.sp,
+                                letterSpacing = 1.4.sp,
                                 fontFeatureSettings = "tnum",
                             ),
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                         )
                     },
@@ -418,7 +428,7 @@ fun LargeAmountInputSection(
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                                 ),
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                             )
@@ -426,10 +436,13 @@ fun LargeAmountInputSection(
                     },
                     singleLine = true,
                     enabled = enabled,
-                    textStyle = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                    visualTransformation = remember { AmountGroupingVisualTransformation() },
+                    textStyle = MaterialTheme.typography.displaySmall.copy(
+                        fontFamily = com.mebanking.app.ui.theme.CalcDisplayNumericFontFamily,
+                        fontSize = 36.sp,
+                        lineHeight = 42.sp,
+                        letterSpacing = 1.4.sp,
+                        fontWeight = FontWeight.Medium,
                         fontFeatureSettings = "tnum",
                         color = MaterialTheme.colorScheme.onSurface,
                     ),
@@ -935,13 +948,15 @@ fun LifestyleCheckoutBottomBar(
                 )
                 Text(
                     text = CurrencyFormatter.formatVnd(amountVnd),
-                    style = MaterialTheme.typography.headlineSmall.copy(
+                    style = MaterialTheme.typography.titleLarge.copy(
                         fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                         fontFeatureSettings = "tnum",
                     ),
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Button(
@@ -954,9 +969,48 @@ fun LifestyleCheckoutBottomBar(
                 Text(
                     text = buttonText,
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }
+    }
+}
+
+/**
+ * Formats raw numeric input with thousands-group spaces (e.g. "50000000" -> "50 000 000")
+ * so entered amounts have clear visual spacing without altering the underlying digits.
+ */
+private class AmountGroupingVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val raw = text.text
+        if (raw.length <= 3) {
+            return TransformedText(text, OffsetMapping.Identity)
+        }
+        val formatted = StringBuilder()
+        val origToTrans = IntArray(raw.length + 1)
+        val transToOrig = mutableListOf<Int>()
+        for (i in raw.indices) {
+            val remaining = raw.length - i
+            if (i > 0 && remaining % 3 == 0) {
+                formatted.append(' ')
+                transToOrig.add(i)
+            }
+            origToTrans[i] = formatted.length
+            formatted.append(raw[i])
+            transToOrig.add(i)
+        }
+        origToTrans[raw.length] = formatted.length
+        transToOrig.add(raw.length)
+
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                return origToTrans[offset.coerceIn(0, raw.length)]
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                return transToOrig[offset.coerceIn(0, transToOrig.lastIndex)]
+            }
+        }
+        return TransformedText(AnnotatedString(formatted.toString()), offsetMapping)
     }
 }

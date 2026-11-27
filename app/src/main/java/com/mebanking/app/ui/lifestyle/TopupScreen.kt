@@ -303,11 +303,12 @@ private fun MobileTopupContent(
                                     ) {
                                         Text(
                                             text = CurrencyFormatter.formatVnd(amount),
-                                            fontWeight = FontWeight.ExtraBold,
+                                            fontWeight = FontWeight.SemiBold,
                                             style = MaterialTheme.typography.bodyMedium.copy(
                                                 fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                                                 fontFeatureSettings = "tnum",
                                             ),
+                                            maxLines = 1,
                                             color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
                                             else MaterialTheme.colorScheme.onSurface,
                                         )
@@ -340,7 +341,8 @@ private fun MobileTopupContent(
                                 fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
                                 fontFeatureSettings = "tnum",
                             ),
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }

@@ -47,69 +47,80 @@ fun googleSansFlexFontFamily(
 }
 
 /**
- * Full-roundness (`ROND = 100`) expressive Google Sans Flex family for monetary inputs,
- * account balances, checkout totals, and prominent numeric figures.
+ * Sleek rounded variable Google Sans Flex family for balances, card amounts, and totals.
+ * Uses slightly condensed width (`wdth = 90f`) and medium-high optical size (`opsz = 32.sp`)
+ * with full roundness (`ROND = 100f`) so long VND numbers stay tall, crisp, and never overflow.
  */
 val RoundedNumericFontFamily: FontFamily = googleSansFlexFontFamily(
-    opsz = 30.sp,
-    wdth = 104f,
+    opsz = 32.sp,
+    wdth = 90f,
     rond = 100f,
 )
 
-private val DisplayLargeFont = googleSansFlexFontFamily(opsz = 57.sp, wdth = 102f, rond = 50f)
-private val DisplayMediumFont = googleSansFlexFontFamily(opsz = 45.sp, wdth = 102f, rond = 50f)
-private val DisplaySmallFont = googleSansFlexFontFamily(opsz = 36.sp, wdth = 100f, rond = 45f)
-private val HeadlineLargeFont = googleSansFlexFontFamily(opsz = 32.sp, wdth = 100f, rond = 35f)
-private val HeadlineMediumFont = googleSansFlexFontFamily(opsz = 28.sp, wdth = 100f, rond = 35f)
-private val HeadlineSmallFont = googleSansFlexFontFamily(opsz = 24.sp, wdth = 100f, rond = 35f)
-private val TitleLargeFont = googleSansFlexFontFamily(opsz = 22.sp, wdth = 100f, rond = 20f)
-private val TitleMediumFont = googleSansFlexFontFamily(opsz = 16.sp, wdth = 100f, rond = 20f)
-private val TitleSmallFont = googleSansFlexFontFamily(opsz = 14.sp, wdth = 100f, rond = 20f)
-private val BodyLargeFont = googleSansFlexFontFamily(opsz = 16.sp, wdth = 100f, rond = 0f)
-private val BodyMediumFont = googleSansFlexFontFamily(opsz = 14.sp, wdth = 100f, rond = 0f)
-private val BodySmallFont = googleSansFlexFontFamily(opsz = 12.sp, wdth = 100f, rond = 0f)
-private val LabelLargeFont = googleSansFlexFontFamily(opsz = 14.sp, wdth = 100f, rond = 25f)
-private val LabelMediumFont = googleSansFlexFontFamily(opsz = 12.sp, wdth = 100f, rond = 25f)
-private val LabelSmallFont = googleSansFlexFontFamily(opsz = 11.sp, wdth = 100f, rond = 25f)
+/**
+ * Google Calculator mobile style variable font for amount input fields:
+ * taller condensed proportions (`wdth = 84f`, `opsz = 48.sp`) with full roundness (`ROND = 100f`).
+ */
+val CalcDisplayNumericFontFamily: FontFamily = googleSansFlexFontFamily(
+    opsz = 48.sp,
+    wdth = 84f,
+    rond = 100f,
+)
+
+private val DisplayLargeFont = googleSansFlexFontFamily(opsz = 57.sp, wdth = 96f, rond = 45f)
+private val DisplayMediumFont = googleSansFlexFontFamily(opsz = 45.sp, wdth = 96f, rond = 45f)
+private val DisplaySmallFont = googleSansFlexFontFamily(opsz = 36.sp, wdth = 96f, rond = 40f)
+private val HeadlineLargeFont = googleSansFlexFontFamily(opsz = 32.sp, wdth = 96f, rond = 30f)
+private val HeadlineMediumFont = googleSansFlexFontFamily(opsz = 28.sp, wdth = 96f, rond = 30f)
+private val HeadlineSmallFont = googleSansFlexFontFamily(opsz = 24.sp, wdth = 96f, rond = 30f)
+private val TitleLargeFont = googleSansFlexFontFamily(opsz = 22.sp, wdth = 98f, rond = 20f)
+private val TitleMediumFont = googleSansFlexFontFamily(opsz = 16.sp, wdth = 98f, rond = 15f)
+private val TitleSmallFont = googleSansFlexFontFamily(opsz = 14.sp, wdth = 98f, rond = 15f)
+private val BodyLargeFont = googleSansFlexFontFamily(opsz = 16.sp, wdth = 98f, rond = 0f)
+private val BodyMediumFont = googleSansFlexFontFamily(opsz = 14.sp, wdth = 98f, rond = 0f)
+private val BodySmallFont = googleSansFlexFontFamily(opsz = 12.sp, wdth = 98f, rond = 0f)
+private val LabelLargeFont = googleSansFlexFontFamily(opsz = 14.sp, wdth = 98f, rond = 20f)
+private val LabelMediumFont = googleSansFlexFontFamily(opsz = 12.sp, wdth = 98f, rond = 20f)
+private val LabelSmallFont = googleSansFlexFontFamily(opsz = 11.sp, wdth = 98f, rond = 20f)
 
 private val DefaultTypography = Typography()
 
 val Typography = Typography(
-    displayLarge = DefaultTypography.displayLarge.copy(fontFamily = DisplayLargeFont),
-    displayMedium = DefaultTypography.displayMedium.copy(fontFamily = DisplayMediumFont),
-    displaySmall = DefaultTypography.displaySmall.copy(fontFamily = DisplaySmallFont),
-    headlineLarge = DefaultTypography.headlineLarge.copy(fontFamily = HeadlineLargeFont, fontWeight = FontWeight.SemiBold),
+    displayLarge = DefaultTypography.displayLarge.copy(fontFamily = DisplayLargeFont, fontWeight = FontWeight.Medium),
+    displayMedium = DefaultTypography.displayMedium.copy(fontFamily = DisplayMediumFont, fontWeight = FontWeight.Medium),
+    displaySmall = DefaultTypography.displaySmall.copy(fontFamily = DisplaySmallFont, fontWeight = FontWeight.Medium),
+    headlineLarge = DefaultTypography.headlineLarge.copy(fontFamily = HeadlineLargeFont, fontWeight = FontWeight.Medium),
     headlineMedium = DefaultTypography.headlineMedium.copy(
         fontFamily = HeadlineMediumFont,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
-        lineHeight = 36.sp,
+        fontWeight = FontWeight.Medium,
+        fontSize = 26.sp,
+        lineHeight = 34.sp,
     ),
-    headlineSmall = DefaultTypography.headlineSmall.copy(fontFamily = HeadlineSmallFont, fontWeight = FontWeight.SemiBold),
+    headlineSmall = DefaultTypography.headlineSmall.copy(fontFamily = HeadlineSmallFont, fontWeight = FontWeight.Medium),
     titleLarge = DefaultTypography.titleLarge.copy(
         fontFamily = TitleLargeFont,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
+        fontSize = 21.sp,
         lineHeight = 28.sp,
     ),
-    titleMedium = DefaultTypography.titleMedium.copy(fontFamily = TitleMediumFont, fontWeight = FontWeight.SemiBold),
+    titleMedium = DefaultTypography.titleMedium.copy(fontFamily = TitleMediumFont, fontWeight = FontWeight.Medium),
     titleSmall = DefaultTypography.titleSmall.copy(fontFamily = TitleSmallFont, fontWeight = FontWeight.Medium),
     bodyLarge = DefaultTypography.bodyLarge.copy(
         fontFamily = BodyLargeFont,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.25.sp,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+        letterSpacing = 0.15.sp,
     ),
-    bodyMedium = DefaultTypography.bodyMedium.copy(fontFamily = BodyMediumFont),
-    bodySmall = DefaultTypography.bodySmall.copy(fontFamily = BodySmallFont),
-    labelLarge = DefaultTypography.labelLarge.copy(fontFamily = LabelLargeFont, fontWeight = FontWeight.SemiBold),
+    bodyMedium = DefaultTypography.bodyMedium.copy(fontFamily = BodyMediumFont, fontWeight = FontWeight.Normal),
+    bodySmall = DefaultTypography.bodySmall.copy(fontFamily = BodySmallFont, fontWeight = FontWeight.Normal),
+    labelLarge = DefaultTypography.labelLarge.copy(fontFamily = LabelLargeFont, fontWeight = FontWeight.Medium),
     labelMedium = DefaultTypography.labelMedium.copy(fontFamily = LabelMediumFont, fontWeight = FontWeight.Medium),
     labelSmall = DefaultTypography.labelSmall.copy(
         fontFamily = LabelSmallFont,
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.4.sp,
+        letterSpacing = 0.25.sp,
     ),
 )
