@@ -59,7 +59,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,29 +68,37 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.CameraPositionState
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
 import com.mebanking.app.domain.model.navigation.BranchDistance
 import com.mebanking.app.domain.model.navigation.BranchFilter
 import com.mebanking.app.domain.model.navigation.GeoPoint
 import com.mebanking.app.ui.theme.SynchronizedStatusBar
-import kotlinx.coroutines.launch
+import org.maplibre.android.MapLibre
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.modes.RenderMode
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.LineString
+import org.maplibre.geojson.Point
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -195,20 +203,17 @@ fun BranchLocatorContent(
 ) {
     SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
 
-    val scope = rememberCoroutineScope()
     val userLatLng = remember(uiState.userLocation) {
         LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)
     }
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(userLatLng, 15f)
-    }
+    var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 1. Native Google Maps SDK
-        GoogleMapsContainer(
+        // 1. Native MapLibre + OpenFreeMap
+        MapLibreContainer(
             uiState = uiState,
             hasLocationPermission = hasLocationPermission,
-            cameraPositionState = cameraPositionState,
+            onMapReady = { mapLibreMap = it },
             onBranchSelected = onBranchSelected,
             modifier = Modifier.fillMaxSize(),
         )
@@ -260,7 +265,7 @@ fun BranchLocatorContent(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
                                 Text(
-                                    text = "Cấp quyền vị trí để định vị chính xác trên Google Maps và tính khoảng cách tới ngân hàng.",
+                                    text = "Cấp quyền vị trí để định vị chính xác trên bản đồ và tính khoảng cách tới ngân hàng.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
                                 )
@@ -289,31 +294,19 @@ fun BranchLocatorContent(
             }
         }
 
-        // 3. Floating Google Maps zoom & recenter controls
+        // 3. Floating Map zoom & recenter controls
         FloatingMapControls(
             onZoomIn = {
-                scope.launch {
-                    try {
-                        cameraPositionState.animate(CameraUpdateFactory.zoomIn(), 300)
-                    } catch (_: Exception) {}
-                }
+                mapLibreMap?.animateCamera(CameraUpdateFactory.zoomIn(), 300)
             },
             onZoomOut = {
-                scope.launch {
-                    try {
-                        cameraPositionState.animate(CameraUpdateFactory.zoomOut(), 300)
-                    } catch (_: Exception) {}
-                }
+                mapLibreMap?.animateCamera(CameraUpdateFactory.zoomOut(), 300)
             },
             onRecenter = {
                 if (!hasLocationPermission) {
                     onRequestLocationPermission()
                 } else {
-                    scope.launch {
-                        try {
-                            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(userLatLng, 15.5f), 600)
-                        } catch (_: Exception) {}
-                    }
+                    mapLibreMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 15.5), 600)
                 }
             },
             modifier = Modifier
@@ -351,87 +344,222 @@ fun BranchLocatorContent(
     }
 }
 
+private const val OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
+private const val ROUTE_SOURCE_ID = "route-source"
+private const val ROUTE_LAYER_ID = "route-layer"
+private const val BRANCHES_SOURCE_ID = "branches-source"
+private const val BRANCHES_LAYER_ID = "branches-layer"
+private const val BRANCHES_LABEL_LAYER_ID = "branches-label-layer"
+private const val USER_LOCATION_SOURCE_ID = "user-location-source"
+private const val USER_LOCATION_LAYER_ID = "user-location-layer"
+private const val PROP_BRANCH_ID = "branchId"
+private const val PROP_BRANCH_NAME = "branchName"
+private const val PROP_MARKER_COLOR = "markerColor"
+
 @Composable
-private fun GoogleMapsContainer(
+private fun MapLibreContainer(
     uiState: BranchLocatorUiState,
     hasLocationPermission: Boolean,
-    cameraPositionState: CameraPositionState,
+    onMapReady: (MapLibreMap) -> Unit,
     onBranchSelected: (BranchDistance) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LaunchedEffect(uiState.selectedBranch) {
-        uiState.selectedBranch?.let { b ->
-            val targetLatLng = LatLng(b.branch.latitude, b.branch.longitude)
-            try {
-                cameraPositionState.animate(
-                    CameraUpdateFactory.newLatLngZoom(targetLatLng, 15.5f),
-                    800,
-                )
-            } catch (_: Exception) {}
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val currentBranches by rememberUpdatedState(uiState.branches)
+    val currentOnBranchSelected by rememberUpdatedState(onBranchSelected)
+
+    val mapView = remember {
+        MapLibre.getInstance(context.applicationContext)
+        MapView(context).apply {
+            onCreate(null)
         }
     }
 
-    GoogleMap(
-        modifier = modifier,
-        cameraPositionState = cameraPositionState,
-        uiSettings = MapUiSettings(
-            zoomControlsEnabled = false,
-            myLocationButtonEnabled = false,
-            mapToolbarEnabled = false,
-        ),
-        properties = MapProperties(
-            isMyLocationEnabled = hasLocationPermission,
-        ),
-    ) {
-        // 1. User Location Pin (Azure marker)
-        Marker(
-            state = MarkerState(position = LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)),
-            title = "Vị trí của bạn",
-            snippet = "Điểm xuất phát",
-            icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE),
-        )
+    var mapInstance by remember { mutableStateOf<MapLibreMap?>(null) }
+    var loadedStyle by remember { mutableStateOf<Style?>(null) }
 
-        // 2. Pre-marked bank & ATM markers
-        for (bDist in uiState.branches) {
-            val b = bDist.branch
-            val isSelected = uiState.selectedBranch?.branch?.id == b.id
-            val isAtm = b.name.contains("ATM", ignoreCase = true) || b.type.equals("ATM", ignoreCase = true)
-            val markerColor = when {
-                isSelected -> BitmapDescriptorFactory.HUE_ORANGE
-                isAtm -> BitmapDescriptorFactory.HUE_CYAN
-                else -> BitmapDescriptorFactory.HUE_RED
+    DisposableEffect(lifecycleOwner, mapView) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> mapView.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
+                else -> Unit
             }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView.onDestroy()
+        }
+    }
 
-            Marker(
-                state = MarkerState(position = LatLng(b.latitude, b.longitude)),
-                title = b.name,
-                snippet = "${formatDistance(bDist.directDistanceMeters)} • ${bDist.estimatedMinutes} phút",
-                icon = BitmapDescriptorFactory.defaultMarker(markerColor),
-                onClick = {
-                    onBranchSelected(bDist)
+    LaunchedEffect(mapView) {
+        mapView.getMapAsync { map ->
+            mapInstance = map
+            onMapReady(map)
+            map.uiSettings.isCompassEnabled = true
+            map.uiSettings.isAttributionEnabled = true
+            map.uiSettings.isLogoEnabled = false
+            map.cameraPosition = CameraPosition.Builder()
+                .target(LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude))
+                .zoom(14.5)
+                .build()
+
+            map.addOnMapClickListener { point ->
+                val screenPoint = map.projection.toScreenLocation(point)
+                val features = map.queryRenderedFeatures(screenPoint, BRANCHES_LAYER_ID)
+                val tappedId = features.firstOrNull()?.getNumberProperty(PROP_BRANCH_ID)?.toLong()
+                if (tappedId != null) {
+                    currentBranches.firstOrNull { it.branch.id == tappedId }?.let {
+                        currentOnBranchSelected(it)
+                    }
+                    true
+                } else {
                     false
-                },
-            )
-        }
-
-        // 3. Distance polyline to selected bank
-        uiState.selectedBranch?.let { selected ->
-            val userLatLng = LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)
-            val branchLatLng = LatLng(selected.branch.latitude, selected.branch.longitude)
-
-            val polylinePoints = if (uiState.currentRoute != null && uiState.currentRoute.nodes.size >= 2) {
-                uiState.currentRoute.nodes.map { LatLng(it.latitude, it.longitude) }
-            } else {
-                listOf(userLatLng, branchLatLng)
+                }
             }
 
-            Polyline(
-                points = polylinePoints,
-                color = Color(0xFF1A73E8),
-                width = 12f,
-                geodesic = true,
+            map.setStyle(Style.Builder().fromUri(OPENFREEMAP_STYLE_URL)) { style ->
+                ensureMapLayers(style)
+                loadedStyle = style
+            }
+        }
+    }
+
+    LaunchedEffect(loadedStyle, uiState.branches, uiState.selectedBranch, uiState.userLocation, uiState.currentRoute) {
+        val style = loadedStyle ?: return@LaunchedEffect
+        updateMapData(style, uiState)
+    }
+
+    @SuppressLint("MissingPermission")
+    LaunchedEffect(mapInstance, loadedStyle, hasLocationPermission) {
+        val map = mapInstance ?: return@LaunchedEffect
+        val style = loadedStyle ?: return@LaunchedEffect
+        if (hasLocationPermission) {
+            try {
+                val locationComponent = map.locationComponent
+                if (!locationComponent.isLocationComponentActivated) {
+                    locationComponent.activateLocationComponent(
+                        LocationComponentActivationOptions.builder(context, style).build(),
+                    )
+                }
+                locationComponent.isLocationComponentEnabled = true
+                locationComponent.renderMode = RenderMode.COMPASS
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    LaunchedEffect(mapInstance, uiState.selectedBranch) {
+        val map = mapInstance ?: return@LaunchedEffect
+        uiState.selectedBranch?.let { selected ->
+            map.animateCamera(
+                CameraUpdateFactory.newLatLngZoom(
+                    LatLng(selected.branch.latitude, selected.branch.longitude),
+                    15.5,
+                ),
+                800,
             )
         }
+    }
+
+    AndroidView(
+        factory = { mapView },
+        modifier = modifier,
+    )
+}
+
+private fun ensureMapLayers(style: Style) {
+    if (style.getSource(ROUTE_SOURCE_ID) == null) {
+        style.addSource(GeoJsonSource(ROUTE_SOURCE_ID))
+        style.addLayer(
+            LineLayer(ROUTE_LAYER_ID, ROUTE_SOURCE_ID).withProperties(
+                PropertyFactory.lineColor("#1A73E8"),
+                PropertyFactory.lineWidth(5f),
+                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            ),
+        )
+    }
+
+    if (style.getSource(BRANCHES_SOURCE_ID) == null) {
+        style.addSource(GeoJsonSource(BRANCHES_SOURCE_ID))
+        style.addLayer(
+            CircleLayer(BRANCHES_LAYER_ID, BRANCHES_SOURCE_ID).withProperties(
+                PropertyFactory.circleRadius(9f),
+                PropertyFactory.circleColor(Expression.get(PROP_MARKER_COLOR)),
+                PropertyFactory.circleStrokeWidth(2.5f),
+                PropertyFactory.circleStrokeColor("#FFFFFF"),
+            ),
+        )
+        style.addLayer(
+            SymbolLayer(BRANCHES_LABEL_LAYER_ID, BRANCHES_SOURCE_ID).withProperties(
+                PropertyFactory.textField(Expression.get(PROP_BRANCH_NAME)),
+                PropertyFactory.textSize(11f),
+                PropertyFactory.textOffset(arrayOf(0f, 1.5f)),
+                PropertyFactory.textColor("#1F2937"),
+                PropertyFactory.textHaloColor("#FFFFFF"),
+                PropertyFactory.textHaloWidth(1.5f),
+                PropertyFactory.textAllowOverlap(false),
+            ),
+        )
+    }
+
+    if (style.getSource(USER_LOCATION_SOURCE_ID) == null) {
+        style.addSource(GeoJsonSource(USER_LOCATION_SOURCE_ID))
+        style.addLayer(
+            CircleLayer(USER_LOCATION_LAYER_ID, USER_LOCATION_SOURCE_ID).withProperties(
+                PropertyFactory.circleRadius(8f),
+                PropertyFactory.circleColor("#1A73E8"),
+                PropertyFactory.circleStrokeWidth(3f),
+                PropertyFactory.circleStrokeColor("#FFFFFF"),
+            ),
+        )
+    }
+}
+
+private fun updateMapData(style: Style, uiState: BranchLocatorUiState) {
+    val branchFeatures = uiState.branches.map { bDist ->
+        val b = bDist.branch
+        val isSelected = uiState.selectedBranch?.branch?.id == b.id
+        val isAtm = b.name.contains("ATM", ignoreCase = true) || b.type.equals("ATM", ignoreCase = true)
+        val colorHex = when {
+            isSelected -> "#FF9800"
+            isAtm -> "#00BCD4"
+            else -> "#E53935"
+        }
+        Feature.fromGeometry(Point.fromLngLat(b.longitude, b.latitude)).apply {
+            addNumberProperty(PROP_BRANCH_ID, b.id)
+            addStringProperty(PROP_BRANCH_NAME, b.name)
+            addStringProperty(PROP_MARKER_COLOR, colorHex)
+        }
+    }
+    style.getSourceAs<GeoJsonSource>(BRANCHES_SOURCE_ID)
+        ?.setGeoJson(FeatureCollection.fromFeatures(branchFeatures))
+
+    val userFeature = Feature.fromGeometry(
+        Point.fromLngLat(uiState.userLocation.longitude, uiState.userLocation.latitude),
+    )
+    style.getSourceAs<GeoJsonSource>(USER_LOCATION_SOURCE_ID)?.setGeoJson(userFeature)
+
+    val routeSource = style.getSourceAs<GeoJsonSource>(ROUTE_SOURCE_ID)
+    val selected = uiState.selectedBranch
+    if (selected != null) {
+        val points = if (uiState.currentRoute != null && uiState.currentRoute.nodes.size >= 2) {
+            uiState.currentRoute.nodes.map { Point.fromLngLat(it.longitude, it.latitude) }
+        } else {
+            listOf(
+                Point.fromLngLat(uiState.userLocation.longitude, uiState.userLocation.latitude),
+                Point.fromLngLat(selected.branch.longitude, selected.branch.latitude),
+            )
+        }
+        routeSource?.setGeoJson(Feature.fromGeometry(LineString.fromLngLats(points)))
+    } else {
+        routeSource?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
     }
 }
 
