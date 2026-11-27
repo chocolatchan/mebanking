@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ButtonDefaults
@@ -28,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -36,8 +39,13 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,6 +60,7 @@ import com.mebanking.app.data.local.entity.lifestyle.FlightBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.FlightEntity
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.components.AccountSelectionCarousel
+import com.mebanking.app.ui.components.LifestyleCheckoutBottomBar
 import com.mebanking.app.ui.components.PrimaryActionButton
 import com.mebanking.app.ui.components.TonalFeedbackBanner
 import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
@@ -73,7 +82,18 @@ fun FlightBookingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var showCheckoutSheet by remember { mutableStateOf(false) }
     SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+
+    LaunchedEffect(uiState.successMessage) {
+        if (uiState.successMessage != null) showCheckoutSheet = false
+    }
+
+    val requestFlightAuth = rememberServicePaymentAuthGate(
+        amountProvider = { uiState.calculatedPriceVnd },
+    ) {
+        viewModel.bookFlight()
+    }
 
     Scaffold(
         modifier = modifier
@@ -97,12 +117,22 @@ fun FlightBookingScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
+        bottomBar = {
+            val selectedFlight = uiState.selectedFlight
+            if (uiState.selectedTab == 0 && selectedFlight != null) {
+                LifestyleCheckoutBottomBar(
+                    summaryLabel = "${selectedFlight.flightNumber} · ${selectedFlight.departureAirport} → ${selectedFlight.arrivalAirport}",
+                    amountVnd = uiState.calculatedPriceVnd,
+                    buttonText = "Thanh toán",
+                    onClick = { showCheckoutSheet = true },
+                )
+            }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .navigationBarsPadding(),
+                .padding(padding),
         ) {
             PrimaryTabRow(
                 selectedTabIndex = uiState.selectedTab,
@@ -138,22 +168,12 @@ fun FlightBookingScreen(
                 )
             }
 
-            val requestFlightAuth = rememberServicePaymentAuthGate(
-                amountProvider = { uiState.calculatedPriceVnd },
-            ) {
-                viewModel.bookFlight()
-            }
-
             if (uiState.selectedTab == 0) {
                 FlightSearchAndBookContent(
                     uiState = uiState,
-                    onAccountSelected = viewModel::onAccountSelected,
                     onDepartureAirportChanged = viewModel::onDepartureAirportChanged,
                     onArrivalAirportChanged = viewModel::onArrivalAirportChanged,
                     onFlightSelected = viewModel::onFlightSelected,
-                    onPassengerNameChanged = viewModel::onPassengerNameChanged,
-                    onSeatClassChanged = viewModel::onSeatClassChanged,
-                    onBookFlight = { requestFlightAuth("Xác thực thanh toán vé máy bay") },
                 )
             } else {
                 MyBookingsContent(
@@ -163,18 +183,148 @@ fun FlightBookingScreen(
             }
         }
     }
+
+    val selectedFlight = uiState.selectedFlight
+    if (showCheckoutSheet && selectedFlight != null) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showCheckoutSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    text = "Thanh toán vé máy bay",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = "${selectedFlight.airline} · ${selectedFlight.flightNumber}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "${selectedFlight.departureAirport} → ${selectedFlight.arrivalAirport}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                TextField(
+                    value = uiState.passengerName,
+                    onValueChange = viewModel::onPassengerNameChanged,
+                    label = { Text("Họ và tên hành khách") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
+                    textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+
+                Text("Hạng ghế", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Surface(
+                        shape = segmentedListItemShape(0, 2),
+                        color = if (uiState.seatClass == "ECONOMY") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.onSeatClassChanged("ECONOMY") },
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = uiState.seatClass == "ECONOMY",
+                                onClick = { viewModel.onSeatClassChanged("ECONOMY") },
+                            )
+                            Text("Phổ thông (Tiêu chuẩn)", fontWeight = FontWeight.Medium)
+                        }
+                    }
+                    Surface(
+                        shape = segmentedListItemShape(1, 2),
+                        color = if (uiState.seatClass == "BUSINESS") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { viewModel.onSeatClassChanged("BUSINESS") },
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = uiState.seatClass == "BUSINESS",
+                                onClick = { viewModel.onSeatClassChanged("BUSINESS") },
+                            )
+                            Text("Thương gia (+50% giá vé)", fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+
+                if (uiState.accounts.isNotEmpty()) {
+                    AccountSelectionCarousel(
+                        accounts = uiState.accounts,
+                        selectedAccountId = uiState.selectedAccountId,
+                        onAccountSelected = viewModel::onAccountSelected,
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Tổng tiền thanh toán:", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        CurrencyFormatter.formatVnd(uiState.calculatedPriceVnd),
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                            fontFeatureSettings = "tnum",
+                        ),
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                PrimaryActionButton(
+                    text = "Xác nhận thanh toán",
+                    onClick = {
+                        showCheckoutSheet = false
+                        requestFlightAuth("Xác thực thanh toán vé máy bay ${selectedFlight.flightNumber}")
+                    },
+                    enabled = uiState.canBook,
+                    isLoading = uiState.isLoading,
+                )
+            }
+        }
+    }
 }
 
 @Composable
 private fun FlightSearchAndBookContent(
     uiState: FlightBookingUiState,
-    onAccountSelected: (Long) -> Unit,
     onDepartureAirportChanged: (String) -> Unit,
     onArrivalAirportChanged: (String) -> Unit,
     onFlightSelected: (FlightEntity) -> Unit,
-    onPassengerNameChanged: (String) -> Unit,
-    onSeatClassChanged: (String) -> Unit,
-    onBookFlight: () -> Unit,
 ) {
     val commonAirports = listOf(
         "HAN" to "Hà Nội",
@@ -351,115 +501,16 @@ private fun FlightSearchAndBookContent(
                                     )
                                     Text(
                                         text = CurrencyFormatter.formatVnd(flight.priceVnd),
-                                        style = MaterialTheme.typography.titleMedium,
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                            fontFeatureSettings = "tnum",
+                                        ),
                                         fontWeight = FontWeight.ExtraBold,
                                         color = MaterialTheme.colorScheme.primary,
                                     )
                                 }
                             }
                         }
-                    }
-                }
-            }
-        }
-
-        if (uiState.selectedFlight != null) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            "Thông tin hành khách & Đặt chỗ",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-
-                        TextField(
-                            value = uiState.passengerName,
-                            onValueChange = onPassengerNameChanged,
-                            label = { Text("Họ và tên hành khách") },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = tonalTextFieldColors(),
-                            textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                        )
-
-                        Text("Hạng ghế", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Surface(
-                                shape = segmentedListItemShape(0, 2),
-                                color = if (uiState.seatClass == "ECONOMY") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onSeatClassChanged("ECONOMY") },
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    RadioButton(
-                                        selected = uiState.seatClass == "ECONOMY",
-                                        onClick = { onSeatClassChanged("ECONOMY") },
-                                    )
-                                    Text("Phổ thông (Tiêu chuẩn)", fontWeight = FontWeight.Medium)
-                                }
-                            }
-                            Surface(
-                                shape = segmentedListItemShape(1, 2),
-                                color = if (uiState.seatClass == "BUSINESS") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onSeatClassChanged("BUSINESS") },
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    RadioButton(
-                                        selected = uiState.seatClass == "BUSINESS",
-                                        onClick = { onSeatClassChanged("BUSINESS") },
-                                    )
-                                    Text("Thương gia (+50% giá vé)", fontWeight = FontWeight.Medium)
-                                }
-                            }
-                        }
-
-                        if (uiState.accounts.isNotEmpty()) {
-                            AccountSelectionCarousel(
-                                accounts = uiState.accounts,
-                                selectedAccountId = uiState.selectedAccountId,
-                                onAccountSelected = onAccountSelected,
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("Tổng tiền thanh toán:", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                CurrencyFormatter.formatVnd(uiState.calculatedPriceVnd),
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
-                                    fontFeatureSettings = "tnum",
-                                ),
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-
-                        PrimaryActionButton(
-                            text = "Xác nhận đặt vé ngay",
-                            onClick = onBookFlight,
-                            enabled = uiState.canBook,
-                            isLoading = uiState.isLoading,
-                        )
                     }
                 }
             }

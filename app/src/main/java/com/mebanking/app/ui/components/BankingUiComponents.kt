@@ -82,6 +82,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -886,6 +887,75 @@ fun OtpVerificationBottomSheet(
                 ) {
                     Text(confirmText, fontWeight = FontWeight.Bold)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Shared docked bottom bar for Flight, Cinema, Hotel, and ME Shop screens.
+ * Displays the active selection summary and rounded total, and opens a checkout
+ * [ModalBottomSheet] containing the payment form when tapped.
+ */
+@Composable
+fun LifestyleCheckoutBottomBar(
+    summaryLabel: String,
+    amountVnd: Long,
+    buttonText: String = "Thanh toán",
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 3.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = summaryLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = CurrencyFormatter.formatVnd(amountVnd),
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                        fontFeatureSettings = "tnum",
+                    ),
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                )
+            }
+            Button(
+                onClick = onClick,
+                enabled = enabled,
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = PaddingValues(horizontal = 22.dp, vertical = 14.dp),
+                modifier = Modifier.height(50.dp),
+            ) {
+                Text(
+                    text = buttonText,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
     }

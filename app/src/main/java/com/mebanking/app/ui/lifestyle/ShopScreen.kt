@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -28,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -36,8 +39,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,6 +60,7 @@ import com.mebanking.app.data.local.entity.lifestyle.OrderEntity
 import com.mebanking.app.data.local.entity.lifestyle.ProductEntity
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.components.AccountSelectionCarousel
+import com.mebanking.app.ui.components.LifestyleCheckoutBottomBar
 import com.mebanking.app.ui.components.PrimaryActionButton
 import com.mebanking.app.ui.components.TonalFeedbackBanner
 import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
@@ -70,7 +79,18 @@ fun ShopScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var showCheckoutSheet by remember { mutableStateOf(false) }
     SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+
+    LaunchedEffect(uiState.successMessage) {
+        if (uiState.successMessage != null) showCheckoutSheet = false
+    }
+
+    val requestShopAuth = rememberServicePaymentAuthGate(
+        amountProvider = { uiState.cartTotalVnd },
+    ) {
+        viewModel.checkout()
+    }
 
     Scaffold(
         modifier = modifier
@@ -94,12 +114,21 @@ fun ShopScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
+        bottomBar = {
+            if ((uiState.selectedTab == 0 || uiState.selectedTab == 1) && uiState.cart.isNotEmpty()) {
+                LifestyleCheckoutBottomBar(
+                    summaryLabel = "Giỏ hàng (${uiState.cartItemCount} sản phẩm)",
+                    amountVnd = uiState.cartTotalVnd,
+                    buttonText = "Thanh toán",
+                    onClick = { showCheckoutSheet = true },
+                )
+            }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .navigationBarsPadding(),
+                .padding(padding),
         ) {
             PrimaryTabRow(
                 selectedTabIndex = uiState.selectedTab,
@@ -140,12 +169,6 @@ fun ShopScreen(
                 )
             }
 
-            val requestShopAuth = rememberServicePaymentAuthGate(
-                amountProvider = { uiState.cartTotalVnd },
-            ) {
-                viewModel.checkout()
-            }
-
             when (uiState.selectedTab) {
                 0 -> ProductCatalogContent(
                     uiState = uiState,
@@ -154,16 +177,105 @@ fun ShopScreen(
                 )
                 1 -> CartContent(
                     uiState = uiState,
-                    onAccountSelected = viewModel::onAccountSelected,
                     onQuantityChanged = viewModel::updateCartQuantity,
                     onRemoveItem = viewModel::removeFromCart,
                     onClearCart = viewModel::clearCart,
-                    onAddressChanged = viewModel::onDeliveryAddressChanged,
-                    onCheckout = { requestShopAuth("Xác thực thanh toán đơn hàng ME Shop") },
                 )
                 2 -> OrdersContent(
                     orders = uiState.userOrders,
                     onCancelOrder = viewModel::cancelOrder,
+                )
+            }
+        }
+    }
+
+    if (showCheckoutSheet && uiState.cart.isNotEmpty()) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showCheckoutSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    text = "Thanh toán đơn hàng ME Shop",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = "${uiState.cartItemCount} sản phẩm trong giỏ hàng",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = uiState.cart.joinToString(" · ") { "${it.product.name} x${it.quantity}" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                TextField(
+                    value = uiState.deliveryAddress,
+                    onValueChange = viewModel::onDeliveryAddressChanged,
+                    label = { Text("Địa chỉ giao hàng chi tiết") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                if (uiState.accounts.isNotEmpty()) {
+                    AccountSelectionCarousel(
+                        accounts = uiState.accounts,
+                        selectedAccountId = uiState.selectedAccountId,
+                        onAccountSelected = viewModel::onAccountSelected,
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Tổng thanh toán:", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        CurrencyFormatter.formatVnd(uiState.cartTotalVnd),
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                            fontFeatureSettings = "tnum",
+                        ),
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                PrimaryActionButton(
+                    text = "Xác nhận đặt hàng",
+                    onClick = {
+                        showCheckoutSheet = false
+                        requestShopAuth("Xác thực thanh toán đơn hàng ME Shop")
+                    },
+                    enabled = uiState.canCheckout,
+                    isLoading = uiState.isLoading,
                 )
             }
         }
@@ -311,12 +423,9 @@ private fun ProductCatalogContent(
 @Composable
 private fun CartContent(
     uiState: ShopUiState,
-    onAccountSelected: (Long) -> Unit,
     onQuantityChanged: (Long, Int) -> Unit,
     onRemoveItem: (Long) -> Unit,
     onClearCart: () -> Unit,
-    onAddressChanged: (String) -> Unit,
-    onCheckout: () -> Unit,
 ) {
     val uniqueCart = uiState.cart.distinctBy { it.product.id }
     if (uniqueCart.isEmpty()) {
@@ -416,68 +525,16 @@ private fun CartContent(
 
                                     Text(
                                         CurrencyFormatter.formatVnd(item.totalVnd),
-                                        style = MaterialTheme.typography.titleMedium,
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                            fontFeatureSettings = "tnum",
+                                        ),
                                         fontWeight = FontWeight.ExtraBold,
                                         color = MaterialTheme.colorScheme.primary,
                                     )
                                 }
                             }
                         }
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Địa chỉ nhận hàng", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-
-                        TextField(
-                            value = uiState.deliveryAddress,
-                            onValueChange = onAddressChanged,
-                            label = { Text("Địa chỉ chi tiết") },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = tonalTextFieldColors(),
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-
-                        if (uiState.accounts.isNotEmpty()) {
-                            AccountSelectionCarousel(
-                                accounts = uiState.accounts,
-                                selectedAccountId = uiState.selectedAccountId,
-                                onAccountSelected = onAccountSelected,
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("Tổng thanh toán:", style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                CurrencyFormatter.formatVnd(uiState.cartTotalVnd),
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
-                                    fontFeatureSettings = "tnum",
-                                ),
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-
-                        PrimaryActionButton(
-                            text = "Xác nhận đặt hàng",
-                            onClick = onCheckout,
-                            enabled = uiState.canCheckout,
-                            isLoading = uiState.isLoading,
-                        )
                     }
                 }
             }

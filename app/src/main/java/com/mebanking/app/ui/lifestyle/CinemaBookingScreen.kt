@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ButtonDefaults
@@ -31,14 +32,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +63,7 @@ import com.mebanking.app.data.local.entity.lifestyle.CinemaShowtimeEntity
 import com.mebanking.app.data.local.entity.lifestyle.MovieEntity
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.components.AccountSelectionCarousel
+import com.mebanking.app.ui.components.LifestyleCheckoutBottomBar
 import com.mebanking.app.ui.components.PrimaryActionButton
 import com.mebanking.app.ui.components.TonalFeedbackBanner
 import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
@@ -73,7 +81,18 @@ fun CinemaBookingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var showCheckoutSheet by remember { mutableStateOf(false) }
     SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+
+    LaunchedEffect(uiState.successMessage) {
+        if (uiState.successMessage != null) showCheckoutSheet = false
+    }
+
+    val requestCinemaAuth = rememberServicePaymentAuthGate(
+        amountProvider = { uiState.totalPriceVnd },
+    ) {
+        viewModel.bookSeats()
+    }
 
     Scaffold(
         modifier = modifier
@@ -97,12 +116,22 @@ fun CinemaBookingScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
+        bottomBar = {
+            if (uiState.selectedTab == 0 && uiState.selectedSeats.isNotEmpty()) {
+                val seatText = uiState.selectedSeats.sorted().joinToString(", ")
+                LifestyleCheckoutBottomBar(
+                    summaryLabel = "${uiState.selectedSeats.size} ghế: $seatText",
+                    amountVnd = uiState.totalPriceVnd,
+                    buttonText = "Thanh toán",
+                    onClick = { showCheckoutSheet = true },
+                )
+            }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .navigationBarsPadding(),
+                .padding(padding),
         ) {
             PrimaryTabRow(
                 selectedTabIndex = uiState.selectedTab,
@@ -138,20 +167,12 @@ fun CinemaBookingScreen(
                 )
             }
 
-            val requestCinemaAuth = rememberServicePaymentAuthGate(
-                amountProvider = { uiState.totalPriceVnd },
-            ) {
-                viewModel.bookSeats()
-            }
-
             if (uiState.selectedTab == 0) {
                 CinemaSeatSelectionContent(
                     uiState = uiState,
-                    onAccountSelected = viewModel::onAccountSelected,
                     onMovieSelected = viewModel::onMovieSelected,
                     onShowtimeSelected = viewModel::onShowtimeSelected,
                     onToggleSeat = viewModel::toggleSeat,
-                    onBookSeats = { requestCinemaAuth("Xác thực thanh toán vé xem phim") },
                 )
             } else {
                 MyCinemaTicketsContent(
@@ -161,16 +182,95 @@ fun CinemaBookingScreen(
             }
         }
     }
+
+    if (showCheckoutSheet && uiState.selectedSeats.isNotEmpty()) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showCheckoutSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    text = "Thanh toán vé xem phim",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = uiState.selectedMovie?.title ?: "Phim đang chọn",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "Ghế đã chọn: ${uiState.selectedSeats.sorted().joinToString(", ")}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                if (uiState.accounts.isNotEmpty()) {
+                    AccountSelectionCarousel(
+                        accounts = uiState.accounts,
+                        selectedAccountId = uiState.selectedAccountId,
+                        onAccountSelected = viewModel::onAccountSelected,
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Tổng cộng (${uiState.selectedSeats.size} vé):", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        CurrencyFormatter.formatVnd(uiState.totalPriceVnd),
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                            fontFeatureSettings = "tnum",
+                        ),
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                PrimaryActionButton(
+                    text = "Xác nhận thanh toán vé",
+                    onClick = {
+                        showCheckoutSheet = false
+                        requestCinemaAuth("Xác thực thanh toán vé xem phim")
+                    },
+                    enabled = uiState.canBook,
+                    isLoading = uiState.isLoading,
+                )
+            }
+        }
+    }
 }
 
 @Composable
 private fun CinemaSeatSelectionContent(
     uiState: CinemaBookingUiState,
-    onAccountSelected: (Long) -> Unit,
     onMovieSelected: (MovieEntity) -> Unit,
     onShowtimeSelected: (CinemaShowtimeEntity) -> Unit,
     onToggleSeat: (String) -> Unit,
-    onBookSeats: () -> Unit,
 ) {
     val rows = listOf("A", "B", "C", "D")
     val cols = listOf("01", "02", "03", "04", "05", "06")
@@ -362,61 +462,6 @@ private fun CinemaSeatSelectionContent(
                             LegendItem(color = MaterialTheme.colorScheme.primary, text = "Đang chọn")
                             LegendItem(color = MaterialTheme.colorScheme.surfaceContainerLowest, text = "Đã đặt")
                         }
-                    }
-                }
-            }
-
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text("Ghế đã chọn:", style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                if (uiState.selectedSeats.isEmpty()) "Chưa chọn ghế"
-                                else uiState.selectedSeats.sorted().joinToString(", "),
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-
-                        if (uiState.accounts.isNotEmpty()) {
-                            AccountSelectionCarousel(
-                                accounts = uiState.accounts,
-                                selectedAccountId = uiState.selectedAccountId,
-                                onAccountSelected = onAccountSelected,
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("Tổng cộng (${uiState.selectedSeats.size} vé):", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                CurrencyFormatter.formatVnd(uiState.totalPriceVnd),
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
-                                    fontFeatureSettings = "tnum",
-                                ),
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-
-                        PrimaryActionButton(
-                            text = "Xác nhận thanh toán vé",
-                            onClick = onBookSeats,
-                            enabled = uiState.canBook,
-                            isLoading = uiState.isLoading,
-                        )
                     }
                 }
             }

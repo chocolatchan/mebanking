@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ButtonDefaults
@@ -28,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -35,8 +38,13 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -51,6 +59,7 @@ import com.mebanking.app.data.local.entity.lifestyle.HotelBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.HotelEntity
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.components.AccountSelectionCarousel
+import com.mebanking.app.ui.components.LifestyleCheckoutBottomBar
 import com.mebanking.app.ui.components.PrimaryActionButton
 import com.mebanking.app.ui.components.TonalFeedbackBanner
 import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
@@ -69,7 +78,18 @@ fun HotelBookingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var showCheckoutSheet by remember { mutableStateOf(false) }
     SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+
+    LaunchedEffect(uiState.successMessage) {
+        if (uiState.successMessage != null) showCheckoutSheet = false
+    }
+
+    val requestHotelAuth = rememberServicePaymentAuthGate(
+        amountProvider = { uiState.calculatedTotalVnd },
+    ) {
+        viewModel.bookHotel()
+    }
 
     Scaffold(
         modifier = modifier
@@ -93,12 +113,22 @@ fun HotelBookingScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
+        bottomBar = {
+            val selectedHotel = uiState.selectedHotel
+            if (uiState.selectedTab == 0 && selectedHotel != null) {
+                LifestyleCheckoutBottomBar(
+                    summaryLabel = "${selectedHotel.name} · ${uiState.nights} đêm",
+                    amountVnd = uiState.calculatedTotalVnd,
+                    buttonText = "Thanh toán",
+                    onClick = { showCheckoutSheet = true },
+                )
+            }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .navigationBarsPadding(),
+                .padding(padding),
         ) {
             PrimaryTabRow(
                 selectedTabIndex = uiState.selectedTab,
@@ -134,21 +164,11 @@ fun HotelBookingScreen(
                 )
             }
 
-            val requestHotelAuth = rememberServicePaymentAuthGate(
-                amountProvider = { uiState.calculatedTotalVnd },
-            ) {
-                viewModel.bookHotel()
-            }
-
             if (uiState.selectedTab == 0) {
                 HotelSearchAndBookContent(
                     uiState = uiState,
-                    onAccountSelected = viewModel::onAccountSelected,
                     onCitySelected = viewModel::onCitySelected,
                     onHotelSelected = viewModel::onHotelSelected,
-                    onGuestNameChanged = viewModel::onGuestNameChanged,
-                    onNightsChanged = viewModel::onNightsChanged,
-                    onBookHotel = { requestHotelAuth("Xác thực thanh toán đặt phòng khách sạn") },
                 )
             } else {
                 MyHotelBookingsContent(
@@ -158,17 +178,130 @@ fun HotelBookingScreen(
             }
         }
     }
+
+    val selectedHotel = uiState.selectedHotel
+    if (showCheckoutSheet && selectedHotel != null) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showCheckoutSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    text = "Thanh toán đặt phòng",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = selectedHotel.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "${uiState.checkInDate} → ${uiState.checkOutDate} · ${uiState.nights} đêm",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                TextField(
+                    value = uiState.guestName,
+                    onValueChange = viewModel::onGuestNameChanged,
+                    label = { Text("Họ và tên khách đại diện") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
+                    textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Số đêm: ${uiState.nights} đêm", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilledTonalButton(
+                            onClick = { if (uiState.nights > 1) viewModel.onNightsChanged(uiState.nights - 1) },
+                            enabled = uiState.nights > 1,
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text("-1", fontWeight = FontWeight.Bold)
+                        }
+                        FilledTonalButton(
+                            onClick = { viewModel.onNightsChanged(uiState.nights + 1) },
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Text("+1", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                if (uiState.accounts.isNotEmpty()) {
+                    AccountSelectionCarousel(
+                        accounts = uiState.accounts,
+                        selectedAccountId = uiState.selectedAccountId,
+                        onAccountSelected = viewModel::onAccountSelected,
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Tổng tiền lưu trú:", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        CurrencyFormatter.formatVnd(uiState.calculatedTotalVnd),
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                            fontFeatureSettings = "tnum",
+                        ),
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                PrimaryActionButton(
+                    text = "Xác nhận thanh toán",
+                    onClick = {
+                        showCheckoutSheet = false
+                        requestHotelAuth("Xác thực thanh toán đặt phòng ${selectedHotel.name}")
+                    },
+                    enabled = uiState.canBook,
+                    isLoading = uiState.isLoading,
+                )
+            }
+        }
+    }
 }
 
 @Composable
 private fun HotelSearchAndBookContent(
     uiState: HotelBookingUiState,
-    onAccountSelected: (Long) -> Unit,
     onCitySelected: (String) -> Unit,
     onHotelSelected: (HotelEntity) -> Unit,
-    onGuestNameChanged: (String) -> Unit,
-    onNightsChanged: (Int) -> Unit,
-    onBookHotel: () -> Unit,
 ) {
     val cities = listOf("Tất cả", "TP. Hồ Chí Minh", "Đà Lạt", "Đà Nẵng")
     val uniqueHotels = uiState.hotels.distinctBy { it.id }
@@ -300,104 +433,16 @@ private fun HotelSearchAndBookContent(
                                     )
                                     Text(
                                         text = "${CurrencyFormatter.formatVnd(hotel.pricePerNightVnd)} / đêm",
-                                        style = MaterialTheme.typography.titleMedium,
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                            fontFeatureSettings = "tnum",
+                                        ),
                                         fontWeight = FontWeight.ExtraBold,
                                         color = MaterialTheme.colorScheme.primary,
                                     )
                                 }
                             }
                         }
-                    }
-                }
-            }
-        }
-
-        if (uiState.selectedHotel != null) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            "Thông tin khách lưu trú & Số đêm",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-
-                        TextField(
-                            value = uiState.guestName,
-                            onValueChange = onGuestNameChanged,
-                            label = { Text("Họ và tên khách đại diện") },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = tonalTextFieldColors(),
-                            textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                        )
-
-                        Text(
-                            text = "Thời gian lưu trú: ${uiState.checkInDate} → ${uiState.checkOutDate}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("Số đêm: ${uiState.nights} đêm", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                FilledTonalButton(
-                                    onClick = { if (uiState.nights > 1) onNightsChanged(uiState.nights - 1) },
-                                    enabled = uiState.nights > 1,
-                                    shape = RoundedCornerShape(12.dp),
-                                ) {
-                                    Text("-1", fontWeight = FontWeight.Bold)
-                                }
-                                FilledTonalButton(
-                                    onClick = { onNightsChanged(uiState.nights + 1) },
-                                    shape = RoundedCornerShape(12.dp),
-                                ) {
-                                    Text("+1", fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-
-                        if (uiState.accounts.isNotEmpty()) {
-                            AccountSelectionCarousel(
-                                accounts = uiState.accounts,
-                                selectedAccountId = uiState.selectedAccountId,
-                                onAccountSelected = onAccountSelected,
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("Tổng tiền lưu trú:", style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                CurrencyFormatter.formatVnd(uiState.calculatedTotalVnd),
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
-                                    fontFeatureSettings = "tnum",
-                                ),
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-
-                        PrimaryActionButton(
-                            text = "Xác nhận đặt phòng ngay",
-                            onClick = onBookHotel,
-                            enabled = uiState.canBook,
-                            isLoading = uiState.isLoading,
-                        )
                     }
                 }
             }
