@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,7 +58,17 @@ fun TransactionHistoryScreen(onBack: () -> Unit, onOpenTransaction: (Long) -> Un
     val factory = (context.applicationContext as MEbankingApplication).container.viewModelFactory
     val viewModel: TransactionHistoryViewModel = viewModel(factory = factory)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    TransactionHistoryContent(state, onBack, viewModel::setFilter, onOpenTransaction, viewModel::retry)
+    TransactionHistoryContent(
+        state = state,
+        onBack = onBack,
+        onFilter = viewModel::setFilter,
+        onAccountQueryChange = viewModel::setAccountQuery,
+        onSelectAccountId = viewModel::setSelectedAccountId,
+        onTimeFilterChange = viewModel::setTimeFilter,
+        onSortOrderChange = viewModel::setSortOrder,
+        onOpenTransaction = onOpenTransaction,
+        onRetry = viewModel::retry,
+    )
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -64,6 +77,10 @@ private fun TransactionHistoryContent(
     state: TransactionHistoryUiState,
     onBack: () -> Unit,
     onFilter: (TransactionFilter) -> Unit,
+    onAccountQueryChange: (String) -> Unit,
+    onSelectAccountId: (Long?) -> Unit,
+    onTimeFilterChange: (TransactionTimeFilter) -> Unit,
+    onSortOrderChange: (TransactionSortOrder) -> Unit,
     onOpenTransaction: (Long) -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -108,11 +125,26 @@ private fun TransactionHistoryContent(
                         }
                     }
                 }
+                if (state.isOfficerView) {
+                    item {
+                        OfficerFilterAndSortSection(
+                            state = state,
+                            onAccountQueryChange = onAccountQueryChange,
+                            onSelectAccountId = onSelectAccountId,
+                            onTimeFilterChange = onTimeFilterChange,
+                            onSortOrderChange = onSortOrderChange,
+                        )
+                    }
+                }
                 if (state.filteredTransactions.isEmpty()) {
                     item { Text("Không có giao dịch phù hợp.", modifier = Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 } else {
                     items(state.filteredTransactions, key = { it.id }) { transaction ->
-                        TransactionRow(transaction, onClick = { onOpenTransaction(transaction.id) })
+                        TransactionRow(
+                            transaction = transaction,
+                            showAccountInfo = state.isOfficerView,
+                            onClick = { onOpenTransaction(transaction.id) },
+                        )
                     }
                 }
             }
@@ -121,12 +153,122 @@ private fun TransactionHistoryContent(
 }
 
 @Composable
-private fun TransactionRow(transaction: TransactionEntity, onClick: () -> Unit) {
+private fun OfficerFilterAndSortSection(
+    state: TransactionHistoryUiState,
+    onAccountQueryChange: (String) -> Unit,
+    onSelectAccountId: (Long?) -> Unit,
+    onTimeFilterChange: (TransactionTimeFilter) -> Unit,
+    onSortOrderChange: (TransactionSortOrder) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = state.accountQuery,
+            onValueChange = onAccountQueryChange,
+            placeholder = { Text("Lọc theo ID / Số tài khoản...") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            trailingIcon = {
+                if (state.accountQuery.isNotEmpty()) {
+                    IconButton(onClick = { onAccountQueryChange("") }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Xóa bộ lọc tài khoản")
+                    }
+                }
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        if (state.availableAccountIds.isNotEmpty()) {
+            Text(
+                text = "Tài khoản",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = state.selectedAccountId == null,
+                    onClick = { onSelectAccountId(null) },
+                    label = { Text("Tất cả TK") },
+                )
+                state.availableAccountIds.forEach { accId ->
+                    FilterChip(
+                        selected = state.selectedAccountId == accId,
+                        onClick = { onSelectAccountId(if (state.selectedAccountId == accId) null else accId) },
+                        label = { Text("TK #$accId") },
+                    )
+                }
+            }
+        }
+
+        Text(
+            text = "Thời gian",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            TransactionTimeFilter.entries.forEach { tf ->
+                FilterChip(
+                    selected = state.timeFilter == tf,
+                    onClick = { onTimeFilterChange(tf) },
+                    label = { Text(tf.label) },
+                )
+            }
+        }
+
+        Text(
+            text = "Sắp xếp",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            TransactionSortOrder.entries.forEach { order ->
+                FilterChip(
+                    selected = state.sortOrder == order,
+                    onClick = { onSortOrderChange(order) },
+                    label = { Text(order.label) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransactionRow(
+    transaction: TransactionEntity,
+    showAccountInfo: Boolean,
+    onClick: () -> Unit,
+) {
     Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(Modifier.padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(transaction.type.displayName(), fontWeight = FontWeight.SemiBold)
                 Text(CurrencyFormatter.formatVnd(transaction.amount), fontWeight = FontWeight.Bold)
+            }
+            if (showAccountInfo) {
+                Spacer(Modifier.height(4.dp))
+                val accountSummary = buildString {
+                    transaction.fromAccountId?.let { append("Nguồn: TK #$it") }
+                    val dest = transaction.toAccountId?.let { "TK #$it" } ?: transaction.toAccountNo
+                    if (dest != null) {
+                        if (isNotEmpty()) append("  →  ")
+                        append("Đích: $dest")
+                    }
+                }
+                if (accountSummary.isNotEmpty()) {
+                    Text(
+                        text = accountSummary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
             Spacer(Modifier.height(4.dp))
             Text(DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(transaction.timestamp)), style = MaterialTheme.typography.bodySmall)
