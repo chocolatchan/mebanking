@@ -232,6 +232,10 @@ class DefaultOfficerCustomerService(
         if (!phoneRegex.matches(trimmedPhone)) {
             return Result.failure(DomainError.InvalidData("Phone number must be a valid 10-digit number starting with 0"))
         }
+        val phoneConflict = userDao.getByUsername(trimmedPhone)
+        if (phoneConflict != null && phoneConflict.id != targetUserId) {
+            return Result.failure(DomainError.InvalidData("Số điện thoại '$trimmedPhone' đã được tài khoản khác sử dụng"))
+        }
         if (trimmedNationalId != null && !nationalIdRegex.matches(trimmedNationalId)) {
             return Result.failure(DomainError.InvalidData("CCCD phải gồm đúng 12 chữ số"))
         }
@@ -243,7 +247,14 @@ class DefaultOfficerCustomerService(
             return Result.failure(DomainError.InvalidData("CCCD đã được đăng ký"))
         }
 
+        val updatedUsername = if (existing.username == existing.phone || phoneRegex.matches(existing.username)) {
+            trimmedPhone
+        } else {
+            existing.username
+        }
+
         val updated = existing.copy(
+            username = updatedUsername,
             fullName = trimmedName,
             email = trimmedEmail,
             phone = trimmedPhone,

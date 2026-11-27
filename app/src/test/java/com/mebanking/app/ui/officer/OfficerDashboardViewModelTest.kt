@@ -60,6 +60,7 @@ class OfficerDashboardViewModelTest {
         sessionManager.startSession(UserSession(1L, "officer1", Role.OFFICER, "Officer One"))
         officerService = DefaultOfficerCustomerService(db.userDao(), db.accountDao(), sessionManager, nationalIdProtector = TestNationalIdProtector())
         faceService = DefaultFaceRecognitionService(ApplicationProvider.getApplicationContext())
+        faceService.deleteFaceTemplate(2L)
     }
 
     @After
@@ -206,5 +207,43 @@ class OfficerDashboardViewModelTest {
         viewModel.closeAccount(mortgage.id)
         viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("CLOSED") == true }
         assertEquals("CLOSED", db.accountDao().getById(mortgage.id)?.status)
+    }
+
+    @Test
+    fun updateCustomerWithFaceVerification_requiresEnrolledFaceAndMatchesBeforeUpdatingPhone() = runTest {
+        val viewModel = OfficerDashboardViewModel(officerService, sessionManager, faceService)
+        val customer = viewModel.uiState.first { !it.isLoading && it.customers.isNotEmpty() }.customers.first { it.id == 2L }
+        viewModel.selectCustomer(customer)
+        viewModel.uiState.first { !it.isLoading }
+
+        // 1. Not enrolled yet -> cannot proceed to verification
+        viewModel.onPhoneChanged("0909888777")
+        viewModel.requestUpdateWithCustomerFaceVerification()
+        val missingFace = viewModel.uiState.first { it.errorMessage != null }
+        assertTrue(missingFace.errorMessage!!.contains("chưa đăng ký khuôn mặt"))
+        assertEquals(null, missingFace.pendingVerificationCustomerId)
+
+        // 2. Enroll face biometric first
+        viewModel.enrollFaceBiometrics(2L, "clear_face".toByteArray(Charsets.ISO_8859_1))
+        viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("sinh trắc học") == true }
+
+        // 3. Request verification with new phone -> sets pendingVerificationCustomerId
+        viewModel.onPhoneChanged("0909888777")
+        viewModel.requestUpdateWithCustomerFaceVerification()
+        val waitingFace = viewModel.uiState.first { it.pendingVerificationCustomerId == 2L }
+        assertEquals(2L, waitingFace.pendingVerificationCustomerId)
+
+        // 4. Mismatch face -> rejected and DB phone unchanged
+        viewModel.confirmUpdateWithCustomerFace("mismatch_face".toByteArray(Charsets.ISO_8859_1))
+        val afterMismatch = viewModel.uiState.first { !it.isLoading && it.errorMessage != null }
+        assertTrue(afterMismatch.errorMessage!!.contains("không khớp"))
+        assertEquals("0901000000", db.userDao().getById(2L)?.phone)
+
+        // 5. Matching face -> updates phone in DB
+        viewModel.confirmUpdateWithCustomerFace("clear_face".toByteArray(Charsets.ISO_8859_1))
+        val afterMatch = viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("0909888777") == true }
+        assertEquals(null, afterMatch.pendingVerificationCustomerId)
+        advanceUntilIdle()
+        assertEquals("0909888777", db.userDao().getById(2L)?.phone)
     }
 }

@@ -111,8 +111,12 @@ class DefaultAppContainer(
         )
     }
 
+    override val nationalIdProtector: com.mebanking.app.data.local.security.NationalIdProtector by lazy {
+        AndroidKeystoreNationalIdProtector()
+    }
+
     override val authRepository: AuthRepository by lazy {
-        DefaultAuthRepository(userDao)
+        DefaultAuthRepository(userDao = userDao, nationalIdProtector = nationalIdProtector)
     }
 
     override val sessionManager: SessionManager by lazy {
@@ -234,6 +238,15 @@ class DefaultAppContainer(
 
     override val rememberedCustomerStore: com.mebanking.app.domain.service.RememberedCustomerStore by lazy {
         com.mebanking.app.domain.service.RememberedCustomerStore(context)
+    }
+
+    override val saveFaceImage: suspend (Long, ByteArray, String?) -> Result<String> = { userId, frameBytes, prevPath ->
+        com.mebanking.app.domain.service.face.FaceImageStorage.saveFaceImage(
+            context = context,
+            userId = userId,
+            frameBytes = frameBytes,
+            previousPath = prevPath,
+        )
     }
 
     override val viewModelFactory: ViewModelProvider.Factory by lazy {

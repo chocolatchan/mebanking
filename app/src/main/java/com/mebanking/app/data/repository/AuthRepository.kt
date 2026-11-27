@@ -2,6 +2,7 @@ package com.mebanking.app.data.repository
 
 import com.mebanking.app.data.local.dao.UserDao
 import com.mebanking.app.data.local.entity.UserEntity
+import com.mebanking.app.data.local.security.NationalIdProtector
 import com.mebanking.app.domain.model.DomainError
 import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.User
@@ -32,6 +33,14 @@ interface AuthRepository {
         phone: String,
         kycVerified: Boolean? = null,
     ): Result<User>
+    suspend fun updateCustomerEkyc(
+        userId: Long,
+        fullName: String? = null,
+        nationalIdCipher: String? = null,
+        nationalIdHash: String? = null,
+        kycVerified: Boolean = true,
+        faceImagePath: String? = null,
+    ): Result<User> = Result.failure(DomainError.SystemError("Unsupported operation"))
     suspend fun updatePasswordHash(userId: Long, newHash: String): Result<Unit>
     suspend fun isUsernameTaken(username: String): Boolean
     fun observeAllUsers(): Flow<List<User>>
@@ -40,14 +49,22 @@ interface AuthRepository {
 class DefaultAuthRepository(
     private val userDao: UserDao,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val nationalIdProtector: NationalIdProtector? = null,
 ) : AuthRepository {
 
+    private fun UserEntity.toRichDomainModel(): User {
+        val decryptedNationalId = nationalIdCipher?.let { cipher ->
+            runCatching { nationalIdProtector?.decrypt(cipher) }.getOrNull()
+        }
+        return toDomainModel().copy(nationalId = decryptedNationalId)
+    }
+
     override suspend fun getUserByUsername(username: String): User? = withContext(ioDispatcher) {
-        userDao.getByUsername(username)?.toDomainModel()
+        userDao.getByUsername(username)?.toRichDomainModel()
     }
 
     override suspend fun getUserById(userId: Long): User? = withContext(ioDispatcher) {
-        userDao.getById(userId)?.toDomainModel()
+        userDao.getById(userId)?.toRichDomainModel()
     }
 
     override suspend fun getPasswordHashByUsername(username: String): String? = withContext(ioDispatcher) {
@@ -100,7 +117,40 @@ class DefaultAuthRepository(
                 kycVerified = kycVerified ?: existing.kycVerified,
             )
             userDao.update(updated)
-            Result.success(updated.toDomainModel())
+            Result.success(updated.toRichDomainModel())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(DomainError.SystemError("Database update error: ${e.message}", e))
+        }
+    }
+
+    override suspend fun updateCustomerEkyc(
+        userId: Long,
+        fullName: String?,
+        nationalIdCipher: String?,
+        nationalIdHash: String?,
+        kycVerified: Boolean,
+        faceImagePath: String?,
+    ): Result<User> = withContext(ioDispatcher) {
+        try {
+            val existing = userDao.getById(userId)
+                ?: return@withContext Result.failure(DomainError.NotFound("User not found with ID: $userId"))
+            if (!nationalIdHash.isNullOrBlank()) {
+                val conflict = userDao.getByNationalIdHash(nationalIdHash)
+                if (conflict != null && conflict.id != userId) {
+                    return@withContext Result.failure(DomainError.InvalidData("CCCD đã được đăng ký cho tài khoản khác"))
+                }
+            }
+            val updated = existing.copy(
+                fullName = fullName?.trim()?.takeIf { it.length >= 2 } ?: existing.fullName,
+                nationalIdCipher = nationalIdCipher ?: existing.nationalIdCipher,
+                nationalIdHash = nationalIdHash ?: existing.nationalIdHash,
+                kycVerified = kycVerified,
+                faceImagePath = faceImagePath ?: existing.faceImagePath,
+            )
+            userDao.update(updated)
+            Result.success(updated.toRichDomainModel())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

@@ -9,14 +9,18 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Surface
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,9 +48,11 @@ import com.mebanking.app.ui.cash.DepositScreen
 import com.mebanking.app.ui.cash.WithdrawScreen
 import com.mebanking.app.ui.bills.BillPaymentScreen
 import com.mebanking.app.ui.chatbot.ChatbotScreen
+import com.mebanking.app.ui.home.AccountManagementDrawerContent
 import com.mebanking.app.ui.home.HomeScreen
 import com.mebanking.app.ui.home.HomeViewModel
 import com.mebanking.app.ui.home.ModernBankingBottomBar
+import kotlinx.coroutines.launch
 import com.mebanking.app.ui.history.TransactionHistoryScreen
 import com.mebanking.app.ui.history.TransactionDetailScreen
 import com.mebanking.app.ui.lifestyle.CinemaBookingScreen
@@ -107,16 +113,24 @@ private fun AuthenticatedApp(
     val appContainer = (context.applicationContext as MEbankingApplication).container
     val homeViewModel: HomeViewModel = viewModel(factory = appContainer.viewModelFactory)
     val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
-    val primaryAccountId = homeUiState.accounts.firstOrNull()?.id?.toLongOrNull() ?: -1L
+    val currentSession = appContainer.sessionManager.currentSession
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     var openQrTrigger by remember { mutableIntStateOf(0) }
     var isBottomBarVisible by remember { mutableStateOf(true) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(currentRoute) {
         isBottomBarVisible = true
+    }
+
+    val toggleDrawer: () -> Unit = {
+        coroutineScope.launch {
+            if (drawerState.isOpen) drawerState.close() else drawerState.open()
+        }
     }
 
     val bottomBarNestedScrollConnection = remember {
@@ -136,25 +150,57 @@ private fun AuthenticatedApp(
         "home" -> 0
         "transaction_history" -> 1
         "services" -> if (isCustomer) 3 else null
-        "account_detail/{accountId}" -> 4
         "officer_dashboard" -> if (!isCustomer) 5 else null
         else -> null
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(bottomBarNestedScrollConnection),
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = selectedMainTab != null,
+        drawerContent = {
+            AccountManagementDrawerContent(
+                uiState = homeUiState,
+                isCustomer = isCustomer,
+                sessionFullName = currentSession?.fullName ?: if (isCustomer) "Quý khách" else "Cán bộ quản trị",
+                sessionUsername = currentSession?.username.orEmpty(),
+                onCollapseDrawer = {
+                    coroutineScope.launch { drawerState.close() }
+                },
+                onToggleOtt = homeViewModel::toggleOtt,
+                onToggleBiometric = homeViewModel::toggleBiometric,
+                onNavigateToAccountDetail = { accountId ->
+                    navController.navigate("account_detail/$accountId") { launchSingleTop = true }
+                },
+                onNavigateToOfficerDashboard = {
+                    if (!isCustomer) {
+                        navController.navigate("officer_dashboard") {
+                            popUpTo("home") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                },
+                onUpdateEkyc = homeViewModel::updateEkycWithCapturedFace,
+                onClearEkycMessages = homeViewModel::clearEkycMessages,
+                onLogout = onLogout,
+            )
+        },
     ) {
-        NavHost(
-            navController = navController,
-            startDestination = "home",
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(bottomBarNestedScrollConnection),
         ) {
-            composable("home") {
-                HomeScreen(
-                    viewModel = homeViewModel,
-                    openQrTrigger = openQrTrigger,
-                    isBottomBarVisible = selectedMainTab == null || isBottomBarVisible,
+            NavHost(
+                navController = navController,
+                startDestination = "home",
+            ) {
+                composable("home") {
+                    HomeScreen(
+                        viewModel = homeViewModel,
+                        openQrTrigger = openQrTrigger,
+                        isBottomBarVisible = selectedMainTab == null || isBottomBarVisible,
+                        onToggleDrawer = toggleDrawer,
                     onNavigateToBranchLocator = {
                     navController.navigate("branch_locator") { launchSingleTop = true }
                 },
@@ -372,11 +418,6 @@ private fun AuthenticatedApp(
                             restoreState = true
                         }
                     }
-                    4 -> navController.navigate("account_detail/$primaryAccountId") {
-                        popUpTo("home") { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
                     5 -> if (!isCustomer) {
                         navController.navigate("officer_dashboard") {
                             popUpTo("home") { saveState = true }
@@ -387,6 +428,7 @@ private fun AuthenticatedApp(
                 }
             },
         )
+    }
     }
     }
 }

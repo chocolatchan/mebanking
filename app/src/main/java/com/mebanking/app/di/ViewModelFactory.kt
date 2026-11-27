@@ -34,6 +34,7 @@ class ViewModelFactory(
                     sessionManager = container.sessionManager,
                     rememberedCustomerStore = container.rememberedCustomerStore,
                     faceRecognitionService = container.faceRecognitionService,
+                    authRepository = container.authRepository,
                     awaitDatabaseReady = { container.databaseReady.await() },
                 ) as T
             }
@@ -47,6 +48,10 @@ class ViewModelFactory(
                 HomeViewModel(
                     repository = container.accountRepository,
                     sessionManager = container.sessionManager,
+                    authRepository = container.authRepository,
+                    faceRecognitionService = container.faceRecognitionService,
+                    nationalIdProtector = container.nationalIdProtector,
+                    saveFaceImageFn = container.saveFaceImage,
                 ) as T
             }
             modelClass.isAssignableFrom(BranchLocatorViewModel::class.java) -> {
@@ -81,6 +86,9 @@ class ViewModelFactory(
                     sessionManager = container.sessionManager,
                     faceRecognitionService = container.faceRecognitionService,
                     accountService = container.accountService,
+                    rememberedCustomerStore = container.rememberedCustomerStore,
+                    authRepository = container.authRepository,
+                    saveFaceImageFn = container.saveFaceImage,
                 ) as T
             }
             modelClass.isAssignableFrom(BillPaymentViewModel::class.java) -> {

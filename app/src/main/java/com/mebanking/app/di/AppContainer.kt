@@ -70,6 +70,8 @@ interface AppContainer {
     val authenticationPolicy: TransactionAuthenticationPolicy
     val rememberedCustomerStore: com.mebanking.app.domain.service.RememberedCustomerStore
     val otpService: OtpService
+    val nationalIdProtector: com.mebanking.app.data.local.security.NationalIdProtector
+    val saveFaceImage: suspend (userId: Long, frameBytes: ByteArray, previousPath: String?) -> Result<String>
 
     val viewModelFactory: ViewModelProvider.Factory
 }

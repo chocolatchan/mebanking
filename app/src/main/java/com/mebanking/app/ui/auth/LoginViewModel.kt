@@ -2,6 +2,7 @@ package com.mebanking.app.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mebanking.app.data.repository.AuthRepository
 import com.mebanking.app.domain.model.FaceRecognitionError
 import com.mebanking.app.domain.model.FaceRecognitionResult
 import com.mebanking.app.domain.model.Role
@@ -55,6 +56,7 @@ class LoginViewModel(
     private val sessionManager: SessionManager? = null,
     private val rememberedCustomerStore: RememberedCustomerStore? = null,
     private val faceRecognitionService: FaceRecognitionService? = null,
+    private val authRepository: AuthRepository? = null,
     private val awaitDatabaseReady: suspend () -> Unit = {},
 ) : ViewModel() {
 
@@ -73,12 +75,35 @@ class LoginViewModel(
     }
 
     fun refreshRememberedCustomer() {
-        val customer = rememberedCustomerStore?.getRememberedCustomer()
+        val store = rememberedCustomerStore
+        val customer = store?.getRememberedCustomer()
         _uiState.update {
             it.copy(
                 rememberedCustomer = customer,
                 username = if (customer != null) customer.username else it.username,
             )
+        }
+        if (customer != null && authRepository != null && store != null) {
+            viewModelScope.launch {
+                runCatching {
+                    awaitDatabaseReady()
+                    authRepository.getUserById(customer.userId)
+                }.getOrNull()?.let { dbUser ->
+                    val synced = RememberedCustomer(
+                        userId = dbUser.id,
+                        fullName = dbUser.fullName,
+                        phone = dbUser.phone,
+                        username = dbUser.username,
+                    )
+                    store.saveCustomer(synced)
+                    _uiState.update {
+                        it.copy(
+                            rememberedCustomer = synced,
+                            username = synced.username,
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -183,12 +208,14 @@ class LoginViewModel(
                 val result = authService.login(loginIdentifier, state.password)
                 result.fold(
                     onSuccess = { session ->
-                        // Persist customer profile so biometrics is available next time
+                        val dbUser = runCatching { authRepository?.getUserById(session.userId) }.getOrNull()
+                        val actualPhone = dbUser?.phone?.takeIf { it.isNotBlank() } ?: session.username
+                        val actualUsername = dbUser?.username?.takeIf { it.isNotBlank() } ?: session.username
                         rememberedCustomerStore?.saveCustomer(
                             userId = session.userId,
-                            fullName = session.fullName,
-                            phone = session.username,
-                            username = session.username,
+                            fullName = dbUser?.fullName ?: session.fullName,
+                            phone = actualPhone,
+                            username = actualUsername,
                         )
                         _uiState.update {
                             it.copy(
@@ -196,9 +223,9 @@ class LoginViewModel(
                                 password = "",
                                 rememberedCustomer = RememberedCustomer(
                                     userId = session.userId,
-                                    fullName = session.fullName,
-                                    phone = session.username,
-                                    username = session.username,
+                                    fullName = dbUser?.fullName ?: session.fullName,
+                                    phone = actualPhone,
+                                    username = actualUsername,
                                 ),
                             )
                         }

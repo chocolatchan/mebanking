@@ -85,7 +85,11 @@ fun OfficerDashboardScreen(onBack: () -> Unit) {
         onPhone = viewModel::onPhoneChanged,
         onNationalId = viewModel::onNationalIdChanged,
         onKyc = viewModel::onKycChanged,
-        onSave = viewModel::save,
+        onSave = {
+            if (state.isCreating) viewModel.save() else viewModel.requestUpdateWithCustomerFaceVerification()
+        },
+        onConfirmUpdateWithFace = viewModel::confirmUpdateWithCustomerFace,
+        onDismissVerification = viewModel::dismissVerificationDialog,
         onEnrollFace = { customerId, frame -> viewModel.enrollFaceBiometrics(customerId, frame) },
         onOpenAccount = viewModel::openAccountForSelectedCustomer,
         onOpenSavingAccount = viewModel::openSavingAccount,
@@ -113,6 +117,8 @@ private fun OfficerDashboardContent(
     onNationalId: (String) -> Unit,
     onKyc: (Boolean) -> Unit,
     onSave: () -> Unit,
+    onConfirmUpdateWithFace: (ByteArray) -> Unit = {},
+    onDismissVerification: () -> Unit = {},
     onEnrollFace: (Long, ByteArray) -> Unit = { _, _ -> },
     onOpenAccount: (com.mebanking.app.domain.model.AccountType) -> Unit = {},
     onOpenSavingAccount: (String, String, String) -> Unit = { _, _, _ -> },
@@ -138,6 +144,7 @@ private fun OfficerDashboardContent(
     LaunchedEffect(state.successMessage) {
         if (state.successMessage != null) {
             enrollingCustomerId = null
+            showProfileDialog = false
         }
     }
 
@@ -375,10 +382,18 @@ private fun OfficerDashboardContent(
             onPhone = onPhone,
             onKyc = onKyc,
             onEnrollFace = { customerId -> enrollingCustomerId = customerId },
-            onSave = {
-                onSave()
-                showProfileDialog = false
-            },
+            onSave = onSave,
+        )
+    }
+
+    state.pendingVerificationCustomerId?.let { _ ->
+        FaceCaptureDialog(
+            title = "Xác nhận nhận diện khách hàng",
+            subtitle = "Đưa khuôn mặt của ${state.selectedCustomer?.fullName ?: "khách hàng"} vào khung hình để xác nhận chỉnh sửa hồ sơ & SĐT.",
+            isProcessing = state.isLoading,
+            errorMessage = state.errorMessage,
+            onFrameCaptured = onConfirmUpdateWithFace,
+            onDismiss = onDismissVerification,
         )
     }
 
@@ -603,7 +618,7 @@ private fun CustomerProfileDialogCard(
                     value = state.phone,
                     onValueChange = onPhone,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Số điện thoại") },
+                    label = { Text("Số điện thoại (định danh đăng nhập)") },
                     singleLine = true,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -611,6 +626,11 @@ private fun CustomerProfileDialogCard(
                     Text("Đã xác minh KYC")
                 }
                 if (!state.isCreating && state.selectedCustomer != null) {
+                    Text(
+                        text = "Lưu thay đổi thông tin hoặc SĐT sẽ yêu cầu xác nhận khuôn mặt của khách hàng.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     OutlinedButton(
                         onClick = { onEnrollFace(state.selectedCustomer.id) },
                         enabled = !state.isLoading,
@@ -628,6 +648,13 @@ private fun CustomerProfileDialogCard(
                         }
                     }
                 }
+                state.errorMessage?.let { err ->
+                    Text(
+                        text = err,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -644,7 +671,7 @@ private fun CustomerProfileDialogCard(
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.weight(1f),
                     ) {
-                        Text("Lưu hồ sơ")
+                        Text(if (state.isCreating) "Tạo hồ sơ" else "Xác thực & Lưu")
                     }
                 }
             }

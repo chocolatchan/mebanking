@@ -23,9 +23,11 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -179,6 +181,7 @@ fun HomeScreen(
     isCustomer: Boolean = true,
     openQrTrigger: Int = 0,
     isBottomBarVisible: Boolean = true,
+    onToggleDrawer: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -204,6 +207,7 @@ fun HomeScreen(
         isCustomer = isCustomer,
         openQrTrigger = openQrTrigger,
         isBottomBarVisible = isBottomBarVisible,
+        onToggleDrawer = onToggleDrawer,
         modifier = modifier,
     )
 }
@@ -233,6 +237,7 @@ fun HomeScreen(
     isCustomer: Boolean = true,
     openQrTrigger: Int = 0,
     isBottomBarVisible: Boolean = true,
+    onToggleDrawer: () -> Unit = {},
 ) {
     LaunchedEffect(Unit) {
         onRetry()
@@ -341,6 +346,7 @@ fun HomeScreen(
                         Toast.makeText(context, "Đã sao chép số tài khoản: $accountNumber", Toast.LENGTH_SHORT).show()
                     },
                     onLogoutClick = { showLogoutConfirm = true },
+                    onToggleDrawer = onToggleDrawer,
                     onNavigateToBranchLocator = onNavigateToBranchLocator,
                     onNavigateToTransfer = onNavigateToTransfer,
                     onNavigateToDeposit = onNavigateToDeposit,
@@ -359,12 +365,17 @@ fun HomeScreen(
                 )
             }
 
-            if (isCustomer && !uiState.isLoading && uiState.errorMessage == null) {
-                CustomerToolsFloatingToolbar(
+            if (!uiState.isLoading && uiState.errorMessage == null) {
+                BankingToolsFloatingToolbar(
+                    isCustomer = isCustomer,
                     onTransfer = { onNavigateToTransfer(null, null, null, null) },
                     onDeposit = onNavigateToDeposit,
                     onWithdraw = onNavigateToWithdraw,
                     onOpenQr = openQrScanner,
+                    onOfficerHistory = onNavigateToHistory,
+                    onOfficerLocator = onNavigateToBranchLocator,
+                    onOfficerChatbot = onNavigateToChatbot,
+                    onOfficerDashboard = onNavigateToOfficerDashboard,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
@@ -386,6 +397,7 @@ private fun ModernAccountsContent(
     onToggleBalanceVisibility: () -> Unit,
     onCopyAccount: (String) -> Unit,
     onLogoutClick: () -> Unit,
+    onToggleDrawer: () -> Unit,
     onNavigateToBranchLocator: () -> Unit,
     onNavigateToTransfer: (String?, String?, String?, String?) -> Unit,
     onNavigateToDeposit: () -> Unit,
@@ -405,12 +417,16 @@ private fun ModernAccountsContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = if (isCustomer) 168.dp else 104.dp),
+        contentPadding = PaddingValues(bottom = 168.dp),
     ) {
         // 1. Top Header with Gradient & Greeting
         item {
             BankingTopHeader(
                 isCustomer = isCustomer,
+                displayName = uiState.currentUser?.fullName?.takeIf { it.isNotBlank() }
+                    ?: if (isCustomer) "Quý khách" else "Cán bộ quản trị",
+                faceImagePath = uiState.currentUser?.faceImagePath,
+                onToggleDrawer = onToggleDrawer,
                 onLogoutClick = onLogoutClick,
                 onChatbotClick = onNavigateToChatbot,
                 onLocatorClick = onNavigateToBranchLocator,
@@ -536,10 +552,15 @@ private fun ModernAccountsContent(
 @Composable
 private fun BankingTopHeader(
     isCustomer: Boolean,
+    displayName: String,
+    faceImagePath: String?,
+    onToggleDrawer: () -> Unit,
     onLogoutClick: () -> Unit,
     onChatbotClick: () -> Unit,
     onLocatorClick: () -> Unit,
 ) {
+    val faceBitmap = rememberFaceBitmap(faceImagePath)
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -552,10 +573,15 @@ private fun BankingTopHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Left: User Avatar + Greeting + Role
+            // Left: User Avatar (tap to expand/collapse account management drawer) + Greeting + Role
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(24.dp))
+                    .clickable(onClick = onToggleDrawer)
+                    .padding(end = 8.dp),
             ) {
                 Box(
                     modifier = Modifier
@@ -565,12 +591,23 @@ private fun BankingTopHeader(
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        imageVector = if (isCustomer) Icons.Filled.Person else Icons.Filled.Badge,
-                        contentDescription = "User Avatar",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp),
-                    )
+                    if (faceBitmap != null) {
+                        Image(
+                            bitmap = faceBitmap,
+                            contentDescription = "Quản lý tài khoản",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape),
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isCustomer) Icons.Filled.Person else Icons.Filled.Badge,
+                            contentDescription = "Quản lý tài khoản",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
 
                 Column {
@@ -580,10 +617,12 @@ private fun BankingTopHeader(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = if (isCustomer) "Quý khách" else "Cán bộ quản trị",
+                        text = displayName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -1249,14 +1288,12 @@ internal fun ModernBankingBottomBar(
                 BankingNavTab(0, "Trang chủ", Icons.Filled.Home),
                 BankingNavTab(1, "Lịch sử", Icons.Filled.History),
                 BankingNavTab(3, "Dịch vụ", Icons.Filled.Receipt),
-                BankingNavTab(4, "Tài khoản", Icons.Filled.Person),
             )
         } else {
             listOf(
                 BankingNavTab(0, "Trang chủ", Icons.Filled.Home),
                 BankingNavTab(1, "Báo cáo GD", Icons.Filled.Assessment),
                 BankingNavTab(5, "Quản lý KH", Icons.Filled.SupervisorAccount),
-                BankingNavTab(4, "Hồ sơ", Icons.Filled.Person),
             )
         }
     }
@@ -1296,18 +1333,31 @@ private data class FloatingBankingTool(
 )
 
 @Composable
-internal fun CustomerToolsFloatingToolbar(
+internal fun BankingToolsFloatingToolbar(
+    isCustomer: Boolean,
     onTransfer: () -> Unit,
     onDeposit: () -> Unit,
     onWithdraw: () -> Unit,
     onOpenQr: () -> Unit,
+    onOfficerHistory: () -> Unit,
+    onOfficerLocator: () -> Unit,
+    onOfficerChatbot: () -> Unit,
+    onOfficerDashboard: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tools = listOf(
-        FloatingBankingTool("Chuyển tiền", Icons.Filled.Send, onTransfer),
-        FloatingBankingTool("Nạp tiền", Icons.Filled.AddCircle, onDeposit),
-        FloatingBankingTool("Rút tiền", Icons.Filled.LocalAtm, onWithdraw),
-    )
+    val tools = if (isCustomer) {
+        listOf(
+            FloatingBankingTool("Chuyển tiền", Icons.Filled.Send, onTransfer),
+            FloatingBankingTool("Nạp tiền", Icons.Filled.AddCircle, onDeposit),
+            FloatingBankingTool("Rút tiền", Icons.Filled.LocalAtm, onWithdraw),
+        )
+    } else {
+        listOf(
+            FloatingBankingTool("Báo cáo GD", Icons.Filled.Assessment, onOfficerHistory),
+            FloatingBankingTool("Bản đồ PGD", Icons.Filled.Map, onOfficerLocator),
+            FloatingBankingTool("Trợ lý AI", Icons.Filled.SupportAgent, onOfficerChatbot),
+        )
+    }
 
     Row(
         modifier = modifier,
@@ -1355,15 +1405,15 @@ internal fun CustomerToolsFloatingToolbar(
         }
 
         FloatingActionButton(
-            onClick = onOpenQr,
+            onClick = if (isCustomer) onOpenQr else onOfficerDashboard,
             shape = RoundedCornerShape(18.dp),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp),
         ) {
             Icon(
-                imageVector = Icons.Filled.QrCodeScanner,
-                contentDescription = "Quét QR",
+                imageVector = if (isCustomer) Icons.Filled.QrCodeScanner else Icons.Filled.SupervisorAccount,
+                contentDescription = if (isCustomer) "Quét QR" else "Quản lý hồ sơ khách hàng",
             )
         }
     }

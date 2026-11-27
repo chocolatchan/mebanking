@@ -2,13 +2,18 @@ package com.mebanking.app.ui.officer
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mebanking.app.data.repository.AuthRepository
 import com.mebanking.app.domain.model.Account
 import com.mebanking.app.domain.model.AccountType
+import com.mebanking.app.domain.model.FaceRecognitionError
+import com.mebanking.app.domain.model.FaceRecognitionResult
 import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.User
 import com.mebanking.app.domain.service.AccountService
 import com.mebanking.app.domain.service.FaceRecognitionService
 import com.mebanking.app.domain.service.OfficerCustomerService
+import com.mebanking.app.domain.service.RememberedCustomer
+import com.mebanking.app.domain.service.RememberedCustomerStore
 import com.mebanking.app.domain.service.SessionManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -31,6 +36,7 @@ data class OfficerDashboardUiState(
     val phone: String = "",
     val nationalId: String = "",
     val kycVerified: Boolean = false,
+    val pendingVerificationCustomerId: Long? = null,
     val errorMessage: String? = null,
     val successMessage: String? = null,
 ) {
@@ -42,6 +48,9 @@ class OfficerDashboardViewModel(
     private val sessionManager: SessionManager,
     private val faceRecognitionService: FaceRecognitionService? = null,
     private val accountService: AccountService? = null,
+    private val rememberedCustomerStore: RememberedCustomerStore? = null,
+    private val authRepository: AuthRepository? = null,
+    private val saveFaceImageFn: (suspend (Long, ByteArray, String?) -> Result<String>)? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(OfficerDashboardUiState())
     val uiState: StateFlow<OfficerDashboardUiState> = _uiState.asStateFlow()
@@ -228,14 +237,35 @@ class OfficerDashboardViewModel(
                 enrollResult.fold(
                     onSuccess = {
                         val state = _uiState.value
-                        customerService.updateCustomerProfile(
-                            targetUserId = customerId,
-                            fullName = state.fullName,
-                            email = state.email,
-                            phone = state.phone,
-                            kycVerified = true,
-                            nationalId = state.nationalId,
-                        )
+                        val prevPath = state.selectedCustomer?.faceImagePath
+                        val newPath = saveFaceImageFn?.invoke(customerId, imageBytes, prevPath)?.getOrNull()
+                        if (newPath != null && authRepository != null) {
+                            authRepository.updateCustomerEkyc(
+                                userId = customerId,
+                                kycVerified = true,
+                                faceImagePath = newPath,
+                            )
+                        }
+                        val target = state.selectedCustomer
+                        if (target != null && target.id == customerId) {
+                            customerService.updateCustomerProfile(
+                                targetUserId = customerId,
+                                fullName = target.fullName,
+                                email = target.email,
+                                phone = target.phone,
+                                kycVerified = true,
+                                nationalId = target.nationalId,
+                            )
+                        } else {
+                            customerService.updateCustomerProfile(
+                                targetUserId = customerId,
+                                fullName = state.fullName,
+                                email = state.email,
+                                phone = state.phone,
+                                kycVerified = true,
+                                nationalId = state.nationalId,
+                            )
+                        }
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -267,6 +297,183 @@ class OfficerDashboardViewModel(
         }
     }
 
+    fun requestUpdateWithCustomerFaceVerification() {
+        val session = sessionManager.currentSession
+        if (session?.role != Role.OFFICER) {
+            _uiState.update { it.copy(errorMessage = "Chỉ nhân viên ngân hàng được quản lý khách hàng") }
+            return
+        }
+        val state = _uiState.value
+        val customer = state.selectedCustomer
+        if (customer == null) {
+            save()
+            return
+        }
+        if (state.fullName.trim().length < 2) {
+            _uiState.update { it.copy(errorMessage = "Họ và tên phải có tối thiểu 2 ký tự") }
+            return
+        }
+        if (!Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[a-zA-Z]{2,}$").matches(state.email.trim())) {
+            _uiState.update { it.copy(errorMessage = "Email không hợp lệ") }
+            return
+        }
+        if (!Regex("^0[0-9]{9}$").matches(state.phone.trim())) {
+            _uiState.update { it.copy(errorMessage = "Số điện thoại phải gồm 10 chữ số bắt đầu bằng 0") }
+            return
+        }
+        if (state.nationalId.isNotBlank() && !Regex("^[0-9]{12}$").matches(state.nationalId.trim())) {
+            _uiState.update { it.copy(errorMessage = "CCCD phải gồm đúng 12 chữ số") }
+            return
+        }
+        val faceService = faceRecognitionService ?: run {
+            _uiState.update { it.copy(errorMessage = "Dịch vụ nhận diện khuôn mặt không khả dụng") }
+            return
+        }
+        viewModelScope.launch {
+            val hasFace = faceService.hasEnrolledFace(customer.id)
+            if (!hasFace) {
+                _uiState.update {
+                    it.copy(
+                        errorMessage = "Khách hàng chưa đăng ký khuôn mặt eKYC. Vui lòng thu thập sinh trắc học khuôn mặt trước khi xác nhận cập nhật thông tin.",
+                    )
+                }
+            } else {
+                _uiState.update {
+                    it.copy(
+                        pendingVerificationCustomerId = customer.id,
+                        errorMessage = null,
+                        successMessage = null,
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissVerificationDialog() {
+        _uiState.update { it.copy(pendingVerificationCustomerId = null) }
+    }
+
+    fun confirmUpdateWithCustomerFace(faceFrameBytes: ByteArray) {
+        val state = _uiState.value
+        val customer = state.selectedCustomer ?: return
+        val faceService = faceRecognitionService ?: return
+        if (saveJob?.isActive == true) return
+
+        saveJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+            try {
+                when (val verification = faceService.verifyFace(customer.id, faceFrameBytes)) {
+                    is FaceRecognitionResult.Match -> {
+                        val trimmedPhone = state.phone.trim()
+                        val result = customerService.updateCustomerProfile(
+                            targetUserId = customer.id,
+                            fullName = state.fullName,
+                            email = state.email,
+                            phone = trimmedPhone,
+                            kycVerified = state.kycVerified,
+                            nationalId = state.nationalId,
+                        )
+                        result.fold(
+                            onSuccess = {
+                                syncRememberedCustomerIfMatched(
+                                    userId = customer.id,
+                                    fullName = state.fullName.trim(),
+                                    phone = trimmedPhone,
+                                    existingUsername = customer.username,
+                                    existingPhone = customer.phone,
+                                )
+                                _uiState.update {
+                                    it.copy(
+                                        isLoading = false,
+                                        pendingVerificationCustomerId = null,
+                                        selectedCustomer = customer.copy(
+                                            fullName = state.fullName.trim(),
+                                            email = state.email.trim(),
+                                            phone = trimmedPhone,
+                                            kycVerified = state.kycVerified,
+                                            nationalId = state.nationalId.trim().takeIf { nid -> nid.isNotEmpty() } ?: customer.nationalId,
+                                        ),
+                                        successMessage = "Đã xác thực nhận diện khách hàng và cập nhật hồ sơ (SĐT: $trimmedPhone)",
+                                        errorMessage = null,
+                                    )
+                                }
+                                search(_uiState.value.query)
+                            },
+                            onFailure = { error ->
+                                _uiState.update {
+                                    it.copy(
+                                        isLoading = false,
+                                        errorMessage = error.message ?: "Không thể lưu hồ sơ khách hàng",
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    is FaceRecognitionResult.Mismatch -> {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = "Khuôn mặt không khớp với khách hàng (${(verification.similarity * 100).toInt()}%). Từ chối cập nhật!",
+                            )
+                        }
+                    }
+                    is FaceRecognitionResult.Error -> {
+                        val reason = when (val err = verification.error) {
+                            FaceRecognitionError.NoFaceDetected -> "Không tìm thấy khuôn mặt trong khung hình"
+                            FaceRecognitionError.MultipleFacesDetected -> "Phát hiện nhiều khuôn mặt"
+                            is FaceRecognitionError.LowLightCondition -> "Ánh sáng quá yếu"
+                            FaceRecognitionError.PoorQuality -> "Chất lượng hình ảnh quá thấp"
+                            is FaceRecognitionError.ModelLoadFailed -> err.cause
+                            FaceRecognitionError.PermissionDenied -> "Chưa cấp quyền máy ảnh"
+                            FaceRecognitionError.TemplateNotFound -> "Khách hàng chưa đăng ký khuôn mặt eKYC"
+                        }
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = "Xác nhận khuôn mặt thất bại: $reason",
+                            )
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = t.message ?: "Không thể xác nhận nhận diện khách hàng",
+                    )
+                }
+            }
+        }
+    }
+
+    private fun syncRememberedCustomerIfMatched(
+        userId: Long,
+        fullName: String,
+        phone: String,
+        existingUsername: String,
+        existingPhone: String,
+    ) {
+        val store = rememberedCustomerStore ?: return
+        val remembered = store.getRememberedCustomer() ?: return
+        if (remembered.userId == userId) {
+            val newUsername = if (existingUsername == existingPhone || Regex("^0[0-9]{9}$").matches(existingUsername)) {
+                phone
+            } else {
+                existingUsername
+            }
+            store.saveCustomer(
+                RememberedCustomer(
+                    userId = userId,
+                    fullName = fullName,
+                    phone = phone,
+                    username = newUsername,
+                ),
+            )
+        }
+    }
+
     fun save() {
         val session = sessionManager.currentSession
         if (session?.role != Role.OFFICER) { _uiState.update { it.copy(errorMessage = "Chỉ nhân viên ngân hàng được quản lý khách hàng") }; return }
@@ -285,6 +492,15 @@ class OfficerDashboardViewModel(
                 } ?: customerService.createCustomer(currentState.username, currentState.password, currentState.fullName, currentState.email, currentState.phone, currentState.kycVerified, currentState.nationalId).map { Unit }
                 result.fold(
                     onSuccess = {
+                        currentState.selectedCustomer?.let { customer ->
+                            syncRememberedCustomerIfMatched(
+                                userId = customer.id,
+                                fullName = currentState.fullName.trim(),
+                                phone = currentState.phone.trim(),
+                                existingUsername = customer.username,
+                                existingPhone = customer.phone,
+                            )
+                        }
                         _uiState.update { it.copy(isLoading = false, successMessage = if (currentState.isCreating) "Đã tạo hồ sơ khách hàng và tài khoản thanh toán" else "Đã cập nhật hồ sơ khách hàng", password = "") }
                         search(_uiState.value.query)
                     },

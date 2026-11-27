@@ -239,4 +239,50 @@ class OfficerCustomerServiceTest {
         assertTrue(err is DomainError.Unauthorized)
         assertEquals("Session has expired. Please log in again.", err?.message)
     }
+
+    @Test
+    fun updateCustomerProfile_changesPhoneAndUpdatesPhoneLoginIdentifier() = runTest {
+        sessionManager.login("officer1", "OfficerPass@123")
+        val phoneRegisteredId = officerService.createCustomer(
+            username = "0905556666",
+            rawPassword = "CustPass@123",
+            fullName = "Phone Registered User",
+            email = "phonereg@bank.vn",
+            phone = "0905556666",
+            kycVerified = true,
+        ).getOrThrow()
+
+        val updateRes = officerService.updateCustomerProfile(
+            targetUserId = phoneRegisteredId,
+            fullName = "Phone Registered Updated",
+            email = "phonereg@bank.vn",
+            phone = "0907778888",
+            kycVerified = true,
+        )
+        assertTrue(updateRes.isSuccess)
+
+        val updated = db.userDao().getById(phoneRegisteredId)!!
+        assertEquals("0907778888", updated.phone)
+        assertEquals("0907778888", updated.username)
+
+        // New phone logs in; old phone no longer matches
+        val oldLogin = sessionManager.login("0905556666", "CustPass@123")
+        assertTrue(oldLogin.isFailure)
+        val newLogin = sessionManager.login("0907778888", "CustPass@123")
+        assertTrue(newLogin.isSuccess)
+    }
+
+    @Test
+    fun updateCustomerProfile_duplicatePhone_rejected() = runTest {
+        sessionManager.login("officer1", "OfficerPass@123")
+        // Try assigning officer1's phone ("0981000000") to cust1 (ID 2L)
+        val res = officerService.updateCustomerProfile(
+            targetUserId = 2L,
+            fullName = "Customer One",
+            email = "cust@bank.vn",
+            phone = "0981000000",
+        )
+        assertTrue(res.isFailure)
+        assertTrue(res.exceptionOrNull() is DomainError.InvalidData)
+    }
 }
