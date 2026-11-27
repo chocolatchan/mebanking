@@ -463,7 +463,10 @@ private fun CartContent(
                             Text("Tổng thanh toán:", style = MaterialTheme.typography.titleMedium)
                             Text(
                                 CurrencyFormatter.formatVnd(uiState.cartTotalVnd),
-                                style = MaterialTheme.typography.headlineSmall,
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                    fontFeatureSettings = "tnum",
+                                ),
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
                             )

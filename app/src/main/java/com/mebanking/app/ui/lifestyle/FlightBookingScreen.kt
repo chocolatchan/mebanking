@@ -445,7 +445,10 @@ private fun FlightSearchAndBookContent(
                             Text("Tổng tiền thanh toán:", style = MaterialTheme.typography.titleSmall)
                             Text(
                                 CurrencyFormatter.formatVnd(uiState.calculatedPriceVnd),
-                                style = MaterialTheme.typography.headlineSmall,
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                    fontFeatureSettings = "tnum",
+                                ),
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
                             )

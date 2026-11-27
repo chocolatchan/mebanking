@@ -281,7 +281,10 @@ fun TransferContent(
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     text = CurrencyFormatter.formatVnd(displayAmount),
-                                    style = MaterialTheme.typography.headlineMedium,
+                                    style = MaterialTheme.typography.headlineMedium.copy(
+                                        fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                        fontFeatureSettings = "tnum",
+                                    ),
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
                                 )

@@ -304,7 +304,10 @@ private fun MobileTopupContent(
                                         Text(
                                             text = CurrencyFormatter.formatVnd(amount),
                                             fontWeight = FontWeight.ExtraBold,
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                                fontFeatureSettings = "tnum",
+                                            ),
                                             color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
                                             else MaterialTheme.colorScheme.onSurface,
                                         )
@@ -333,7 +336,10 @@ private fun MobileTopupContent(
                         Text("Số tiền thanh toán", style = MaterialTheme.typography.titleSmall)
                         Text(
                             text = CurrencyFormatter.formatVnd(uiState.selectedAmountVnd),
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                fontFeatureSettings = "tnum",
+                            ),
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.primary,
                         )

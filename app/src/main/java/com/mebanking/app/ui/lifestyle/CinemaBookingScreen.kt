@@ -402,7 +402,10 @@ private fun CinemaSeatSelectionContent(
                             Text("Tổng cộng (${uiState.selectedSeats.size} vé):", style = MaterialTheme.typography.titleSmall)
                             Text(
                                 CurrencyFormatter.formatVnd(uiState.totalPriceVnd),
-                                style = MaterialTheme.typography.headlineSmall,
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                    fontFeatureSettings = "tnum",
+                                ),
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
                             )

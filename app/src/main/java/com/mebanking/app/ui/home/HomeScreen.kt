@@ -880,7 +880,10 @@ private fun VipBankMasterCard(
                             Text(
                                 text = if (isBalanceHidden) "•••••••• đ" else CurrencyFormatter.formatVnd(primaryAccount?.balance ?: uiState.totalBalance),
                                 color = MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.headlineMedium,
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                    fontFeatureSettings = "tnum",
+                                ),
                                 fontWeight = FontWeight.Bold,
                             )
                         }
@@ -1369,7 +1372,10 @@ private fun ModernAccountItem(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = if (isBalanceHidden) "•••••• đ" else CurrencyFormatter.formatVnd(account.balance),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                        fontFeatureSettings = "tnum",
+                    ),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                 )

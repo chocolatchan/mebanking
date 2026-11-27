@@ -471,7 +471,10 @@ private fun SegmentedTransactionRow(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "$amountPrefix${CurrencyFormatter.formatVnd(transaction.amount)}",
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                        fontFeatureSettings = "tnum",
+                    ),
                     fontWeight = FontWeight.ExtraBold,
                     color = amountColor,
                 )
@@ -587,7 +590,10 @@ private fun TransactionDetailFields(transaction: TransactionEntity, onBack: () -
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = CurrencyFormatter.formatVnd(transaction.amount),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                        fontFeatureSettings = "tnum",
+                    ),
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary,
                 )

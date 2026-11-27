@@ -439,7 +439,10 @@ private fun ModernPrimaryAccountCard(
             )
             Text(
                 text = CurrencyFormatter.formatVnd(account.balance),
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                    fontFeatureSettings = "tnum",
+                ),
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.primary,
             )

@@ -383,7 +383,10 @@ private fun HotelSearchAndBookContent(
                             Text("Tổng tiền lưu trú:", style = MaterialTheme.typography.titleSmall)
                             Text(
                                 CurrencyFormatter.formatVnd(uiState.calculatedTotalVnd),
-                                style = MaterialTheme.typography.headlineSmall,
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                    fontFeatureSettings = "tnum",
+                                ),
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
                             )

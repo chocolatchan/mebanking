@@ -342,7 +342,10 @@ private fun AccountHeroCard(
                 )
                 Text(
                     text = CurrencyFormatter.formatVnd(account.balance),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.headlineSmall.copy(
+                        fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                        fontFeatureSettings = "tnum",
+                    ),
                     fontWeight = FontWeight.ExtraBold,
                     color = if (selected) {
                         MaterialTheme.colorScheme.onPrimaryContainer
@@ -395,7 +398,11 @@ fun LargeAmountInputSection(
                     placeholder = {
                         Text(
                             text = "0",
-                            style = MaterialTheme.typography.headlineLarge,
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                fontSize = 30.sp,
+                                fontFeatureSettings = "tnum",
+                            ),
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                         )
@@ -407,7 +414,9 @@ fun LargeAmountInputSection(
                         ) {
                             Text(
                                 text = "VND",
-                                style = MaterialTheme.typography.labelLarge,
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                ),
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -417,8 +426,10 @@ fun LargeAmountInputSection(
                     singleLine = true,
                     enabled = enabled,
                     textStyle = MaterialTheme.typography.headlineMedium.copy(
-                        fontSize = 30.sp,
+                        fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                        fontSize = 32.sp,
                         fontWeight = FontWeight.ExtraBold,
+                        fontFeatureSettings = "tnum",
                         color = MaterialTheme.colorScheme.onSurface,
                     ),
                     colors = tonalTextFieldColors(containerColor = Color.Transparent),
@@ -456,7 +467,10 @@ fun LargeAmountInputSection(
                 ) {
                     Text(
                         text = label,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                            fontFeatureSettings = "tnum",
+                        ),
                         fontWeight = FontWeight.SemiBold,
                         color = if (isSelected) {
                             MaterialTheme.colorScheme.onPrimaryContainer
@@ -831,6 +845,10 @@ fun OtpVerificationBottomSheet(
                 onValueChange = { onOtpInputChanged(it.filter(Char::isDigit).take(6)) },
                 label = { Text("Nhập mã OTP 6 chữ số") },
                 singleLine = true,
+                textStyle = MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                    fontFeatureSettings = "tnum",
+                ),
                 shape = RoundedCornerShape(16.dp),
                 colors = tonalTextFieldColors(),
                 keyboardOptions = KeyboardOptions(

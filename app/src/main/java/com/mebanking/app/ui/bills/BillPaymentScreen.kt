@@ -261,7 +261,10 @@ fun BillPaymentContent(
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     text = uiState.selectedBill?.let { CurrencyFormatter.formatVnd(it.amount) } ?: "",
-                                    style = MaterialTheme.typography.headlineMedium,
+                                    style = MaterialTheme.typography.headlineMedium.copy(
+                                        fontFamily = com.mebanking.app.ui.theme.RoundedNumericFontFamily,
+                                        fontFeatureSettings = "tnum",
+                                    ),
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.primary,
                                 )
