@@ -77,7 +77,9 @@ fun BillPaymentScreen(
     ),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val requestPaymentAuth = com.mebanking.app.ui.components.rememberServicePaymentAuthGate {
+    val requestPaymentAuth = com.mebanking.app.ui.components.rememberServicePaymentAuthGate(
+        amountProvider = { uiState.selectedBill?.amount },
+    ) {
         viewModel.paySelectedBill()
     }
 

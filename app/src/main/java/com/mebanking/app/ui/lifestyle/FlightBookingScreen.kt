@@ -138,7 +138,9 @@ fun FlightBookingScreen(
                 )
             }
 
-            val requestFlightAuth = rememberServicePaymentAuthGate {
+            val requestFlightAuth = rememberServicePaymentAuthGate(
+                amountProvider = { uiState.calculatedPriceVnd },
+            ) {
                 viewModel.bookFlight()
             }
 

@@ -134,7 +134,9 @@ fun HotelBookingScreen(
                 )
             }
 
-            val requestHotelAuth = rememberServicePaymentAuthGate {
+            val requestHotelAuth = rememberServicePaymentAuthGate(
+                amountProvider = { uiState.calculatedTotalVnd },
+            ) {
                 viewModel.bookHotel()
             }
 

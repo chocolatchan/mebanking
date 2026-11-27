@@ -118,11 +118,10 @@ class GoogleMapsNearbyBanksAndStatusBarTest {
         }
         assertNotNull(state.selectedBranch)
         assertEquals(expectedSelected.branch.id, state.selectedBranch?.branch?.id)
-        assertNotNull(state.currentRoute)
     }
 
     @Test
-    fun testBranchSelectionImmediatelyUpdatesStateAndComputesRoute() = runTest {
+    fun testBranchSelectionImmediatelyUpdatesSelectedMarker() = runTest {
         viewModel = BranchLocatorViewModel(repository)
         viewModel.loadData().join()
 
@@ -132,8 +131,6 @@ class GoogleMapsNearbyBanksAndStatusBarTest {
 
         val state = viewModel.uiState.value
         assertEquals(vcbBranch.branch.id, state.selectedBranch?.branch?.id)
-        assertNotNull("Direct route or road route must be populated", state.selectedBranch?.routeResult)
-        assertEquals(state.selectedBranch?.routeResult, state.currentRoute)
     }
 
     @Test

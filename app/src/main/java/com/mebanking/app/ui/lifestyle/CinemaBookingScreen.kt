@@ -138,7 +138,9 @@ fun CinemaBookingScreen(
                 )
             }
 
-            val requestCinemaAuth = rememberServicePaymentAuthGate {
+            val requestCinemaAuth = rememberServicePaymentAuthGate(
+                amountProvider = { uiState.totalPriceVnd },
+            ) {
                 viewModel.bookSeats()
             }
 

@@ -145,7 +145,9 @@ fun TopupScreen(
                 )
             }
 
-            val requestTopupAuth = rememberServicePaymentAuthGate {
+            val requestTopupAuth = rememberServicePaymentAuthGate(
+                amountProvider = { uiState.selectedAmountVnd },
+            ) {
                 viewModel.executeTopup()
             }
 

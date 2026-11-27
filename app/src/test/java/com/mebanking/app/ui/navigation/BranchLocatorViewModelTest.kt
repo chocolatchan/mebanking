@@ -63,14 +63,15 @@ class BranchLocatorViewModelTest {
     }
 
     @Test
-    fun testInitialLoadEmitsGraphBranchesAndNearestSelected() = runTest {
+    fun testInitialLoadEmitsBranchesAndNearestSelected() = runTest {
         viewModel = BranchLocatorViewModel(repository)
         viewModel.loadData().join()
 
         val state = viewModel.uiState.value
         assertFalse("isLoading must be false after completion, error=${state.errorMessage}", state.isLoading)
         assertNull("errorMessage must be null on success", state.errorMessage)
-        assertNotNull("roadGraph must be loaded", state.roadGraph)
+        assertNull("in-app roadGraph is disabled when delegating navigation to Google Maps", state.roadGraph)
+        assertNull("in-app currentRoute is disabled", state.currentRoute)
         assertTrue("branches must not be empty", state.branches.isNotEmpty())
         assertNotNull("selectedBranch should default to nearest branch", state.selectedBranch)
 
@@ -141,7 +142,7 @@ class BranchLocatorViewModelTest {
     }
 
     @Test
-    fun testNavigateToBranchCalculatesRouteAndUpdatesState() = runTest {
+    fun testNavigateToBranchSelectsTargetBranchWithoutInAppRouting() = runTest {
         viewModel = BranchLocatorViewModel(repository)
         viewModel.loadData().join()
 
@@ -150,16 +151,12 @@ class BranchLocatorViewModelTest {
         viewModel.onNavigateToBranch(target.branch.id).join()
 
         val state = viewModel.uiState.value
-        val route = state.currentRoute
-        assertNotNull("currentRoute must be calculated", route)
-        requireNotNull(route)
-        assertTrue("Route must contain nodes", route.nodes.isNotEmpty())
-        assertTrue("Route distance must be > 0", route.totalDistanceMeters > 0.0)
-        assertNotNull("Selected branch should also have routeResult updated", state.selectedBranch?.routeResult)
+        assertEquals(target.branch.id, state.selectedBranch?.branch?.id)
+        assertNull("in-app currentRoute should stay null when handing off to Google Maps", state.currentRoute)
     }
 
     @Test
-    fun testUserLocationChangeFiltersWithin20mSelectsNearestAndRoutes() = runTest {
+    fun testUserLocationChangeFiltersWithin20mSelectsNearestMarker() = runTest {
         viewModel = BranchLocatorViewModel(repository)
         viewModel.loadData().join()
 
@@ -171,7 +168,7 @@ class BranchLocatorViewModelTest {
         assertEquals(d7Point, state.userLocation)
 
         // Tan Phong (~0m) remains in branches list sorted first, but since it is <= 20m,
-        // the 2nd nearest branch (> 20m) must be selected and routed to.
+        // the 2nd nearest branch (> 20m) must be selected as target marker.
         assertTrue("Branches must not be empty", state.branches.size >= 2)
         assertEquals("Chi nhánh Quận 7 - Tân Phong", state.branches.first().branch.name)
         assertTrue(state.branches.first().directDistanceMeters <= BranchLocatorViewModel.MIN_SCAN_DISTANCE_METERS)
@@ -180,7 +177,6 @@ class BranchLocatorViewModelTest {
             it.directDistanceMeters > BranchLocatorViewModel.MIN_SCAN_DISTANCE_METERS
         }
         assertEquals(expectedTarget.branch.id, state.selectedBranch?.branch?.id)
-        assertNotNull("currentRoute must be automatically calculated for 2nd nearest branch", state.currentRoute)
-        assertTrue("currentRoute must have at least 2 points", (state.currentRoute?.nodes?.size ?: 0) >= 2)
+        assertNull("in-app route stays null", state.currentRoute)
     }
 }

@@ -59,7 +59,6 @@ class ViewModelFactory(
                 BranchLocatorViewModel(
                     repository = container.branchNavigationRepository,
                     poiRemoteSource = com.mebanking.app.data.navigation.HcmcBankPoiRemoteSource(),
-                    roadGraphRemoteSource = com.mebanking.app.data.navigation.OsmRoadGraphRemoteSource(),
                 ) as T
             }
             modelClass.isAssignableFrom(TransferViewModel::class.java) -> {
@@ -72,10 +71,22 @@ class ViewModelFactory(
                 ) as T
             }
             modelClass.isAssignableFrom(DepositViewModel::class.java) -> {
-                DepositViewModel(container.transactionService, container.accountRepository, container.sessionManager) as T
+                DepositViewModel(
+                    transactionService = container.transactionService,
+                    accountRepository = container.accountRepository,
+                    sessionManager = container.sessionManager,
+                    otpService = container.otpService,
+                    faceRecognitionService = container.faceRecognitionService,
+                ) as T
             }
             modelClass.isAssignableFrom(WithdrawViewModel::class.java) -> {
-                WithdrawViewModel(container.transactionService, container.accountRepository, container.sessionManager) as T
+                WithdrawViewModel(
+                    transactionService = container.transactionService,
+                    accountRepository = container.accountRepository,
+                    sessionManager = container.sessionManager,
+                    otpService = container.otpService,
+                    faceRecognitionService = container.faceRecognitionService,
+                ) as T
             }
             modelClass.isAssignableFrom(TransactionHistoryViewModel::class.java) -> {
                 TransactionHistoryViewModel(container.transactionRepository, container.sessionManager) as T

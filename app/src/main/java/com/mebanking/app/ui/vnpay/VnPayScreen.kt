@@ -118,10 +118,14 @@ fun VnPayScreen(
 
     var showSandboxConfig by remember { mutableStateOf(false) }
 
-    val authForLiveWebView = rememberServicePaymentAuthGate {
+    val authForLiveWebView = rememberServicePaymentAuthGate(
+        amountProvider = { uiState.parsedAmount },
+    ) {
         viewModel.launchVnPayWebView()
     }
-    val authForOfflineSim = rememberServicePaymentAuthGate {
+    val authForOfflineSim = rememberServicePaymentAuthGate(
+        amountProvider = { uiState.parsedAmount },
+    ) {
         viewModel.simulateOfflinePayment("00")
     }
 

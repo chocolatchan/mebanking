@@ -7,9 +7,11 @@ import com.mebanking.app.data.repository.DefaultAccountRepository
 import com.mebanking.app.data.repository.DefaultTransactionRepository
 import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.UserSession
+import com.mebanking.app.domain.service.DefaultFaceRecognitionService
 import com.mebanking.app.domain.service.DefaultSessionManager
 import com.mebanking.app.domain.service.DefaultTransactionAuthenticationPolicy
 import com.mebanking.app.domain.service.DefaultTransactionService
+import com.mebanking.app.domain.service.OtpService
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.flow.first
@@ -119,5 +121,66 @@ class CashTransactionViewModelTest {
         assertEquals(before - 100_000L, db.accountDao().getById(account.id)?.balance)
         assertEquals(1, db.transactionDao().count())
         assertEquals("WITHDRAWAL", db.transactionDao().getAll().first().single().type.name)
+    }
+
+    @Test
+    fun withdraw_ordinaryAmount_requiresOtpAndExecutesWhenVerified() = runTest {
+        val viewModel = WithdrawViewModel(transactionService, accountRepository, sessionManager, OtpService())
+        val loaded = viewModel.uiState.first { !it.isLoading }
+        val account = loaded.accounts.first()
+        val before = db.accountDao().getById(account.id)!!.balance
+
+        viewModel.changeAmount("500000")
+        viewModel.beginAuthenticationChallenge()
+        assertTrue(viewModel.uiState.value.showOtpDialog)
+        assertFalse(viewModel.uiState.value.showFaceVerificationDialog)
+
+        viewModel.onOtpInputChanged(viewModel.uiState.value.otpCode)
+        viewModel.verifyOtpAndSubmit()
+        withContext(Dispatchers.Default) {
+            withTimeout(10_000) { viewModel.uiState.first { !it.isSubmitting && it.successMessage != null } }
+        }
+
+        assertEquals(before - 500_000L, db.accountDao().getById(account.id)?.balance)
+    }
+
+    @Test
+    fun withdrawAndDeposit_50mHighValue_switchesToFaceAuthenticationLikeTransfer() = runTest {
+        val faceService = DefaultFaceRecognitionService(ApplicationProvider.getApplicationContext())
+        val probeBytes = "clear_face".toByteArray(Charsets.ISO_8859_1)
+        faceService.enrollFace(1L, probeBytes)
+
+        val withdrawVm = WithdrawViewModel(transactionService, accountRepository, sessionManager, OtpService(), faceService)
+        val wLoaded = withdrawVm.uiState.first { !it.isLoading }
+        val account = wLoaded.accounts.first()
+        val initialBalance = db.accountDao().getById(account.id)!!.balance
+
+        withdrawVm.changeAmount("50000000")
+        withdrawVm.beginAuthenticationChallenge()
+        withContext(Dispatchers.Default) {
+            withTimeout(5_000) { withdrawVm.uiState.first { it.showFaceVerificationDialog } }
+        }
+        assertFalse(withdrawVm.uiState.value.showOtpDialog)
+
+        withdrawVm.verifyFaceAndSubmit(probeBytes)
+        withContext(Dispatchers.Default) {
+            withTimeout(10_000) { withdrawVm.uiState.first { !it.isSubmitting && it.successMessage != null } }
+        }
+        assertEquals(initialBalance - 50_000_000L, db.accountDao().getById(account.id)?.balance)
+
+        val depositVm = DepositViewModel(transactionService, accountRepository, sessionManager, OtpService(), faceService)
+        depositVm.uiState.first { !it.isLoading }
+        depositVm.changeAmount("50000000")
+        depositVm.beginAuthenticationChallenge()
+        withContext(Dispatchers.Default) {
+            withTimeout(5_000) { depositVm.uiState.first { it.showFaceVerificationDialog } }
+        }
+        assertFalse(depositVm.uiState.value.showOtpDialog)
+
+        depositVm.verifyFaceAndSubmit(probeBytes)
+        withContext(Dispatchers.Default) {
+            withTimeout(10_000) { depositVm.uiState.first { !it.isSubmitting && it.successMessage != null } }
+        }
+        assertEquals(initialBalance, db.accountDao().getById(account.id)?.balance)
     }
 }

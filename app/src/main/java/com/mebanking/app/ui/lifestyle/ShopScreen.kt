@@ -140,7 +140,9 @@ fun ShopScreen(
                 )
             }
 
-            val requestShopAuth = rememberServicePaymentAuthGate {
+            val requestShopAuth = rememberServicePaymentAuthGate(
+                amountProvider = { uiState.cartTotalVnd },
+            ) {
                 viewModel.checkout()
             }
 
