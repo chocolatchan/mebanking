@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -33,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Public
@@ -52,6 +54,7 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +69,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -97,6 +103,7 @@ fun BranchLocatorScreen(
     ),
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var hasLocationPermission by remember {
@@ -116,14 +123,34 @@ fun BranchLocatorScreen(
         }
     }
 
+    val requestLocationPermission: () -> Unit = {
+        locationPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ),
+        )
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val granted = hasAnyLocationPermission(context)
+                hasLocationPermission = granted
+                if (granted) {
+                    fetchLastKnownLocation(context)?.let { loc ->
+                        viewModel.onUserLocationChanged(GeoPoint(loc.latitude, loc.longitude))
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     LaunchedEffect(Unit) {
         if (!hasLocationPermission) {
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                ),
-            )
+            requestLocationPermission()
         } else {
             fetchLastKnownLocation(context)?.let { loc ->
                 viewModel.onUserLocationChanged(GeoPoint(loc.latitude, loc.longitude))
@@ -134,6 +161,16 @@ fun BranchLocatorScreen(
     BranchLocatorContent(
         uiState = uiState,
         hasLocationPermission = hasLocationPermission,
+        onRequestLocationPermission = requestLocationPermission,
+        onOpenAppSettings = {
+            try {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", context.packageName, null)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (_: Throwable) {}
+        },
         onBack = onBack,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onFilterSelected = viewModel::onFilterSelected,
@@ -147,6 +184,8 @@ fun BranchLocatorScreen(
 fun BranchLocatorContent(
     uiState: BranchLocatorUiState,
     hasLocationPermission: Boolean = false,
+    onRequestLocationPermission: () -> Unit = {},
+    onOpenAppSettings: () -> Unit = {},
     onBack: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onFilterSelected: (BranchFilter) -> Unit,
@@ -174,19 +213,81 @@ fun BranchLocatorContent(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // 2. Top search bar and filter chips
-        TopControlsOverlay(
-            searchQuery = uiState.searchQuery,
-            onSearchQueryChanged = onSearchQueryChanged,
-            currentFilter = uiState.filter,
-            onFilterSelected = onFilterSelected,
-            onBack = onBack,
+        // 2. Top search bar, filter chips & Location Permission Prompt Banner
+        Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-        )
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            TopControlsOverlay(
+                searchQuery = uiState.searchQuery,
+                onSearchQueryChanged = onSearchQueryChanged,
+                currentFilter = uiState.filter,
+                onFilterSelected = onFilterSelected,
+                onBack = onBack,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            if (!hasLocationPermission) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.LocationOn,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Cần quyền truy cập vị trí",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                                Text(
+                                    text = "Cấp quyền vị trí để định vị chính xác trên Google Maps và tính khoảng cách tới ngân hàng.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Button(
+                                onClick = onRequestLocationPermission,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Cấp quyền vị trí", fontWeight = FontWeight.SemiBold)
+                            }
+                            OutlinedButton(
+                                onClick = onOpenAppSettings,
+                                shape = RoundedCornerShape(10.dp),
+                            ) {
+                                Text("Cài đặt")
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // 3. Floating Google Maps zoom & recenter controls
         FloatingMapControls(
@@ -205,10 +306,14 @@ fun BranchLocatorContent(
                 }
             },
             onRecenter = {
-                scope.launch {
-                    try {
-                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(userLatLng, 15.5f), 600)
-                    } catch (_: Exception) {}
+                if (!hasLocationPermission) {
+                    onRequestLocationPermission()
+                } else {
+                    scope.launch {
+                        try {
+                            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(userLatLng, 15.5f), 600)
+                        } catch (_: Exception) {}
+                    }
                 }
             },
             modifier = Modifier
