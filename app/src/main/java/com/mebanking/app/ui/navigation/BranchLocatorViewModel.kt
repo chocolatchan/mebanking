@@ -8,6 +8,7 @@ import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.data.local.AppDatabase
 import com.mebanking.app.data.local.entity.BranchEntity
 import com.mebanking.app.data.navigation.HcmcBankPoiRemoteSource
+import com.mebanking.app.data.navigation.OsmRoadGraphRemoteSource
 import com.mebanking.app.data.navigation.RoadGraphLoader
 import com.mebanking.app.data.repository.BranchNavigationRepository
 import com.mebanking.app.domain.model.navigation.BranchDistance
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 class BranchLocatorViewModel(
     private val repository: BranchNavigationRepository,
     private val poiRemoteSource: HcmcBankPoiRemoteSource? = null,
+    private val roadGraphRemoteSource: OsmRoadGraphRemoteSource? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BranchLocatorUiState())
@@ -136,10 +138,16 @@ class BranchLocatorViewModel(
     fun onNavigateToBranch(branchId: Long): Job = viewModelScope.launch {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         try {
-            val route = repository.calculateRouteToBranch(
-                userLocation = _uiState.value.userLocation,
-                branchId = branchId,
-            )
+            val targetBranch = _uiState.value.branches.firstOrNull { it.branch.id == branchId }
+                ?: _uiState.value.selectedBranch?.takeIf { it.branch.id == branchId }
+            val route = if (targetBranch != null) {
+                resolveRouteForBranch(_uiState.value.userLocation, targetBranch)
+            } else {
+                repository.calculateRouteToBranch(
+                    userLocation = _uiState.value.userLocation,
+                    branchId = branchId,
+                )
+            }
             _uiState.update { state ->
                 val updatedBranches = state.branches.map { b ->
                     if (b.branch.id == branchId) {
@@ -306,8 +314,17 @@ class BranchLocatorViewModel(
         userLocation: GeoPoint,
         branchDistance: BranchDistance,
     ): RouteResult {
+        val targetPoint = GeoPoint(branchDistance.branch.latitude, branchDistance.branch.longitude)
+        val osmRoadGraph = runSuspendCatching {
+            roadGraphRemoteSource?.fetchRoadGraphBetween(userLocation, targetPoint)
+        }.getOrNull()
+
         val graphRoute = try {
-            repository.calculateRouteToBranch(userLocation, branchDistance.branch.id)
+            repository.calculateRouteToPoint(
+                userLocation = userLocation,
+                targetLocation = targetPoint,
+                overrideGraph = osmRoadGraph,
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -356,7 +373,11 @@ class BranchLocatorViewModel(
                     val db = AppDatabase.buildDatabase(context)
                     val loader = RoadGraphLoader(context)
                     val repo = BranchNavigationRepository(db.branchDao(), loader)
-                    return BranchLocatorViewModel(repo, HcmcBankPoiRemoteSource()) as T
+                    return BranchLocatorViewModel(
+                        repository = repo,
+                        poiRemoteSource = HcmcBankPoiRemoteSource(),
+                        roadGraphRemoteSource = OsmRoadGraphRemoteSource(),
+                    ) as T
                 }
             }
         }

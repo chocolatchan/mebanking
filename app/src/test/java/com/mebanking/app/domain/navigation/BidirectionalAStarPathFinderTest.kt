@@ -1,5 +1,6 @@
 package com.mebanking.app.domain.navigation
 
+import com.mebanking.app.data.navigation.OsmRoadGraphRemoteSource
 import com.mebanking.app.data.navigation.RoadGraphLoader
 import com.mebanking.app.domain.model.navigation.RoadEdge
 import com.mebanking.app.domain.model.navigation.RoadGraph
@@ -9,9 +10,14 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.io.File
 import java.io.FileInputStream
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class BidirectionalAStarPathFinderTest {
 
     private val biAStar = BidirectionalAStarPathFinder()
@@ -107,5 +113,34 @@ class BidirectionalAStarPathFinderTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun osmRoadGraphParser_keepsLargestComponentAndRoutesWithBiAStar() {
+        val sampleOverpassJson = """
+            {
+              "elements": [
+                {"type":"node","id":1,"lat":10.7700,"lon":106.6950},
+                {"type":"node","id":2,"lat":10.7710,"lon":106.6960},
+                {"type":"node","id":3,"lat":10.7720,"lon":106.6975},
+                {"type":"node","id":4,"lat":10.7730,"lon":106.6990},
+                {"type":"node","id":90,"lat":10.7705,"lon":106.6955},
+                {"type":"node","id":91,"lat":10.7706,"lon":106.6956},
+                {"type":"way","id":10,"nodes":[1,2,3],"tags":{"name":"Đường Lê Lợi"}},
+                {"type":"way","id":11,"nodes":[3,4],"tags":{"name":"Đường Nguyễn Huệ"}},
+                {"type":"way","id":99,"nodes":[90,91],"tags":{"name":"Hẻm cô lập"}}
+              ]
+            }
+        """.trimIndent()
+
+        val graph = OsmRoadGraphRemoteSource.parseOverpassRoadGraphJson(sampleOverpassJson)
+        assertEquals(4, graph.nodes.size)
+        assertTrue("Isolated fragment should be filtered out", "osm_90" !in graph.nodes)
+
+        val route = biAStar.findShortestPath(graph, "osm_1", "osm_4")
+        assertNotNull(route)
+        assertEquals(listOf("osm_1", "osm_2", "osm_3", "osm_4"), route!!.nodes.map { it.id })
+        assertTrue(route.edges.any { it.streetName == "Đường Lê Lợi" })
+        assertTrue(route.edges.any { it.streetName == "Đường Nguyễn Huệ" })
     }
 }

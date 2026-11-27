@@ -148,20 +148,87 @@ class BranchNavigationRepository(
     }
 
     /**
-     * Calculates the shortest walking route between user location and target branch ID on the road graph.
+     * Calculates the shortest route between two geographic points using Bidirectional A* on
+     * [overrideGraph] (if provided) or the offline road network graph.
+     */
+    suspend fun calculateRouteToPoint(
+        userLocation: GeoPoint,
+        targetLocation: GeoPoint,
+        overrideGraph: RoadGraph? = null,
+    ): RouteResult? = withContext(ioDispatcher) {
+        if (overrideGraph != null && overrideGraph.nodes.isNotEmpty()) {
+            val remoteRoute = calculateOnGraph(overrideGraph, userLocation, targetLocation, 3000.0)
+            if (remoteRoute != null && remoteRoute.nodes.size >= 2) {
+                return@withContext remoteRoute
+            }
+        }
+        val localGraph = runCatching { getRoadGraph() }.getOrNull() ?: return@withContext null
+        calculateOnGraph(localGraph, userLocation, targetLocation, 50_000.0)
+    }
+
+    /**
+     * Calculates the shortest route between user location and target branch ID on the road graph.
      */
     suspend fun calculateRouteToBranch(
         userLocation: GeoPoint,
         branchId: Long,
+        overrideGraph: RoadGraph? = null,
     ): RouteResult? = withContext(ioDispatcher) {
         val branch = branchDao.getById(branchId)
             ?: com.mebanking.app.domain.model.navigation.NearbyBanksProvider.getById(branchId)
             ?: return@withContext null
-        val graph = getRoadGraph()
-        val startNode = GeoDistanceCalculator.findNearestNode(graph, userLocation) ?: return@withContext null
-        val branchPoint = GeoPoint(branch.latitude, branch.longitude)
-        val destNode = GeoDistanceCalculator.findNearestNode(graph, branchPoint) ?: return@withContext null
+        calculateRouteToPoint(
+            userLocation = userLocation,
+            targetLocation = GeoPoint(branch.latitude, branch.longitude),
+            overrideGraph = overrideGraph,
+        )
+    }
 
-        pathFinder.findShortestPath(graph, startNode.id, destNode.id)
+    private fun calculateOnGraph(
+        graph: RoadGraph,
+        userLocation: GeoPoint,
+        targetLocation: GeoPoint,
+        maxRadiusMeters: Double,
+    ): RouteResult? {
+        // Prefer main connected component candidates (up to 6 nearest road nodes) so a tiny dead-end
+        // service alley next to origin/destination cannot cause a disconnected null result.
+        val startCandidates = nearestConnectedCandidates(graph, userLocation, maxRadiusMeters, limit = 6)
+        val destCandidates = nearestConnectedCandidates(graph, targetLocation, maxRadiusMeters, limit = 6)
+        for (startNode in startCandidates) {
+            for (destNode in destCandidates) {
+                if (startNode.id == destNode.id) continue
+                val route = pathFinder.findShortestPath(graph, startNode.id, destNode.id)
+                if (route != null && route.nodes.size >= 2) {
+                    return route
+                }
+            }
+        }
+        val fallbackStart = GeoDistanceCalculator.findNearestNode(graph, userLocation, maxRadiusMeters) ?: return null
+        val fallbackDest = GeoDistanceCalculator.findNearestNode(graph, targetLocation, maxRadiusMeters) ?: return null
+        return pathFinder.findShortestPath(graph, fallbackStart.id, fallbackDest.id)
+    }
+
+    private fun nearestConnectedCandidates(
+        graph: RoadGraph,
+        point: GeoPoint,
+        maxRadiusMeters: Double,
+        limit: Int,
+    ): List<com.mebanking.app.domain.model.navigation.RoadNode> {
+        return graph.nodes.values
+            .asSequence()
+            .filter { (graph.adjacencyMap[it.id]?.size ?: 0) >= 1 }
+            .map { node ->
+                node to GeoDistanceCalculator.haversineDistanceMeters(
+                    point.latitude,
+                    point.longitude,
+                    node.latitude,
+                    node.longitude,
+                )
+            }
+            .filter { it.second <= maxRadiusMeters }
+            .sortedBy { it.second }
+            .take(limit)
+            .map { it.first }
+            .toList()
     }
 }

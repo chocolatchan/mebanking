@@ -58,6 +58,8 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(BranchLocatorViewModel::class.java) -> {
                 BranchLocatorViewModel(
                     repository = container.branchNavigationRepository,
+                    poiRemoteSource = com.mebanking.app.data.navigation.HcmcBankPoiRemoteSource(),
+                    roadGraphRemoteSource = com.mebanking.app.data.navigation.OsmRoadGraphRemoteSource(),
                 ) as T
             }
             modelClass.isAssignableFrom(TransferViewModel::class.java) -> {
