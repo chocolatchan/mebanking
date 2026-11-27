@@ -90,9 +90,9 @@ class BranchLocatorViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals("Quận 7", state.searchQuery)
-        assertEquals(1, state.branches.size)
-        assertEquals("Chi nhánh Quận 7 - Tân Phong", state.branches.first().branch.name)
-        assertEquals("Chi nhánh Quận 7 - Tân Phong", state.selectedBranch?.branch?.name)
+        assertTrue(state.branches.isNotEmpty())
+        assertTrue(state.branches.all { it.branch.address.contains("Quận 7", ignoreCase = true) || it.branch.name.contains("Quận 7", ignoreCase = true) })
+        assertTrue(state.branches.any { it.branch.name == "Chi nhánh Quận 7 - Tân Phong" })
     }
 
     @Test
@@ -170,21 +170,17 @@ class BranchLocatorViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(d7Point, state.userLocation)
 
-        // Tan Phong (~0m) must be excluded; every returned branch must be > 20m away
-        assertTrue("Branches must not be empty", state.branches.isNotEmpty())
-        assertTrue(
-            "All scanned branches must be > 20m from user",
-            state.branches.all { it.directDistanceMeters > BranchLocatorViewModel.MIN_SCAN_DISTANCE_METERS },
-        )
-        assertFalse(
-            "Branch within 20m (Tan Phong) must be excluded",
-            state.branches.any { it.branch.name == "Chi nhánh Quận 7 - Tân Phong" },
-        )
+        // Tan Phong (~0m) remains in branches list sorted first, but since it is <= 20m,
+        // the 2nd nearest branch (> 20m) must be selected and routed to.
+        assertTrue("Branches must not be empty", state.branches.size >= 2)
+        assertEquals("Chi nhánh Quận 7 - Tân Phong", state.branches.first().branch.name)
+        assertTrue(state.branches.first().directDistanceMeters <= BranchLocatorViewModel.MIN_SCAN_DISTANCE_METERS)
 
-        // Nearest branch outside 20m must be selected and have a route drawn
-        val nearest = state.branches.first()
-        assertEquals(nearest.branch.id, state.selectedBranch?.branch?.id)
-        assertNotNull("currentRoute must be automatically calculated for nearest branch", state.currentRoute)
+        val expectedTarget = state.branches.first {
+            it.directDistanceMeters > BranchLocatorViewModel.MIN_SCAN_DISTANCE_METERS
+        }
+        assertEquals(expectedTarget.branch.id, state.selectedBranch?.branch?.id)
+        assertNotNull("currentRoute must be automatically calculated for 2nd nearest branch", state.currentRoute)
         assertTrue("currentRoute must have at least 2 points", (state.currentRoute?.nodes?.size ?: 0) >= 2)
     }
 }

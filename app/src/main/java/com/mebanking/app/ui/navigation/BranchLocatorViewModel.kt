@@ -47,7 +47,7 @@ class BranchLocatorViewModel(
         try {
             val graph = runSuspendCatching { repository.getRoadGraph() }.getOrNull()
             val userLoc = _uiState.value.userLocation
-            val branchDistances = scanBranchesOutsideRadius(
+            val branchDistances = computeSortedBranches(
                 userLocation = userLoc,
                 query = _uiState.value.searchQuery,
                 filter = _uiState.value.filter,
@@ -55,7 +55,7 @@ class BranchLocatorViewModel(
 
             val nearest = _uiState.value.selectedBranch?.let { prev ->
                 branchDistances.firstOrNull { it.branch.id == prev.branch.id }
-            } ?: branchDistances.firstOrNull()
+            } ?: selectNearestTarget(branchDistances)
 
             val route = nearest?.let { resolveRouteForBranch(userLoc, it) }
             val selectedWithRoute = nearest?.copy(routeResult = route)
@@ -174,8 +174,9 @@ class BranchLocatorViewModel(
     }
 
     /**
-     * Scans all banks/ATMs strictly beyond [MIN_SCAN_DISTANCE_METERS] (20m) from the user's
-     * current location, selects the nearest match, and calculates the route to it.
+     * Scans all banks/ATMs sorted by distance from the user's current location.
+     * If the closest match is within [MIN_SCAN_DISTANCE_METERS] (20m), automatically
+     * selects the next nearest location (>20m) and calculates the route to it.
      */
     fun scanNearestAndRoute(): Job = refreshBranches(selectNearest = true, recalculateRoute = true)
 
@@ -185,7 +186,7 @@ class BranchLocatorViewModel(
     ): Job = viewModelScope.launch {
         try {
             val currentState = _uiState.value
-            val branchDistances = scanBranchesOutsideRadius(
+            val branchDistances = computeSortedBranches(
                 userLocation = currentState.userLocation,
                 query = currentState.searchQuery,
                 filter = currentState.filter,
@@ -193,10 +194,10 @@ class BranchLocatorViewModel(
 
             val currentSelectedId = currentState.selectedBranch?.branch?.id
             val targetBranch = if (selectNearest) {
-                branchDistances.firstOrNull()
+                selectNearestTarget(branchDistances)
             } else {
                 branchDistances.firstOrNull { it.branch.id == currentSelectedId }
-                    ?: branchDistances.firstOrNull()
+                    ?: selectNearestTarget(branchDistances)
             }
 
             val newRoute = when {
@@ -232,7 +233,7 @@ class BranchLocatorViewModel(
         }
     }
 
-    private suspend fun scanBranchesOutsideRadius(
+    private suspend fun computeSortedBranches(
         userLocation: GeoPoint,
         query: String,
         filter: BranchFilter,
@@ -240,22 +241,29 @@ class BranchLocatorViewModel(
         val entities = repository.searchBranches(query = query, filter = filter) +
             NearbyBanksProvider.searchNearby(query = query, filter = filter)
 
-        return entities.mapNotNull { b ->
+        return entities.map { b ->
             val dist = GeoDistanceCalculator.haversineDistanceMeters(
                 userLocation,
                 GeoPoint(b.latitude, b.longitude),
             )
-            if (dist <= MIN_SCAN_DISTANCE_METERS) {
-                null
-            } else {
-                BranchDistance(
-                    branch = b,
-                    directDistanceMeters = dist,
-                    routeResult = null,
-                    estimatedMinutes = PathFinder.calculateEstimatedMinutes(dist),
-                )
-            }
+            BranchDistance(
+                branch = b,
+                directDistanceMeters = dist,
+                routeResult = null,
+                estimatedMinutes = PathFinder.calculateEstimatedMinutes(dist),
+            )
         }.sortedBy { it.directDistanceMeters }
+    }
+
+    private fun selectNearestTarget(branchDistances: List<BranchDistance>): BranchDistance? {
+        val first = branchDistances.firstOrNull() ?: return null
+        return if (first.directDistanceMeters <= MIN_SCAN_DISTANCE_METERS) {
+            branchDistances.firstOrNull { it.directDistanceMeters > MIN_SCAN_DISTANCE_METERS }
+                ?: branchDistances.getOrNull(1)
+                ?: first
+        } else {
+            first
+        }
     }
 
     private suspend fun resolveRouteForBranch(
@@ -281,20 +289,24 @@ class BranchLocatorViewModel(
             latitude = branchDistance.branch.latitude,
             longitude = branchDistance.branch.longitude,
         )
-        return graphRoute ?: RouteResult(
-            nodes = listOf(startNode, endNode),
-            edges = listOf(
-                RoadEdge(
-                    id = "direct_${branchDistance.branch.id}",
-                    fromNodeId = startNode.id,
-                    toNodeId = endNode.id,
-                    distanceMeters = branchDistance.directDistanceMeters,
-                    streetName = "Đường đi trực tiếp",
+        return if (graphRoute != null && graphRoute.nodes.size >= 2) {
+            graphRoute
+        } else {
+            RouteResult(
+                nodes = listOf(startNode, endNode),
+                edges = listOf(
+                    RoadEdge(
+                        id = "direct_${branchDistance.branch.id}",
+                        fromNodeId = startNode.id,
+                        toNodeId = endNode.id,
+                        distanceMeters = branchDistance.directDistanceMeters,
+                        streetName = "Đường đi trực tiếp",
+                    ),
                 ),
-            ),
-            totalDistanceMeters = branchDistance.directDistanceMeters,
-            estimatedMinutes = branchDistance.estimatedMinutes,
-        )
+                totalDistanceMeters = branchDistance.directDistanceMeters,
+                estimatedMinutes = branchDistance.estimatedMinutes,
+            )
+        }
     }
 
     companion object {

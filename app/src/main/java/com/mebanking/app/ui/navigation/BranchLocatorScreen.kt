@@ -45,16 +45,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -251,15 +248,10 @@ fun BranchLocatorContent(
             )
 
             if (!hasLocationPermission) {
-                val isDark = isSystemInDarkTheme()
                 Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
-                    border = BorderStroke(
-                        0.75.dp,
-                        if (isDark) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.60f),
-                    ),
-                    shadowElevation = 2.dp,
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(
@@ -614,18 +606,13 @@ private fun TopControlsOverlay(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isDark = isSystemInDarkTheme()
-    val glassBg = if (isDark) Color(0xFF1C1C1E).copy(alpha = 0.72f) else Color.White.copy(alpha = 0.72f)
-    val glassBorder = if (isDark) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.60f)
-    val fieldBg = if (isDark) Color(0xFF2C2C2E).copy(alpha = 0.60f) else Color(0xFFF2F2F7).copy(alpha = 0.65f)
-
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(0.75.dp, glassBorder),
-        tonalElevation = 0.dp,
-        shadowElevation = 2.dp,
-        color = glassBg,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -659,13 +646,7 @@ private fun TopControlsOverlay(
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = if (isDark) Color(0xFF2C2C2E).copy(alpha = 0.78f) else Color.White.copy(alpha = 0.80f),
-                        unfocusedContainerColor = fieldBg,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
-                        unfocusedBorderColor = Color.Transparent,
-                    ),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -686,18 +667,6 @@ private fun TopControlsOverlay(
                         selected = currentFilter == filter,
                         onClick = { onFilterSelected(filter) },
                         label = { Text(label) },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = fieldBg,
-                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                            selectedLabelColor = MaterialTheme.colorScheme.primary,
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = currentFilter == filter,
-                            borderColor = glassBorder,
-                            selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                        ),
                     )
                 }
             }
@@ -713,67 +682,50 @@ private fun FloatingMapControls(
     onRecenter: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isDark = isSystemInDarkTheme()
-    val glassBg = if (isDark) Color(0xFF1C1C1E).copy(alpha = 0.72f) else Color.White.copy(alpha = 0.72f)
-    val glassBorder = if (isDark) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.60f)
-    val dividerColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f)
-
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = glassBg,
-            border = BorderStroke(0.75.dp, glassBorder),
-            shadowElevation = 2.dp,
+        SmallFloatingActionButton(
+            onClick = onResetNorth,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary,
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(44.dp),
-            ) {
-                IconButton(onClick = onResetNorth, modifier = Modifier.size(44.dp)) {
-                    Icon(
-                        imageVector = Icons.Filled.Explore,
-                        contentDescription = "Đặt lại hướng Bắc",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-                HorizontalDivider(color = dividerColor, thickness = 0.75.dp)
-                IconButton(onClick = onZoomIn, modifier = Modifier.size(44.dp)) {
-                    Text(
-                        "+",
-                        fontWeight = FontWeight.Medium,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-                HorizontalDivider(color = dividerColor, thickness = 0.75.dp)
-                IconButton(onClick = onZoomOut, modifier = Modifier.size(44.dp)) {
-                    Text(
-                        "−",
-                        fontWeight = FontWeight.Medium,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
-            }
+            Icon(
+                imageVector = Icons.Filled.Explore,
+                contentDescription = "Đặt lại hướng Bắc",
+                modifier = Modifier.size(20.dp),
+            )
+        }
+
+        SmallFloatingActionButton(
+            onClick = onZoomIn,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary,
+        ) {
+            Text("+", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+        }
+
+        SmallFloatingActionButton(
+            onClick = onZoomOut,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary,
+        ) {
+            Text("-", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
         }
 
         FloatingActionButton(
             onClick = onRecenter,
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp),
             shape = CircleShape,
-            modifier = Modifier.size(46.dp),
+            modifier = Modifier.size(48.dp),
         ) {
             Icon(
                 imageVector = Icons.Filled.NearMe,
                 contentDescription = "Vị trí của bạn",
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(22.dp),
             )
         }
     }
@@ -788,16 +740,13 @@ private fun BranchDetailsCard(
     val context = LocalContext.current
     val b = branchDistance.branch
     val isAtm = b.name.contains("ATM", ignoreCase = true) || b.type.equals("ATM", ignoreCase = true)
-    val isDark = isSystemInDarkTheme()
-    val glassBg = if (isDark) Color(0xFF1C1C1E).copy(alpha = 0.76f) else Color.White.copy(alpha = 0.76f)
-    val glassBorder = if (isDark) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.60f)
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(0.75.dp, glassBorder),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = glassBg),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Row(
