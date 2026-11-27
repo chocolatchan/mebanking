@@ -10,6 +10,25 @@ import com.mebanking.app.domain.model.UserSession
 import kotlinx.coroutines.flow.Flow
 
 /**
+ * Bank-regulated annual interest rate schedule applied when opening new Saving or Mortgage accounts.
+ * Rates are fixed by bank policy at account creation and can later be adjusted only by bank officers.
+ */
+object BankInterestRatePolicy {
+    fun savingRateForTerm(termMonths: Int): Double = when {
+        termMonths >= 24 -> 6.4
+        termMonths >= 12 -> 5.8
+        termMonths >= 6 -> 5.2
+        else -> 4.2
+    }
+
+    fun mortgageRateForTerm(termMonths: Int): Double = when {
+        termMonths > 180 -> 9.5
+        termMonths > 60 -> 9.0
+        else -> 8.5
+    }
+}
+
+/**
  * Domain service contract governing account lifecycle, isolation, observation,
  * interest rate modifications, and monetary calculations.
  */
@@ -70,21 +89,31 @@ interface AccountService {
     suspend fun getMortgageDetails(accountId: Long): Result<MortgageAccountDetails>
 
     /**
-     * Allows an authenticated customer to open a new saving account after verifying identity.
+     * Allows a banking officer ([Role.OFFICER]) to modify the interest rate of an existing
+     * SAVING (0.0..15.0%) or MORTGAGE (0.0..25.0%) account after creation.
+     */
+    suspend fun modifyAccountInterestRate(
+        accountId: Long,
+        newRate: Double,
+        officerSession: UserSession,
+    ): Result<Account> = modifySavingInterestRate(accountId, newRate, officerSession)
+
+    /**
+     * Allows an authenticated customer to open a new saving account at the bank-regulated interest rate.
      */
     suspend fun openCustomerSavingAccount(
         initialDeposit: Long,
-        interestRate: Double,
+        interestRate: Double = 0.0,
         termMonths: Int,
         session: UserSession,
     ): Result<Account> = Result.failure(DomainError.InvalidData("Chức năng mở tài khoản chưa sẵn sàng"))
 
     /**
-     * Allows an authenticated customer to open a new mortgage account after verifying identity.
+     * Allows an authenticated customer to open a new mortgage account at the bank-regulated interest rate.
      */
     suspend fun openCustomerMortgageAccount(
         loanAmount: Long,
-        interestRate: Double,
+        interestRate: Double = 0.0,
         termMonths: Int,
         payCycle: String,
         session: UserSession,
@@ -226,6 +255,37 @@ class DefaultAccountService(
         )
     }
 
+    override suspend fun modifyAccountInterestRate(
+        accountId: Long,
+        newRate: Double,
+        officerSession: UserSession,
+    ): Result<Account> {
+        if (officerSession.role != Role.OFFICER) {
+            return Result.failure(DomainError.Forbidden("Chỉ cán bộ ngân hàng mới có quyền điều chỉnh lãi suất"))
+        }
+        if (newRate < 0.0) {
+            return Result.failure(DomainError.InvalidData("Lãi suất phải là số không âm"))
+        }
+        val account = accountRepository.getAccountById(accountId)
+            ?: return Result.failure(DomainError.NotFound("Không tìm thấy tài khoản"))
+        if (account.status == "CLOSED") {
+            return Result.failure(DomainError.InvalidData("Tài khoản đã đóng (CLOSED), không thể chỉnh sửa lãi suất"))
+        }
+        val maxRate = when (account.accountType) {
+            AccountType.SAVING -> 15.0
+            AccountType.MORTGAGE -> 25.0
+            AccountType.CHECKING -> {
+                return Result.failure(DomainError.InvalidData("Chỉ hỗ trợ điều chỉnh lãi suất cho tài khoản Tiết kiệm hoặc Thế chấp"))
+            }
+        }
+        if (newRate > maxRate) {
+            return Result.failure(DomainError.InvalidData("Lãi suất vượt quá trần cho phép (tối đa $maxRate%)"))
+        }
+        val updated = account.copy(interestRate = newRate)
+        accountRepository.updateAccount(updated)
+        return Result.success(updated)
+    }
+
     override suspend fun openCustomerSavingAccount(
         initialDeposit: Long,
         interestRate: Double,
@@ -238,13 +298,12 @@ class DefaultAccountService(
         if (initialDeposit < 0L) {
             return Result.failure(DomainError.InvalidData("Tiền gửi ban đầu không được âm"))
         }
-        if (interestRate < 0.0 || interestRate > 15.0) {
-            return Result.failure(DomainError.InvalidData("Lãi suất tiết kiệm phải từ 0.0% đến 15.0%"))
-        }
         if (termMonths !in 1..120) {
             return Result.failure(DomainError.InvalidData("Kỳ hạn gửi phải từ 1 đến 120 tháng"))
         }
 
+        // Rate is governed by bank policy upon creation; officers may later adjust it.
+        val bankRate = BankInterestRatePolicy.savingRateForTerm(termMonths)
         val accountNumber = nextUniqueAccountNumber(session.userId, AccountType.SAVING)
         val account = Account(
             userId = session.userId,
@@ -252,7 +311,7 @@ class DefaultAccountService(
             accountType = AccountType.SAVING,
             balance = initialDeposit,
             currency = "VND",
-            interestRate = interestRate,
+            interestRate = bankRate,
             status = "ACTIVE",
             payCycle = "$termMonths tháng",
         )
@@ -273,9 +332,6 @@ class DefaultAccountService(
         if (loanAmount <= 0L) {
             return Result.failure(DomainError.InvalidData("Số tiền vay phải lớn hơn 0"))
         }
-        if (interestRate < 0.0 || interestRate > 25.0) {
-            return Result.failure(DomainError.InvalidData("Lãi suất vay phải từ 0.0% đến 25.0%"))
-        }
         if (termMonths !in 1..360) {
             return Result.failure(DomainError.InvalidData("Thời hạn vay phải từ 1 đến 360 tháng"))
         }
@@ -284,6 +340,8 @@ class DefaultAccountService(
             return Result.failure(DomainError.InvalidData("Chu kỳ trả chỉ hỗ trợ MONTHLY hoặc BIWEEKLY"))
         }
 
+        // Rate is governed by bank policy upon creation; officers may later adjust it.
+        val bankRate = BankInterestRatePolicy.mortgageRateForTerm(termMonths)
         val totalPeriods = if (normalizedCycle == "BIWEEKLY") termMonths * 2 else termMonths
         val periodicPrincipal = kotlin.math.ceil(loanAmount.toDouble() / totalPeriods.toDouble())
             .toLong()
@@ -296,7 +354,7 @@ class DefaultAccountService(
             accountType = AccountType.MORTGAGE,
             balance = loanAmount,
             currency = "VND",
-            interestRate = interestRate,
+            interestRate = bankRate,
             status = "ACTIVE",
             loanAmount = loanAmount,
             monthlyPayment = periodicPrincipal,

@@ -179,12 +179,27 @@ class OfficerDashboardViewModelTest {
         // Create Mortgage 120M, 8.5%, 12 months, BIWEEKLY (24 periods -> 5M/period)
         viewModel.openMortgageAccount("120000000", "8.5", "12", "BIWEEKLY")
         val afterCreate = viewModel.uiState.first { !it.isLoading && it.successMessage?.contains("thế chấp") == true }
-        val mortgage = afterCreate.selectedCustomerAccounts.first { it.accountType == AccountType.MORTGAGE }
+        var mortgage = afterCreate.selectedCustomerAccounts.first { it.accountType == AccountType.MORTGAGE }
         assertEquals(120_000_000L, mortgage.loanAmount)
         assertEquals(120_000_000L, mortgage.balance)
         assertEquals(5_000_000L, mortgage.monthlyPayment)
         assertEquals("BIWEEKLY", mortgage.payCycle)
         assertEquals("ACTIVE", mortgage.status)
+
+        // Officer can edit Mortgage interest rate after account creation
+        val vmWithAccountService = OfficerDashboardViewModel(
+            officerService,
+            sessionManager,
+            faceService,
+            DefaultAccountService(DefaultAccountRepository(db.accountDao()), sessionManager),
+        )
+        val c = vmWithAccountService.uiState.first { !it.isLoading && it.customers.isNotEmpty() }.customers.first { it.id == 2L }
+        vmWithAccountService.selectCustomer(c)
+        vmWithAccountService.uiState.first { !it.isLoading && it.selectedCustomerAccounts.isNotEmpty() }
+        vmWithAccountService.updateInterestRate(mortgage.id, "9.75")
+        val afterMortgageRateEdit = vmWithAccountService.uiState.first { !it.isLoading && it.successMessage?.contains("lãi suất") == true }
+        mortgage = afterMortgageRateEdit.selectedCustomerAccounts.first { it.id == mortgage.id }
+        assertEquals(9.75, mortgage.interestRate, 0.001)
 
         // Cannot close while remaining debt > 0
         viewModel.closeAccount(mortgage.id)

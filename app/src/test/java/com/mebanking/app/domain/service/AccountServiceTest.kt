@@ -273,10 +273,11 @@ class AccountServiceTest {
     }
 
     @Test
-    fun openCustomerSavingAccount_andMortgage_createAccountsAndEnforceValidation() = runTest {
+    fun openCustomerSavingAccount_andMortgage_enforceBankInterestPolicy_andOfficerCanModifyBoth() = runTest {
+        // Customer cannot override bank rate when opening Saving or Mortgage
         val savingRes = accountService.openCustomerSavingAccount(
             initialDeposit = 15_000_000L,
-            interestRate = 6.2,
+            interestRate = 12.0, // ignored in favor of BankInterestRatePolicy
             termMonths = 12,
             session = customer1Session,
         )
@@ -284,12 +285,12 @@ class AccountServiceTest {
         val saving = savingRes.getOrThrow()
         assertEquals(AccountType.SAVING, saving.accountType)
         assertEquals(15_000_000L, saving.balance)
-        assertEquals(6.2, saving.interestRate, 0.001)
+        assertEquals(BankInterestRatePolicy.savingRateForTerm(12), saving.interestRate, 0.001)
         assertEquals("12 tháng", saving.payCycle)
 
         val mortgageRes = accountService.openCustomerMortgageAccount(
             loanAmount = 240_000_000L,
-            interestRate = 8.5,
+            interestRate = 1.0, // ignored in favor of BankInterestRatePolicy
             termMonths = 12,
             payCycle = "BIWEEKLY",
             session = customer1Session,
@@ -298,17 +299,32 @@ class AccountServiceTest {
         val mortgage = mortgageRes.getOrThrow()
         assertEquals(AccountType.MORTGAGE, mortgage.accountType)
         assertEquals(240_000_000L, mortgage.balance)
+        assertEquals(BankInterestRatePolicy.mortgageRateForTerm(12), mortgage.interestRate, 0.001)
         assertEquals("BIWEEKLY", mortgage.payCycle)
         assertEquals(10_000_000L, mortgage.monthlyPayment)
+
+        // Officer can modify both Saving and Mortgage interest rates AFTER creation
+        val updatedSaving = accountService.modifyAccountInterestRate(saving.id, 6.9, officerSession)
+        assertTrue(updatedSaving.isSuccess)
+        assertEquals(6.9, updatedSaving.getOrThrow().interestRate, 0.001)
+
+        val updatedMortgage = accountService.modifyAccountInterestRate(mortgage.id, 9.8, officerSession)
+        assertTrue(updatedMortgage.isSuccess)
+        assertEquals(9.8, updatedMortgage.getOrThrow().interestRate, 0.001)
+
+        // Customer cannot modify rate
+        val customerEdit = accountService.modifyAccountInterestRate(mortgage.id, 5.0, customer1Session)
+        assertTrue(customerEdit.isFailure)
+        assertTrue(customerEdit.exceptionOrNull() is DomainError.Forbidden)
 
         // Officer cannot use customer self-service path
         val officerDenied = accountService.openCustomerSavingAccount(1_000_000L, 5.0, 6, officerSession)
         assertTrue(officerDenied.isFailure)
         assertTrue(officerDenied.exceptionOrNull() is DomainError.Forbidden)
 
-        // Invalid rate rejected
-        val badRate = accountService.openCustomerSavingAccount(1_000_000L, 25.0, 12, customer1Session)
-        assertTrue(badRate.isFailure)
-        assertTrue(badRate.exceptionOrNull() is DomainError.InvalidData)
+        // Invalid term rejected
+        val badTerm = accountService.openCustomerSavingAccount(1_000_000L, 5.0, 999, customer1Session)
+        assertTrue(badTerm.isFailure)
+        assertTrue(badTerm.exceptionOrNull() is DomainError.InvalidData)
     }
 }

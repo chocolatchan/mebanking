@@ -529,7 +529,7 @@ class OfficerDashboardViewModel(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
-            service.modifySavingInterestRate(accountId, parsedRate, session).fold(
+            service.modifyAccountInterestRate(accountId, parsedRate, session).fold(
                 onSuccess = { updated ->
                     _uiState.update { state ->
                         val updatedList = state.selectedCustomerAccounts.map { acc ->

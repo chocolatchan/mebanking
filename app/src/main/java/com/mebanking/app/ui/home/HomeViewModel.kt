@@ -8,6 +8,7 @@ import com.mebanking.app.data.repository.AuthRepository
 import com.mebanking.app.domain.model.SessionState
 import com.mebanking.app.domain.model.toDomainError
 import com.mebanking.app.domain.service.AccountService
+import com.mebanking.app.domain.service.BankInterestRatePolicy
 import com.mebanking.app.domain.service.FaceRecognitionService
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.face.FaceQualityValidator
@@ -128,7 +129,6 @@ class HomeViewModel(
 
     fun openSavingAccount(
         initialDeposit: Long,
-        interestRate: Double,
         termMonths: Int,
     ) {
         val session = sessionManager?.currentSession ?: run {
@@ -143,7 +143,7 @@ class HomeViewModel(
             _uiState.update { it.copy(isOpeningAccount = true, accountOpenError = null, accountOpenNotice = null) }
             val res = service.openCustomerSavingAccount(
                 initialDeposit = initialDeposit,
-                interestRate = interestRate,
+                interestRate = BankInterestRatePolicy.savingRateForTerm(termMonths),
                 termMonths = termMonths,
                 session = session,
             )
@@ -152,7 +152,7 @@ class HomeViewModel(
                     _uiState.update {
                         it.copy(
                             isOpeningAccount = false,
-                            accountOpenNotice = "Mở thành công TK Tiết kiệm ${acc.accountNumber}",
+                            accountOpenNotice = "Mở thành công TK Tiết kiệm ${acc.accountNumber} (${acc.interestRate}%/năm)",
                             accountOpenError = null,
                         )
                     }
@@ -172,7 +172,6 @@ class HomeViewModel(
 
     fun openMortgageAccount(
         loanAmount: Long,
-        interestRate: Double,
         termMonths: Int,
         payCycle: String,
     ) {
@@ -188,7 +187,7 @@ class HomeViewModel(
             _uiState.update { it.copy(isOpeningAccount = true, accountOpenError = null, accountOpenNotice = null) }
             val res = service.openCustomerMortgageAccount(
                 loanAmount = loanAmount,
-                interestRate = interestRate,
+                interestRate = BankInterestRatePolicy.mortgageRateForTerm(termMonths),
                 termMonths = termMonths,
                 payCycle = payCycle,
                 session = session,
@@ -198,7 +197,7 @@ class HomeViewModel(
                     _uiState.update {
                         it.copy(
                             isOpeningAccount = false,
-                            accountOpenNotice = "Mở thành công TK Thế chấp ${acc.accountNumber}",
+                            accountOpenNotice = "Mở thành công TK Thế chấp ${acc.accountNumber} (${acc.interestRate}%/năm)",
                             accountOpenError = null,
                         )
                     }

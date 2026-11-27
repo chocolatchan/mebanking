@@ -63,6 +63,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
+import com.mebanking.app.domain.service.BankInterestRatePolicy
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.components.tonalTextFieldColors
 import com.mebanking.app.ui.ekyc.FaceCaptureDialog
@@ -410,6 +411,7 @@ private fun OfficerDashboardContent(
     }
 
     editingRateAccount?.let { targetAcc ->
+        val maxRateLabel = if (targetAcc.accountType == com.mebanking.app.domain.model.AccountType.MORTGAGE) "25.0%" else "15.0%"
         AlertDialog(
             onDismissRequest = { editingRateAccount = null },
             title = { Text("Điều chỉnh lãi suất") },
@@ -423,7 +425,7 @@ private fun OfficerDashboardContent(
                     TextField(
                         value = editingRateInput,
                         onValueChange = { editingRateInput = it },
-                        label = { Text("Lãi suất mới (%/năm, tối đa 15.0%)") },
+                        label = { Text("Lãi suất mới (%/năm, tối đa $maxRateLabel)") },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
                         colors = tonalTextFieldColors(),
@@ -766,11 +768,12 @@ private fun CustomerAccountManagementRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                if (!isMortgage) {
+                if (isSaving || isMortgage) {
                     TextButton(onClick = onEditRate, enabled = enabled) {
                         Text("Sửa lãi suất")
                     }
-                } else {
+                }
+                if (isMortgage) {
                     TextButton(
                         onClick = onRecordMortgagePayment,
                         enabled = enabled && !isLocked && account.balance > 0L,
@@ -811,8 +814,8 @@ private fun CreateSavingAccountDialog(
     onConfirm: (initialDeposit: String, interestRate: String, termMonths: String) -> Unit,
 ) {
     var depositInput by remember { mutableStateOf("10000000") }
-    var rateInput by remember { mutableStateOf("5.8") }
     var termInput by remember { mutableStateOf("12") }
+    val bankRate = BankInterestRatePolicy.savingRateForTerm(termInput.toIntOrNull() ?: 12)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -829,16 +832,6 @@ private fun CreateSavingAccountDialog(
                     shape = RoundedCornerShape(16.dp),
                     colors = tonalTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                TextField(
-                    value = rateInput,
-                    onValueChange = { rateInput = it },
-                    label = { Text("Lãi suất năm (%/năm, 0.0 - 15.0)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = tonalTextFieldColors(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 TextField(
@@ -860,11 +853,30 @@ private fun CreateSavingAccountDialog(
                         )
                     }
                 }
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Lãi suất ngân hàng: $bankRate%/năm",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            text = "Áp dụng theo quy định ngân hàng lúc mở; cán bộ có thể điều chỉnh sau khi tạo.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(depositInput, rateInput, termInput) },
+                onClick = { onConfirm(depositInput, bankRate.toString(), termInput) },
                 enabled = !isLoading,
                 shape = RoundedCornerShape(14.dp),
             ) {
@@ -884,9 +896,9 @@ private fun CreateMortgageAccountDialog(
     onConfirm: (loanAmount: String, interestRate: String, termMonths: String, payCycle: String) -> Unit,
 ) {
     var loanInput by remember { mutableStateOf("500000000") }
-    var rateInput by remember { mutableStateOf("8.5") }
     var termInput by remember { mutableStateOf("120") }
     var selectedCycle by remember { mutableStateOf("MONTHLY") }
+    val bankRate = BankInterestRatePolicy.mortgageRateForTerm(termInput.toIntOrNull() ?: 120)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -903,16 +915,6 @@ private fun CreateMortgageAccountDialog(
                     shape = RoundedCornerShape(16.dp),
                     colors = tonalTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                TextField(
-                    value = rateInput,
-                    onValueChange = { rateInput = it },
-                    label = { Text("Lãi suất năm (%/năm)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = tonalTextFieldColors(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 TextField(
@@ -941,11 +943,30 @@ private fun CreateMortgageAccountDialog(
                         label = { Text("Mỗi 2 tuần") },
                     )
                 }
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Lãi suất ngân hàng: $bankRate%/năm",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        Text(
+                            text = "Áp dụng theo quy định ngân hàng lúc mở; cán bộ có thể điều chỉnh sau khi tạo.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(loanInput, rateInput, termInput, selectedCycle) },
+                onClick = { onConfirm(loanInput, bankRate.toString(), termInput, selectedCycle) },
                 enabled = !isLoading,
                 shape = RoundedCornerShape(14.dp),
             ) {

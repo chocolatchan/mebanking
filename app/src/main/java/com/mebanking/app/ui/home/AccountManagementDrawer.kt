@@ -77,6 +77,7 @@ import androidx.fragment.app.FragmentActivity
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.model.FaceRecognitionResult
 import com.mebanking.app.domain.model.User
+import com.mebanking.app.domain.service.BankInterestRatePolicy
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.auth.DeviceAuthenticationResult
 import com.mebanking.app.ui.auth.DeviceAuthenticator
@@ -141,8 +142,8 @@ internal fun AccountManagementDrawerContent(
     onNavigateToOfficerDashboard: () -> Unit,
     onUpdateEkyc: (fullName: String, nationalId: String?, frameBytes: ByteArray) -> Unit,
     onClearEkycMessages: () -> Unit,
-    onOpenSavingAccount: (initialDeposit: Long, interestRate: Double, termMonths: Int) -> Unit = { _, _, _ -> },
-    onOpenMortgageAccount: (loanAmount: Long, interestRate: Double, termMonths: Int, payCycle: String) -> Unit = { _, _, _, _ -> },
+    onOpenSavingAccount: (initialDeposit: Long, termMonths: Int) -> Unit = { _, _ -> },
+    onOpenMortgageAccount: (loanAmount: Long, termMonths: Int, payCycle: String) -> Unit = { _, _, _ -> },
     onClearAccountOpenMessages: () -> Unit = {},
     onLogout: () -> Unit,
 ) {
@@ -174,10 +175,8 @@ internal fun AccountManagementDrawerContent(
     var openTarget by remember { mutableStateOf(AccountOpenTarget.NONE) }
     var openStep by remember { mutableStateOf(AccountOpenStep.NONE) }
     var savingDepositInput by remember { mutableStateOf("5000000") }
-    var savingRateInput by remember { mutableStateOf("5.8") }
     var savingTermInput by remember { mutableStateOf("12") }
     var mortgageLoanInput by remember { mutableStateOf("100000000") }
-    var mortgageRateInput by remember { mutableStateOf("8.5") }
     var mortgageTermInput by remember { mutableStateOf("60") }
     var mortgageCycle by remember { mutableStateOf("MONTHLY") }
     var openFormError by remember { mutableStateOf<String?>(null) }
@@ -199,14 +198,12 @@ internal fun AccountManagementDrawerContent(
             AccountOpenTarget.SAVING -> {
                 onOpenSavingAccount(
                     savingDepositInput.toLongOrNull() ?: 0L,
-                    savingRateInput.toDoubleOrNull() ?: 5.8,
                     savingTermInput.toIntOrNull() ?: 12,
                 )
             }
             AccountOpenTarget.MORTGAGE -> {
                 onOpenMortgageAccount(
                     mortgageLoanInput.toLongOrNull() ?: 0L,
-                    mortgageRateInput.toDoubleOrNull() ?: 8.5,
                     mortgageTermInput.toIntOrNull() ?: 60,
                     mortgageCycle,
                 )
@@ -924,6 +921,7 @@ internal fun AccountManagementDrawerContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (isSaving) {
+                        val bankRate = BankInterestRatePolicy.savingRateForTerm(savingTermInput.toIntOrNull() ?: 12)
                         TextField(
                             value = savingDepositInput,
                             onValueChange = {
@@ -937,34 +935,19 @@ internal fun AccountManagementDrawerContent(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextField(
-                                value = savingRateInput,
-                                onValueChange = {
-                                    savingRateInput = it.filter { ch -> ch.isDigit() || ch == '.' }.take(5)
-                                    openFormError = null
-                                },
-                                label = { Text("Lãi suất (%/năm)") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(16.dp),
-                                colors = tonalTextFieldColors(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.weight(1f),
-                            )
-                            TextField(
-                                value = savingTermInput,
-                                onValueChange = {
-                                    savingTermInput = it.filter(Char::isDigit).take(3)
-                                    openFormError = null
-                                },
-                                label = { Text("Kỳ hạn (tháng)") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(16.dp),
-                                colors = tonalTextFieldColors(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
+                        TextField(
+                            value = savingTermInput,
+                            onValueChange = {
+                                savingTermInput = it.filter(Char::isDigit).take(3)
+                                openFormError = null
+                            },
+                            label = { Text("Kỳ hạn (tháng, 1 - 120)") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf("6" to "6 tháng", "12" to "12 tháng", "24" to "24 tháng").forEach { (months, label) ->
                                 FilterChip(
@@ -974,7 +957,27 @@ internal fun AccountManagementDrawerContent(
                                 )
                             }
                         }
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = "Lãi suất niêm yết ngân hàng: $bankRate%/năm",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                                Text(
+                                    text = "Lãi suất do ngân hàng quy định theo kỳ hạn khi mở tài khoản.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                                )
+                            }
+                        }
                     } else {
+                        val bankRate = BankInterestRatePolicy.mortgageRateForTerm(mortgageTermInput.toIntOrNull() ?: 60)
                         TextField(
                             value = mortgageLoanInput,
                             onValueChange = {
@@ -988,34 +991,19 @@ internal fun AccountManagementDrawerContent(
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextField(
-                                value = mortgageRateInput,
-                                onValueChange = {
-                                    mortgageRateInput = it.filter { ch -> ch.isDigit() || ch == '.' }.take(5)
-                                    openFormError = null
-                                },
-                                label = { Text("Lãi suất (%/năm)") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(16.dp),
-                                colors = tonalTextFieldColors(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.weight(1f),
-                            )
-                            TextField(
-                                value = mortgageTermInput,
-                                onValueChange = {
-                                    mortgageTermInput = it.filter(Char::isDigit).take(3)
-                                    openFormError = null
-                                },
-                                label = { Text("Thời hạn (tháng)") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(16.dp),
-                                colors = tonalTextFieldColors(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
+                        TextField(
+                            value = mortgageTermInput,
+                            onValueChange = {
+                                mortgageTermInput = it.filter(Char::isDigit).take(3)
+                                openFormError = null
+                            },
+                            label = { Text("Thời hạn vay (tháng, 1 - 360)") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = mortgageCycle == "MONTHLY",
@@ -1028,6 +1016,25 @@ internal fun AccountManagementDrawerContent(
                                 label = { Text("Mỗi 2 tuần") },
                             )
                         }
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = "Lãi suất niêm yết ngân hàng: $bankRate%/năm",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                                Text(
+                                    text = "Lãi suất do ngân hàng quy định khi mở khoản vay.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                                )
+                            }
+                        }
                     }
                     openFormError?.let { err ->
                         Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -1039,21 +1046,17 @@ internal fun AccountManagementDrawerContent(
                     onClick = {
                         if (isSaving) {
                             val dep = savingDepositInput.toLongOrNull()
-                            val rate = savingRateInput.toDoubleOrNull()
                             val term = savingTermInput.toIntOrNull()
                             when {
                                 dep == null || dep < 0L -> openFormError = "Tiền gửi không hợp lệ"
-                                rate == null || rate < 0.0 || rate > 15.0 -> openFormError = "Lãi suất từ 0.0% đến 15.0%"
                                 term == null || term !in 1..120 -> openFormError = "Kỳ hạn từ 1 đến 120 tháng"
                                 else -> startOpenOtpChallenge()
                             }
                         } else {
                             val loan = mortgageLoanInput.toLongOrNull()
-                            val rate = mortgageRateInput.toDoubleOrNull()
                             val term = mortgageTermInput.toIntOrNull()
                             when {
                                 loan == null || loan <= 0L -> openFormError = "Số tiền vay phải lớn hơn 0"
-                                rate == null || rate < 0.0 || rate > 25.0 -> openFormError = "Lãi suất từ 0.0% đến 25.0%"
                                 term == null || term !in 1..360 -> openFormError = "Thời hạn từ 1 đến 360 tháng"
                                 else -> startOpenOtpChallenge()
                             }
