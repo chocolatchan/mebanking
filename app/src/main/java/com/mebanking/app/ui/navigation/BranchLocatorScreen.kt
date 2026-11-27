@@ -83,6 +83,7 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.location.LocationComponentActivationOptions
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
@@ -184,6 +185,14 @@ fun BranchLocatorScreen(
         onFilterSelected = viewModel::onFilterSelected,
         onBranchSelected = viewModel::onBranchSelected,
         onNavigateToBranch = viewModel::onNavigateToBranch,
+        onScanNearest = {
+            val loc = fetchLastKnownLocation(context)
+            if (loc != null) {
+                viewModel.onUserLocationChanged(GeoPoint(loc.latitude, loc.longitude))
+            } else {
+                viewModel.scanNearestAndRoute()
+            }
+        },
         modifier = modifier,
     )
 }
@@ -199,6 +208,7 @@ fun BranchLocatorContent(
     onFilterSelected: (BranchFilter) -> Unit,
     onBranchSelected: (BranchDistance) -> Unit,
     onNavigateToBranch: (Long) -> Unit,
+    onScanNearest: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
@@ -306,6 +316,7 @@ fun BranchLocatorContent(
                 if (!hasLocationPermission) {
                     onRequestLocationPermission()
                 } else {
+                    onScanNearest()
                     mapLibreMap?.animateCamera(CameraUpdateFactory.newLatLngZoom(userLatLng, 15.5), 600)
                 }
             },
@@ -454,16 +465,28 @@ private fun MapLibreContainer(
         }
     }
 
-    LaunchedEffect(mapInstance, uiState.selectedBranch) {
+    LaunchedEffect(mapInstance, uiState.selectedBranch, uiState.currentRoute) {
         val map = mapInstance ?: return@LaunchedEffect
-        uiState.selectedBranch?.let { selected ->
-            map.animateCamera(
-                CameraUpdateFactory.newLatLngZoom(
-                    LatLng(selected.branch.latitude, selected.branch.longitude),
-                    15.5,
-                ),
-                800,
-            )
+        val selected = uiState.selectedBranch ?: return@LaunchedEffect
+        val userPoint = LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)
+        val branchPoint = LatLng(selected.branch.latitude, selected.branch.longitude)
+        if (uiState.currentRoute != null &&
+            (userPoint.latitude != branchPoint.latitude || userPoint.longitude != branchPoint.longitude)
+        ) {
+            try {
+                val bounds = LatLngBounds.Builder()
+                    .include(userPoint)
+                    .include(branchPoint)
+                    .build()
+                map.animateCamera(
+                    CameraUpdateFactory.newLatLngBounds(bounds, 140, 260, 140, 280),
+                    800,
+                )
+            } catch (_: Exception) {
+                map.animateCamera(CameraUpdateFactory.newLatLngZoom(branchPoint, 15.5), 800)
+            }
+        } else {
+            map.animateCamera(CameraUpdateFactory.newLatLngZoom(branchPoint, 15.5), 800)
         }
     }
 

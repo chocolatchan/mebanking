@@ -104,17 +104,20 @@ class GoogleMapsNearbyBanksAndStatusBarTest {
 
         val state = viewModel.uiState.value
         assertFalse(state.isLoading)
-        // Should contain 3 internal branches + 8 nearby partner banks = 11 banks total
-        assertEquals(11, state.branches.size)
+        // Should contain 2 internal branches (>20m) + 8 nearby partner banks = 10 banks total
+        // (ATM Ben Thanh at default userLocation is within 20m and therefore excluded)
+        assertEquals(10, state.branches.size)
+        assertTrue(state.branches.all { it.directDistanceMeters > BranchLocatorViewModel.MIN_SCAN_DISTANCE_METERS })
 
         // Verify sorted by distance ascending
         for (i in 0 until state.branches.size - 1) {
             assertTrue(state.branches[i].directDistanceMeters <= state.branches[i + 1].directDistanceMeters)
         }
 
-        // Must have selected nearest branch by default
+        // Must have selected nearest branch by default and computed route
         assertNotNull(state.selectedBranch)
         assertEquals(state.branches.first().branch.id, state.selectedBranch?.branch?.id)
+        assertNotNull(state.currentRoute)
     }
 
     @Test

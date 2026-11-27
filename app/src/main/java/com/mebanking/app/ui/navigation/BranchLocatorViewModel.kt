@@ -11,6 +11,10 @@ import com.mebanking.app.data.repository.BranchNavigationRepository
 import com.mebanking.app.domain.model.navigation.BranchDistance
 import com.mebanking.app.domain.model.navigation.BranchFilter
 import com.mebanking.app.domain.model.navigation.GeoPoint
+import com.mebanking.app.domain.model.navigation.NearbyBanksProvider
+import com.mebanking.app.domain.model.navigation.RoadEdge
+import com.mebanking.app.domain.model.navigation.RoadNode
+import com.mebanking.app.domain.model.navigation.RouteResult
 import com.mebanking.app.domain.model.toDomainError
 import com.mebanking.app.domain.navigation.GeoDistanceCalculator
 import com.mebanking.app.domain.navigation.PathFinder
@@ -42,35 +46,34 @@ class BranchLocatorViewModel(
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         try {
             val graph = runSuspendCatching { repository.getRoadGraph() }.getOrNull()
-            val entities = repository.searchBranches(
-                query = _uiState.value.searchQuery,
-                filter = _uiState.value.filter,
-            ) + com.mebanking.app.domain.model.navigation.NearbyBanksProvider.searchNearby(
+            val userLoc = _uiState.value.userLocation
+            val branchDistances = scanBranchesOutsideRadius(
+                userLocation = userLoc,
                 query = _uiState.value.searchQuery,
                 filter = _uiState.value.filter,
             )
-            val userLoc = _uiState.value.userLocation
-            val branchDistances = entities.map { b ->
-                val dist = GeoDistanceCalculator.haversineDistanceMeters(
-                    userLoc,
-                    GeoPoint(b.latitude, b.longitude),
-                )
-                BranchDistance(
-                    branch = b,
-                    directDistanceMeters = dist,
-                    routeResult = null,
-                    estimatedMinutes = PathFinder.calculateEstimatedMinutes(dist),
-                )
-            }.sortedBy { it.directDistanceMeters }
 
-            val initialSelected = _uiState.value.selectedBranch ?: branchDistances.firstOrNull()
+            val nearest = _uiState.value.selectedBranch?.let { prev ->
+                branchDistances.firstOrNull { it.branch.id == prev.branch.id }
+            } ?: branchDistances.firstOrNull()
+
+            val route = nearest?.let { resolveRouteForBranch(userLoc, it) }
+            val selectedWithRoute = nearest?.copy(routeResult = route)
+            val updatedBranches = if (selectedWithRoute != null) {
+                branchDistances.map { b ->
+                    if (b.branch.id == selectedWithRoute.branch.id) selectedWithRoute else b
+                }
+            } else {
+                branchDistances
+            }
 
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     roadGraph = graph,
-                    branches = branchDistances,
-                    selectedBranch = initialSelected,
+                    branches = updatedBranches,
+                    selectedBranch = selectedWithRoute,
+                    currentRoute = route,
                     errorMessage = null,
                 )
             }
@@ -167,49 +170,54 @@ class BranchLocatorViewModel(
 
     fun onUserLocationChanged(location: GeoPoint): Job {
         _uiState.update { it.copy(userLocation = location) }
-        return refreshBranches(recalculateRoute = true)
+        return refreshBranches(selectNearest = true, recalculateRoute = true)
     }
 
-    private fun refreshBranches(recalculateRoute: Boolean = false): Job = viewModelScope.launch {
+    /**
+     * Scans all banks/ATMs strictly beyond [MIN_SCAN_DISTANCE_METERS] (20m) from the user's
+     * current location, selects the nearest match, and calculates the route to it.
+     */
+    fun scanNearestAndRoute(): Job = refreshBranches(selectNearest = true, recalculateRoute = true)
+
+    private fun refreshBranches(
+        selectNearest: Boolean = false,
+        recalculateRoute: Boolean = false,
+    ): Job = viewModelScope.launch {
         try {
             val currentState = _uiState.value
-            val entities = repository.searchBranches(
-                query = currentState.searchQuery,
-                filter = currentState.filter,
-            ) + com.mebanking.app.domain.model.navigation.NearbyBanksProvider.searchNearby(
+            val branchDistances = scanBranchesOutsideRadius(
+                userLocation = currentState.userLocation,
                 query = currentState.searchQuery,
                 filter = currentState.filter,
             )
-            val branchDistances = entities.map { b ->
-                val dist = GeoDistanceCalculator.haversineDistanceMeters(
-                    currentState.userLocation,
-                    GeoPoint(b.latitude, b.longitude),
-                )
-                BranchDistance(
-                    branch = b,
-                    directDistanceMeters = dist,
-                    routeResult = if (stateMatchesBranch(currentState.selectedBranch, b.id)) {
-                        currentState.currentRoute
-                    } else null,
-                    estimatedMinutes = PathFinder.calculateEstimatedMinutes(dist),
-                )
-            }.sortedBy { it.directDistanceMeters }
 
             val currentSelectedId = currentState.selectedBranch?.branch?.id
-            val updatedSelected = branchDistances.firstOrNull { it.branch.id == currentSelectedId }
-                ?: branchDistances.firstOrNull()
-
-            val newRoute = if (recalculateRoute && updatedSelected != null && currentState.currentRoute != null) {
-                repository.calculateRouteToBranch(currentState.userLocation, updatedSelected.branch.id)
-            } else if (updatedSelected?.branch?.id == currentSelectedId) {
-                currentState.currentRoute
+            val targetBranch = if (selectNearest) {
+                branchDistances.firstOrNull()
             } else {
-                null
+                branchDistances.firstOrNull { it.branch.id == currentSelectedId }
+                    ?: branchDistances.firstOrNull()
+            }
+
+            val newRoute = when {
+                targetBranch == null -> null
+                recalculateRoute || targetBranch.branch.id != currentSelectedId || currentState.currentRoute == null ->
+                    resolveRouteForBranch(currentState.userLocation, targetBranch)
+                else -> currentState.currentRoute
+            }
+
+            val updatedSelected = targetBranch?.copy(routeResult = newRoute)
+            val updatedBranches = if (updatedSelected != null) {
+                branchDistances.map { b ->
+                    if (b.branch.id == updatedSelected.branch.id) updatedSelected else b
+                }
+            } else {
+                branchDistances
             }
 
             _uiState.update {
                 it.copy(
-                    branches = branchDistances,
+                    branches = updatedBranches,
                     selectedBranch = updatedSelected,
                     currentRoute = newRoute,
                 )
@@ -224,11 +232,74 @@ class BranchLocatorViewModel(
         }
     }
 
-    private fun stateMatchesBranch(selected: BranchDistance?, branchId: Long): Boolean {
-        return selected?.branch?.id == branchId
+    private suspend fun scanBranchesOutsideRadius(
+        userLocation: GeoPoint,
+        query: String,
+        filter: BranchFilter,
+    ): List<BranchDistance> {
+        val entities = repository.searchBranches(query = query, filter = filter) +
+            NearbyBanksProvider.searchNearby(query = query, filter = filter)
+
+        return entities.mapNotNull { b ->
+            val dist = GeoDistanceCalculator.haversineDistanceMeters(
+                userLocation,
+                GeoPoint(b.latitude, b.longitude),
+            )
+            if (dist <= MIN_SCAN_DISTANCE_METERS) {
+                null
+            } else {
+                BranchDistance(
+                    branch = b,
+                    directDistanceMeters = dist,
+                    routeResult = null,
+                    estimatedMinutes = PathFinder.calculateEstimatedMinutes(dist),
+                )
+            }
+        }.sortedBy { it.directDistanceMeters }
+    }
+
+    private suspend fun resolveRouteForBranch(
+        userLocation: GeoPoint,
+        branchDistance: BranchDistance,
+    ): RouteResult {
+        val graphRoute = try {
+            repository.calculateRouteToBranch(userLocation, branchDistance.branch.id)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+        val startNode = RoadNode(
+            id = "user_location",
+            name = "Vị trí của bạn",
+            latitude = userLocation.latitude,
+            longitude = userLocation.longitude,
+        )
+        val endNode = RoadNode(
+            id = "branch_${branchDistance.branch.id}",
+            name = branchDistance.branch.name,
+            latitude = branchDistance.branch.latitude,
+            longitude = branchDistance.branch.longitude,
+        )
+        return graphRoute ?: RouteResult(
+            nodes = listOf(startNode, endNode),
+            edges = listOf(
+                RoadEdge(
+                    id = "direct_${branchDistance.branch.id}",
+                    fromNodeId = startNode.id,
+                    toNodeId = endNode.id,
+                    distanceMeters = branchDistance.directDistanceMeters,
+                    streetName = "Đường đi trực tiếp",
+                ),
+            ),
+            totalDistanceMeters = branchDistance.directDistanceMeters,
+            estimatedMinutes = branchDistance.estimatedMinutes,
+        )
     }
 
     companion object {
+        const val MIN_SCAN_DISTANCE_METERS = 20.0
+
         fun factory(context: Context): ViewModelProvider.Factory {
             val app = context.applicationContext as? MEbankingApplication
             return app?.container?.viewModelFactory ?: object : ViewModelProvider.Factory {

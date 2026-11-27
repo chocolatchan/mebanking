@@ -159,20 +159,32 @@ class BranchLocatorViewModelTest {
     }
 
     @Test
-    fun testUserLocationChangeUpdatesDistancesAndResorts() = runTest {
+    fun testUserLocationChangeFiltersWithin20mSelectsNearestAndRoutes() = runTest {
         viewModel = BranchLocatorViewModel(repository)
         viewModel.loadData().join()
 
-        // Move user close to District 7 (Tan Phong)
+        // Move user right onto District 7 (Tan Phong) coordinate (~0m away)
         val d7Point = GeoPoint(10.7326, 106.6992)
         viewModel.onUserLocationChanged(d7Point).join()
 
         val state = viewModel.uiState.value
         assertEquals(d7Point, state.userLocation)
 
-        // The nearest branch should now be Tan Phong in D7
+        // Tan Phong (~0m) must be excluded; every returned branch must be > 20m away
+        assertTrue("Branches must not be empty", state.branches.isNotEmpty())
+        assertTrue(
+            "All scanned branches must be > 20m from user",
+            state.branches.all { it.directDistanceMeters > BranchLocatorViewModel.MIN_SCAN_DISTANCE_METERS },
+        )
+        assertFalse(
+            "Branch within 20m (Tan Phong) must be excluded",
+            state.branches.any { it.branch.name == "Chi nhánh Quận 7 - Tân Phong" },
+        )
+
+        // Nearest branch outside 20m must be selected and have a route drawn
         val nearest = state.branches.first()
-        assertEquals("Chi nhánh Quận 7 - Tân Phong", nearest.branch.name)
-        assertTrue("Distance to D7 branch from its own coordinate must be ~0m", nearest.directDistanceMeters < 10.0)
+        assertEquals(nearest.branch.id, state.selectedBranch?.branch?.id)
+        assertNotNull("currentRoute must be automatically calculated for nearest branch", state.currentRoute)
+        assertTrue("currentRoute must have at least 2 points", (state.currentRoute?.nodes?.size ?: 0) >= 2)
     }
 }
