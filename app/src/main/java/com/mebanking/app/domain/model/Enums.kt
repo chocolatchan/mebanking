@@ -8,7 +8,19 @@ enum class Role {
 enum class AccountType {
     CHECKING,
     SAVING,
-    MORTGAGE,
+    MORTGAGE;
+
+    fun vietnameseName(): String = when (this) {
+        CHECKING -> "Thanh toán"
+        SAVING -> "Tiết kiệm"
+        MORTGAGE -> "Thế chấp"
+    }
+
+    fun fullVietnameseName(): String = when (this) {
+        CHECKING -> "Tài khoản thanh toán"
+        SAVING -> "Tài khoản tiết kiệm"
+        MORTGAGE -> "Tài khoản thế chấp"
+    }
 }
 
 enum class TransactionType {

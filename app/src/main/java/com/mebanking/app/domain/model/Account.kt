@@ -24,7 +24,7 @@ data class Account(
     fun toLegacyAccount(): com.mebanking.app.data.model.Account {
         return com.mebanking.app.data.model.Account(
             id = id.toString(),
-            name = "$accountType ($accountNumber)",
+            name = "${accountType.fullVietnameseName()} ($accountNumber)",
             iban = accountNumber,
             balance = balance,
             currency = currency,

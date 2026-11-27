@@ -42,8 +42,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -51,6 +53,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -650,8 +654,10 @@ fun TonalSearchBar(
 }
 
 /**
- * Transparent TopAppBar housing a title row (with optional actions) and an integrated M3 Search Bar.
+ * Transparent collapsible LargeTopAppBar with spacious expanded top breathing room
+ * by default that compresses on scroll, paired with a docked tonal M3 Search Bar.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopSearchAppBar(
     title: String,
@@ -659,34 +665,19 @@ fun TopSearchAppBar(
     onQueryChange: (String) -> Unit,
     placeholder: String,
     subtitle: String? = null,
+    scrollBehavior: TopAppBarScrollBehavior? = null,
     actions: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        color = Color.Transparent,
-        modifier = modifier
-            .fillMaxWidth()
-            .statusBarsPadding(),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        LargeTopAppBar(
+            title = {
+                Column {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
                     )
-                    if (!subtitle.isNullOrBlank()) {
+                    if (!subtitle.isNullOrBlank() && (scrollBehavior == null || scrollBehavior.state.collapsedFraction < 0.5f)) {
                         Text(
                             text = subtitle,
                             style = MaterialTheme.typography.labelMedium,
@@ -694,8 +685,20 @@ fun TopSearchAppBar(
                         )
                     }
                 }
-                actions()
-            }
+            },
+            actions = { actions() },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent,
+                titleContentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+            scrollBehavior = scrollBehavior,
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 2.dp, end = 16.dp, bottom = 10.dp),
+        ) {
             TonalSearchBar(
                 query = query,
                 onQueryChange = onQueryChange,

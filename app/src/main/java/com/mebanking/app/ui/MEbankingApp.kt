@@ -387,7 +387,10 @@ private fun AuthenticatedApp(
             TransactionDetailScreen(transactionId = transactionId, onBack = { navController.popBackStack() })
         }
         composable("officer_dashboard") {
-            OfficerDashboardScreen(onBack = { navController.popBackStack() })
+            OfficerDashboardScreen(
+                isBottomBarVisible = isBottomBarVisible,
+                onBack = { navController.popBackStack() },
+            )
         }
         composable("bills") {
             BillPaymentScreen(onBack = { navController.popBackStack() })

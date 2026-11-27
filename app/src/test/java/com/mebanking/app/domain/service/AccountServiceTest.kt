@@ -326,5 +326,9 @@ class AccountServiceTest {
         val badTerm = accountService.openCustomerSavingAccount(1_000_000L, 5.0, 999, customer1Session)
         assertTrue(badTerm.isFailure)
         assertTrue(badTerm.exceptionOrNull() is DomainError.InvalidData)
+
+        // Legacy UI model maps account types to Vietnamese names
+        assertTrue(saving.toLegacyAccount().name.startsWith("Tài khoản tiết kiệm"))
+        assertTrue(mortgage.toLegacyAccount().name.startsWith("Tài khoản thế chấp"))
     }
 }

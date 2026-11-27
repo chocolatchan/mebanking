@@ -1,49 +1,58 @@
 package com.mebanking.app.ui.officer
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,13 +60,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.input.KeyboardType
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -65,17 +76,25 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.service.BankInterestRatePolicy
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.M3EMotion
+import com.mebanking.app.ui.components.TopSearchAppBar
+import com.mebanking.app.ui.components.m3eBouncyPress
 import com.mebanking.app.ui.components.tonalTextFieldColors
 import com.mebanking.app.ui.ekyc.FaceCaptureDialog
+import kotlinx.coroutines.launch
 
 @Composable
-fun OfficerDashboardScreen(onBack: () -> Unit) {
+fun OfficerDashboardScreen(
+    isBottomBarVisible: Boolean = true,
+    onBack: () -> Unit,
+) {
     val context = LocalContext.current
     val factory = (context.applicationContext as MEbankingApplication).container.viewModelFactory
     val viewModel: OfficerDashboardViewModel = viewModel(factory = factory)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     OfficerDashboardContent(
         state = state,
+        isBottomBarVisible = isBottomBarVisible,
         onBack = onBack,
         onQueryChanged = viewModel::onQueryChanged,
         onSelect = viewModel::selectCustomer,
@@ -107,6 +126,7 @@ fun OfficerDashboardScreen(onBack: () -> Unit) {
 @Composable
 private fun OfficerDashboardContent(
     state: OfficerDashboardUiState,
+    isBottomBarVisible: Boolean = true,
     onBack: () -> Unit,
     onQueryChanged: (String) -> Unit,
     onSelect: (com.mebanking.app.domain.model.User) -> Unit,
@@ -151,56 +171,58 @@ private fun OfficerDashboardContent(
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val fabBottomPadding by animateDpAsState(
+        targetValue = if (isBottomBarVisible) 88.dp else 16.dp,
+        animationSpec = M3EMotion.spatialSpring(),
+        label = "officer_fab_padding",
+    )
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(
-                        text = "Quản lý hồ sơ khách hàng",
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                ),
+            TopSearchAppBar(
+                title = "Quản lý hồ sơ khách hàng",
+                subtitle = "${state.customers.size} khách hàng",
+                query = state.query,
+                onQueryChange = onQueryChanged,
+                placeholder = "Tìm theo CCCD, họ tên hoặc SĐT...",
                 scrollBehavior = scrollBehavior,
             )
+        },
+        floatingActionButton = {
+            val fabInteraction = remember { MutableInteractionSource() }
+            FloatingActionButton(
+                onClick = {
+                    onNew()
+                    showProfileDialog = true
+                },
+                interactionSource = fabInteraction,
+                shape = RoundedCornerShape(18.dp),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(bottom = fabBottomPadding)
+                    .m3eBouncyPress(fabInteraction, pressedScale = 0.92f),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PersonAdd,
+                    contentDescription = "Tạo hồ sơ khách hàng mới",
+                )
+            }
         },
     ) { padding ->
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 104.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .navigationBarsPadding(),
+            contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 152.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item {
-                TextField(
-                    value = state.query,
-                    onValueChange = onQueryChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Tìm theo CCCD hoặc họ tên") },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                    singleLine = true,
-                )
-            }
-            item {
-                Button(
-                    onClick = {
-                        onNew()
-                        showProfileDialog = true
-                    },
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Tạo hồ sơ khách hàng mới")
-                }
-            }
             if (state.isLoading) item { CircularProgressIndicator(Modifier.padding(12.dp)) }
             state.errorMessage?.let { message ->
                 item {
@@ -248,7 +270,7 @@ private fun OfficerDashboardContent(
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier.fillMaxWidth().clickable {
                             onSelect(customer)
-                            val accountsIndex = 2 +
+                            val accountsIndex =
                                 (if (state.isLoading) 1 else 0) +
                                 (if (state.errorMessage != null) 1 else 0) +
                                 (if (state.successMessage != null) 1 else 0) +
@@ -274,13 +296,17 @@ private fun OfficerDashboardContent(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            TextButton(
+                            FilledTonalButton(
                                 onClick = {
                                     onSelect(customer)
                                     showProfileDialog = true
                                 },
+                                shape = RoundedCornerShape(14.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                             ) {
-                                Text("Cập nhật hồ sơ")
+                                Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Cập nhật", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -306,10 +332,33 @@ private fun OfficerDashboardContent(
                                 Text(
                                     text = "Tài khoản của ${state.selectedCustomer.fullName} (${state.selectedCustomerAccounts.size})",
                                     style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
                                     modifier = Modifier.weight(1f),
                                 )
-                                TextButton(onClick = { showProfileDialog = true }) {
-                                    Text("Sửa hồ sơ")
+                            }
+                            // Split Button / Button Group for updating profile & enrolling face eKYC
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Button(
+                                    onClick = { showProfileDialog = true },
+                                    shape = RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp, topEnd = 6.dp, bottomEnd = 6.dp),
+                                    modifier = Modifier.weight(1.3f),
+                                ) {
+                                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Cập nhật hồ sơ", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                FilledTonalButton(
+                                    onClick = { enrollingCustomerId = state.selectedCustomer.id },
+                                    enabled = !state.isLoading,
+                                    shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 18.dp, bottomEnd = 18.dp),
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Icon(Icons.Filled.Face, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("eKYC", maxLines = 1)
                                 }
                             }
                             if (state.selectedCustomerAccounts.isEmpty()) {
@@ -334,31 +383,37 @@ private fun OfficerDashboardContent(
                                     )
                                 }
                             }
-                            FlowRow(
+                            // Connected M3 Button Group for opening customer accounts
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
-                                OutlinedButton(
+                                FilledTonalButton(
                                     onClick = { onOpenAccount(com.mebanking.app.domain.model.AccountType.CHECKING) },
                                     enabled = !state.isLoading,
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp, topEnd = 6.dp, bottomEnd = 6.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
+                                    modifier = Modifier.weight(1f),
                                 ) {
-                                    Text("+ TK Thanh toán", style = MaterialTheme.typography.labelSmall)
+                                    Text("+ Thanh toán", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
-                                OutlinedButton(
+                                FilledTonalButton(
                                     onClick = { showCreateSavingDialog = true },
                                     enabled = !state.isLoading,
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(6.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
+                                    modifier = Modifier.weight(1f),
                                 ) {
-                                    Text("+ TK Tiết kiệm", style = MaterialTheme.typography.labelSmall)
+                                    Text("+ Tiết kiệm", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
-                                OutlinedButton(
+                                FilledTonalButton(
                                     onClick = { showCreateMortgageDialog = true },
                                     enabled = !state.isLoading,
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 18.dp, bottomEnd = 18.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
+                                    modifier = Modifier.weight(1f),
                                 ) {
-                                    Text("+ TK Vay Mortgage", style = MaterialTheme.typography.labelSmall)
+                                    Text("+ Thế chấp", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                         }
@@ -418,7 +473,7 @@ private fun OfficerDashboardContent(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Tài khoản ${targetAcc.accountNumber} (${targetAcc.accountType.name})",
+                        text = "Tài khoản ${targetAcc.accountNumber} (${targetAcc.accountType.vietnameseName()})",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -552,138 +607,284 @@ private fun CustomerProfileDialogCard(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            shape = RoundedCornerShape(22.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Row(
+                // Header Tonal Card
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = if (state.isCreating) "Tạo hồ sơ khách hàng" else "Cập nhật hồ sơ khách hàng",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Filled.Close, contentDescription = "Đóng")
-                    }
-                }
-                if (state.isCreating) {
-                    TextField(
-                        value = state.username,
-                        onValueChange = onUsername,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Tên đăng nhập") },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = tonalTextFieldColors(),
-                        singleLine = true,
-                    )
-                    TextField(
-                        value = state.password,
-                        onValueChange = onPassword,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Mật khẩu tạm (tối thiểu 8 ký tự)") },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = tonalTextFieldColors(),
-                        singleLine = true,
-                    )
-                }
-                TextField(
-                    value = state.fullName,
-                    onValueChange = onName,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Họ và tên") },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = tonalTextFieldColors(),
-                    singleLine = true,
-                )
-                TextField(
-                    value = state.nationalId,
-                    onValueChange = onNationalId,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("CCCD (12 số)") },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = tonalTextFieldColors(),
-                    singleLine = true,
-                )
-                TextField(
-                    value = state.email,
-                    onValueChange = onEmail,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Email") },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = tonalTextFieldColors(),
-                    singleLine = true,
-                )
-                TextField(
-                    value = state.phone,
-                    onValueChange = onPhone,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Số điện thoại (định danh đăng nhập)") },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = tonalTextFieldColors(),
-                    singleLine = true,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = state.kycVerified, onCheckedChange = onKyc)
-                    Text("Đã xác minh KYC")
-                }
-                if (!state.isCreating && state.selectedCustomer != null) {
-                    Text(
-                        text = "Lưu thay đổi thông tin hoặc SĐT sẽ yêu cầu xác nhận khuôn mặt của khách hàng.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    OutlinedButton(
-                        onClick = { onEnrollFace(state.selectedCustomer.id) },
-                        enabled = !state.isLoading,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth(),
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = if (state.isCreating) Icons.Filled.PersonAdd else Icons.Filled.Edit,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = if (state.isCreating) "Tạo hồ sơ khách hàng" else "Cập nhật hồ sơ khách hàng",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                                Text(
+                                    text = if (state.isCreating) "Thông tin khách hàng mới" else (state.selectedCustomer?.fullName ?: ""),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                )
+                            }
+                        }
+                        IconButton(onClick = onDismiss) {
                             Icon(
-                                imageVector = Icons.Filled.Face,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Đóng",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
-                            Spacer(Modifier.width(8.dp))
-                            Text("Thu thập sinh trắc học khuôn mặt eKYC")
                         }
                     }
                 }
-                state.errorMessage?.let { err ->
-                    Text(
-                        text = err,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+
+                // Section Card 1: Profile Fields
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = "Thông tin định danh",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        if (state.isCreating) {
+                            TextField(
+                                value = state.username,
+                                onValueChange = onUsername,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Tên đăng nhập") },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surface),
+                                singleLine = true,
+                            )
+                            TextField(
+                                value = state.password,
+                                onValueChange = onPassword,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Mật khẩu tạm (tối thiểu 8 ký tự)") },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surface),
+                                singleLine = true,
+                            )
+                        }
+                        TextField(
+                            value = state.fullName,
+                            onValueChange = onName,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Họ và tên") },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surface),
+                            singleLine = true,
+                        )
+                        TextField(
+                            value = state.nationalId,
+                            onValueChange = onNationalId,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("CCCD (12 số)") },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surface),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                        )
+                        TextField(
+                            value = state.email,
+                            onValueChange = onEmail,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Email") },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surface),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            singleLine = true,
+                        )
+                        TextField(
+                            value = state.phone,
+                            onValueChange = onPhone,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Số điện thoại (định danh đăng nhập)") },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surface),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            singleLine = true,
+                        )
+                    }
                 }
+
+                // Section Card 2: KYC Status Button Group & Biometrics Split Card
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = "Trạng thái KYC",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        // M3 Connected Button Group for KYC state
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            val unverifiedColors = if (!state.kycVerified) {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                            } else {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            val verifiedColors = if (state.kycVerified) {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            } else {
+                                ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Button(
+                                onClick = { onKyc(false) },
+                                colors = unverifiedColors,
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                                shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp, topEnd = 5.dp, bottomEnd = 5.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Chưa xác minh", style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                            }
+                            Button(
+                                onClick = { onKyc(true) },
+                                colors = verifiedColors,
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                                shape = RoundedCornerShape(topStart = 5.dp, bottomStart = 5.dp, topEnd = 16.dp, bottomEnd = 16.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Đã xác minh KYC", style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                            }
+                        }
+
+                        if (!state.isCreating && state.selectedCustomer != null) {
+                            Text(
+                                text = "Lưu thay đổi thông tin hoặc SĐT sẽ yêu cầu xác nhận khuôn mặt khách hàng.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            FilledTonalButton(
+                                onClick = { onEnrollFace(state.selectedCustomer.id) },
+                                enabled = !state.isLoading,
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Face,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Thu thập khuôn mặt eKYC", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+
+                state.errorMessage?.let { err ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = err,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
+                }
+
+                // Connected Split Action Button Group at Dialog Footer
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    TextButton(
+                    FilledTonalButton(
                         onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 6.dp, bottomEnd = 6.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
                     ) {
-                        Text("Hủy")
+                        Text("Hủy", fontWeight = FontWeight.SemiBold)
                     }
                     Button(
                         onClick = onSave,
                         enabled = !state.isLoading,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 20.dp, bottomEnd = 20.dp),
+                        modifier = Modifier
+                            .weight(1.45f)
+                            .height(50.dp),
                     ) {
-                        Text(if (state.isCreating) "Tạo hồ sơ" else "Xác thực & Lưu")
+                        Text(
+                            text = if (state.isCreating) "Tạo hồ sơ" else "Xác thực & Lưu",
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
             }
@@ -723,7 +924,7 @@ private fun CustomerAccountManagementRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "${account.accountNumber} (${account.accountType.name})",
+                text = "${account.accountNumber} (${account.accountType.vietnameseName()})",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -904,7 +1105,7 @@ private fun CreateMortgageAccountDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(24.dp),
-        title = { Text("Tạo tài khoản Vay (Mortgage)", fontWeight = FontWeight.Bold) },
+        title = { Text("Tạo tài khoản Thế chấp", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 TextField(
@@ -993,7 +1194,7 @@ private fun MortgagePaymentDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = RoundedCornerShape(24.dp),
-        title = { Text("Thanh toán dư nợ Mortgage", fontWeight = FontWeight.Bold) },
+        title = { Text("Thanh toán dư nợ Thế chấp", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(

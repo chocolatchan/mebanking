@@ -113,18 +113,21 @@ private fun TransactionHistoryContent(
     onRetry: () -> Unit,
 ) {
     com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     val groupedTransactions = remember(state.filteredTransactions) {
         groupTransactionsByDate(state.filteredTransactions)
     }
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopSearchAppBar(
                 title = if (state.isOfficerView) "Báo cáo giao dịch hệ thống" else "Lịch sử giao dịch",
                 query = state.searchQuery,
                 onQueryChange = onSearchQueryChange,
                 placeholder = "Tìm kiếm giao dịch (mã GD, số tiền, nội dung, TK, ngày...)",
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
