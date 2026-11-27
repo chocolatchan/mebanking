@@ -810,14 +810,15 @@ private fun BranchDetailsCard(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 val distText = formatDistance(branchDistance.directDistanceMeters)
+                val motoMinutes = (branchDistance.directDistanceMeters / 500.0).roundToInt().coerceAtLeast(1)
                 Text(
-                    text = "🚶 $distText",
+                    text = "🏍️ $distText",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = "  •  ${branchDistance.estimatedMinutes} phút đi bộ",
+                    text = "  •  $motoMinutes phút đi xe máy",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -827,14 +828,14 @@ private fun BranchDetailsCard(
 
             Button(
                 onClick = {
-                    val uri = Uri.parse("google.navigation:q=${b.latitude},${b.longitude}&mode=w")
+                    val uri = Uri.parse("google.navigation:q=${b.latitude},${b.longitude}&mode=l")
                     val intent = Intent(Intent.ACTION_VIEW, uri).apply {
                         setPackage("com.google.android.apps.maps")
                     }
                     try {
                         context.startActivity(intent)
                     } catch (_: Exception) {
-                        val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}")
+                        val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}&travelmode=two-wheeler")
                         context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
                     }
                 },
