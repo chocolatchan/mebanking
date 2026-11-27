@@ -94,7 +94,6 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
-import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
@@ -370,8 +369,6 @@ fun BranchLocatorContent(
 private const val OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
 private const val BRANCHES_SOURCE_ID = "branches-source"
 private const val BRANCHES_LAYER_ID = "branches-layer"
-private const val USER_LOCATION_SOURCE_ID = "user-location-source"
-private const val USER_LOCATION_LAYER_ID = "user-location-layer"
 private const val PROP_BRANCH_ID = "branchId"
 private const val PROP_BRANCH_NAME = "branchName"
 private const val PROP_MARKER_ICON = "markerIcon"
@@ -459,7 +456,7 @@ private fun MapLibreContainer(
         }
     }
 
-    LaunchedEffect(loadedStyle, uiState.branches, uiState.selectedBranch, uiState.userLocation) {
+    LaunchedEffect(loadedStyle, uiState.branches, uiState.selectedBranch) {
         val style = loadedStyle ?: return@LaunchedEffect
         updateMapData(style, uiState)
     }
@@ -524,18 +521,6 @@ private fun ensureMapLayers(style: Style) {
                 PropertyFactory.textHaloColor("#FFFFFF"),
                 PropertyFactory.textHaloWidth(1.5f),
                 PropertyFactory.textOptional(true),
-            ),
-        )
-    }
-
-    if (style.getSource(USER_LOCATION_SOURCE_ID) == null) {
-        style.addSource(GeoJsonSource(USER_LOCATION_SOURCE_ID))
-        style.addLayer(
-            CircleLayer(USER_LOCATION_LAYER_ID, USER_LOCATION_SOURCE_ID).withProperties(
-                PropertyFactory.circleRadius(8f),
-                PropertyFactory.circleColor("#1A73E8"),
-                PropertyFactory.circleStrokeWidth(3f),
-                PropertyFactory.circleStrokeColor("#FFFFFF"),
             ),
         )
     }
@@ -604,11 +589,6 @@ private fun updateMapData(style: Style, uiState: BranchLocatorUiState) {
     }
     style.getSourceAs<GeoJsonSource>(BRANCHES_SOURCE_ID)
         ?.setGeoJson(FeatureCollection.fromFeatures(branchFeatures))
-
-    val userFeature = Feature.fromGeometry(
-        Point.fromLngLat(uiState.userLocation.longitude, uiState.userLocation.latitude),
-    )
-    style.getSourceAs<GeoJsonSource>(USER_LOCATION_SOURCE_ID)?.setGeoJson(userFeature)
 }
 
 @Composable
