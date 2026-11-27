@@ -257,7 +257,7 @@ class HomeViewModel(
                     _uiState.update {
                         it.copy(
                             isUpdatingEkyc = false,
-                            ekycError = qualityRes.exceptionOrNull()?.message ?: "Ảnh khuôn mặt không đạt chuẩn eKYC",
+                            ekycError = qualityRes.exceptionOrNull()?.message ?: "Ảnh khuôn mặt không đạt chuẩn sinh trắc học",
                         )
                     }
                     return@launch
@@ -303,7 +303,7 @@ class HomeViewModel(
                             it.copy(
                                 isUpdatingEkyc = false,
                                 currentUser = updatedUser,
-                                ekycNotice = "Đã cập nhật thông tin eKYC và lưu ảnh khuôn mặt mới thành công",
+                                ekycNotice = "Đã cập nhật thông tin sinh trắc học và lưu ảnh khuôn mặt mới thành công",
                                 ekycError = null,
                             )
                         }
@@ -312,7 +312,7 @@ class HomeViewModel(
                         _uiState.update {
                             it.copy(
                                 isUpdatingEkyc = false,
-                                ekycError = error.toDomainError().message ?: "Không thể lưu thông tin eKYC",
+                                ekycError = error.toDomainError().message ?: "Không thể lưu thông tin sinh trắc học",
                             )
                         }
                     },
@@ -323,7 +323,7 @@ class HomeViewModel(
                 _uiState.update {
                     it.copy(
                         isUpdatingEkyc = false,
-                        ekycError = t.toDomainError().message ?: "Lỗi cập nhật eKYC",
+                        ekycError = t.toDomainError().message ?: "Lỗi cập nhật sinh trắc học",
                     )
                 }
             }

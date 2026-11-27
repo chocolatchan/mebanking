@@ -223,7 +223,7 @@ class OfficerDashboardViewModel(
     fun enrollFaceBiometrics(customerId: Long, imageBytes: ByteArray = "clear_face".toByteArray(Charsets.ISO_8859_1)) {
         val session = sessionManager.currentSession
         if (session?.role != Role.OFFICER) {
-            _uiState.update { it.copy(errorMessage = "Chỉ cán bộ ngân hàng được thực hiện eKYC cho khách hàng") }
+            _uiState.update { it.copy(errorMessage = "Chỉ cán bộ ngân hàng được thực hiện sinh trắc học cho khách hàng") }
             return
         }
         val faceService = faceRecognitionService ?: run {
@@ -270,7 +270,7 @@ class OfficerDashboardViewModel(
                             it.copy(
                                 isLoading = false,
                                 kycVerified = true,
-                                successMessage = "Đã thu thập sinh trắc học và hoàn tất xác minh eKYC cho khách hàng",
+                                successMessage = "Đã thu thập sinh trắc học và hoàn tất xác minh khuôn mặt cho khách hàng",
                             )
                         }
                         search(_uiState.value.query)
@@ -334,7 +334,7 @@ class OfficerDashboardViewModel(
             if (!hasFace) {
                 _uiState.update {
                     it.copy(
-                        errorMessage = "Khách hàng chưa đăng ký khuôn mặt eKYC. Vui lòng thu thập sinh trắc học khuôn mặt trước khi xác nhận cập nhật thông tin.",
+                        errorMessage = "Khách hàng chưa đăng ký khuôn mặt sinh trắc học. Vui lòng thu thập sinh trắc học khuôn mặt trước khi xác nhận cập nhật thông tin.",
                     )
                 }
             } else {
@@ -425,7 +425,7 @@ class OfficerDashboardViewModel(
                             FaceRecognitionError.PoorQuality -> "Chất lượng hình ảnh quá thấp"
                             is FaceRecognitionError.ModelLoadFailed -> err.cause
                             FaceRecognitionError.PermissionDenied -> "Chưa cấp quyền máy ảnh"
-                            FaceRecognitionError.TemplateNotFound -> "Khách hàng chưa đăng ký khuôn mặt eKYC"
+                            FaceRecognitionError.TemplateNotFound -> "Khách hàng chưa đăng ký khuôn mặt sinh trắc học"
                         }
                         _uiState.update {
                             it.copy(

@@ -73,6 +73,7 @@ import com.mebanking.app.ui.auth.DeviceAuthenticationResult
 import com.mebanking.app.ui.auth.DeviceAuthenticator
 import com.mebanking.app.ui.components.AccountSelectionCarousel
 import com.mebanking.app.ui.components.LargeAmountInputSection
+import com.mebanking.app.ui.components.OtpVerificationBottomSheet
 import com.mebanking.app.ui.components.tonalTextFieldColors
 import com.mebanking.app.ui.ekyc.FaceCaptureDialog
 import com.mebanking.app.ui.theme.MEbankingTheme
@@ -568,48 +569,16 @@ fun TransferContent(
     }
 
     if (uiState.showOtpDialog) {
-        AlertDialog(
-            onDismissRequest = onCancelOtp,
-            shape = RoundedCornerShape(22.dp),
-            title = { Text("Xác nhận mã OTP", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Nhập mã OTP bảo mật 6 chữ số để xác thực giao dịch:")
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            text = uiState.otpCode.ifBlank { "Mã đã hết hạn" },
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(12.dp),
-                        )
-                    }
-                    TextField(
-                        value = uiState.otpInput,
-                        onValueChange = onOtpInputChanged,
-                        label = { Text("Mã OTP") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = tonalTextFieldColors(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = onVerifyOtp,
-                    enabled = uiState.otpInput.length == 6,
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Text("Xác thực")
-                }
-            },
-            dismissButton = { TextButton(onClick = onCancelOtp) { Text("Hủy") } },
+        OtpVerificationBottomSheet(
+            title = "Xác nhận mã OTP",
+            subtitle = "Nhập mã OTP bảo mật 6 chữ số để xác thực giao dịch chuyển tiền.",
+            otpCode = uiState.otpCode,
+            otpInput = uiState.otpInput,
+            onOtpInputChanged = onOtpInputChanged,
+            errorMessage = uiState.errorMessage,
+            confirmText = "Xác thực",
+            onVerify = onVerifyOtp,
+            onDismiss = onCancelOtp,
         )
     }
 

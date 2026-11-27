@@ -94,18 +94,19 @@ import androidx.compose.material.icons.filled.Theaters
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
@@ -115,6 +116,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -292,27 +294,59 @@ fun HomeScreen(
     }
 
     if (showLogoutConfirm) {
-        AlertDialog(
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
             onDismissRequest = { showLogoutConfirm = false },
-            title = { Text("Xác nhận đăng xuất", fontWeight = FontWeight.Bold) },
-            text = { Text("Quý khách có chắc chắn muốn đăng xuất khỏi ứng dụng MEbanking?") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showLogoutConfirm = false
-                        onLogout()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = TcbRedPrimary),
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "Xác nhận đăng xuất",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = "Quý khách có chắc chắn muốn đăng xuất khỏi ứng dụng MEbanking?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text("Đăng xuất")
+                    FilledTonalButton(
+                        onClick = { showLogoutConfirm = false },
+                        shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 6.dp, bottomEnd = 6.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                    ) {
+                        Text("Ở lại", fontWeight = FontWeight.SemiBold)
+                    }
+                    Button(
+                        onClick = {
+                            showLogoutConfirm = false
+                            onLogout()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = TcbRedPrimary),
+                        shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 20.dp, bottomEnd = 20.dp),
+                        modifier = Modifier
+                            .weight(1.45f)
+                            .height(50.dp),
+                    ) {
+                        Text("Đăng xuất", fontWeight = FontWeight.Bold)
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLogoutConfirm = false }) {
-                    Text("Ở lại")
-                }
-            },
-        )
+            }
+        }
     }
 
     if (showQrModal) {
@@ -779,7 +813,7 @@ private fun VipBankMasterCard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Quản lý hồ sơ khách hàng, mở tài khoản thanh toán/tiết kiệm và xác minh eKYC.",
+                        text = "Quản lý hồ sơ khách hàng, mở tài khoản thanh toán/tiết kiệm và xác minh sinh trắc học.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )

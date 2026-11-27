@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.domain.model.Account
+import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.model.Bill
 import com.mebanking.app.domain.model.BillStatus
 import com.mebanking.app.domain.model.toDomainError
@@ -75,7 +76,7 @@ class BillPaymentViewModel(
         viewModelScope.launch {
             try {
                 val accounts = accountRepository.getAccountsByUserIdSync(session.userId)
-                    .filter { it.status == "ACTIVE" }
+                    .filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
                 _uiState.update { state ->
                     val selected = state.selectedAccountId
                         ?.takeIf { id -> accounts.any { it.id == id } }
@@ -194,7 +195,7 @@ class BillPaymentViewModel(
     private suspend fun refreshAccounts(userId: Long) {
         try {
             val accounts = accountRepository.getAccountsByUserIdSync(userId)
-                .filter { it.status == "ACTIVE" }
+                .filter { it.status == "ACTIVE" && it.accountType != AccountType.MORTGAGE }
             _uiState.update { state ->
                 val selected = state.selectedAccountId
                     ?.takeIf { id -> accounts.any { it.id == id } }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,23 +31,24 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -353,6 +355,7 @@ private fun ContactGridCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddContactDialog(
     onDismiss: () -> Unit,
@@ -364,102 +367,120 @@ private fun AddContactDialog(
     var bank by remember { mutableStateOf("MEbanking") }
     var phone by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(26.dp),
-        title = {
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(start = 20.dp, top = 4.dp, end = 20.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Text(
                 text = "Thêm liên hệ mới",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
             )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                TextField(
-                    value = name,
-                    onValueChange = {
-                        name = it
-                        errorMessage = null
-                    },
-                    label = { Text("Tên gợi nhớ / Họ và tên") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = tonalTextFieldColors(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                TextField(
-                    value = accountNumber,
-                    onValueChange = {
-                        accountNumber = it.filter { ch -> ch.isLetterOrDigit() }
-                        errorMessage = null
-                    },
-                    label = { Text("Số tài khoản") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = tonalTextFieldColors(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Next,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                TextField(
-                    value = phone,
-                    onValueChange = { phone = it.filter { ch -> ch.isDigit() } },
-                    label = { Text("Số điện thoại (tùy chọn)") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = tonalTextFieldColors(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Phone,
-                        imeAction = ImeAction.Done,
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    text = "Ngân hàng",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(popularBanks) { item ->
-                        FilterChip(
-                            selected = bank == item,
-                            onClick = { bank = item },
-                            label = { Text(item) },
-                        )
-                    }
-                }
-                if (errorMessage != null) {
-                    Text(
-                        text = errorMessage.orEmpty(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+            TextField(
+                value = name,
+                onValueChange = {
+                    name = it
+                    errorMessage = null
+                },
+                label = { Text("Tên gợi nhớ / Họ và tên") },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = tonalTextFieldColors(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextField(
+                value = accountNumber,
+                onValueChange = {
+                    accountNumber = it.filter { ch -> ch.isLetterOrDigit() }
+                    errorMessage = null
+                },
+                label = { Text("Số tài khoản") },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = tonalTextFieldColors(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Next,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextField(
+                value = phone,
+                onValueChange = { phone = it.filter { ch -> ch.isDigit() } },
+                label = { Text("Số điện thoại (tùy chọn)") },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = tonalTextFieldColors(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone,
+                    imeAction = ImeAction.Done,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = "Ngân hàng",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(popularBanks) { item ->
+                    FilterChip(
+                        selected = bank == item,
+                        onClick = { bank = item },
+                        label = { Text(item) },
                     )
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (name.isBlank() || accountNumber.isBlank()) {
-                        errorMessage = "Vui lòng nhập đầy đủ tên và số tài khoản"
-                    } else {
-                        onConfirm(name, accountNumber, bank, phone)
-                    }
-                },
-                shape = RoundedCornerShape(14.dp),
-            ) {
-                Text("Lưu liên hệ", fontWeight = FontWeight.Bold)
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Hủy") }
-        },
-    )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                FilledTonalButton(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                ) {
+                    Text("Hủy", fontWeight = FontWeight.SemiBold)
+                }
+                Button(
+                    onClick = {
+                        if (name.isBlank() || accountNumber.isBlank()) {
+                            errorMessage = "Vui lòng nhập đầy đủ tên và số tài khoản"
+                        } else {
+                            onConfirm(name, accountNumber, bank, phone)
+                        }
+                    },
+                    shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 20.dp, bottomEnd = 20.dp),
+                    modifier = Modifier
+                        .weight(1.45f)
+                        .height(52.dp),
+                ) {
+                    Text("Lưu liên hệ", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
 }

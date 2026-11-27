@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,25 +37,27 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.mebanking.app.ui.components.tonalTextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -706,12 +710,13 @@ private fun CustomerProfileCard(
             DetailRow("Họ và tên", session?.fullName ?: "Nguyễn Văn An")
             DetailRow("Số điện thoại / Tên đăng nhập", session?.username ?: "0901234567")
             DetailRow("Vai trò", if (session?.role?.name == "CUSTOMER") "Khách hàng cá nhân" else "Cán bộ quản trị")
-            DetailRow("Trạng thái định danh", "Đã xác thực CCCD gắn chip (eKYC)")
+            DetailRow("Trạng thái định danh", "Đã xác thực CCCD gắn chip (Sinh trắc học)")
             DetailRow("Tổng đài hỗ trợ 24/7", "1900 1234 (Miễn phí)")
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SavingCard(
     account: Account,
@@ -770,35 +775,64 @@ private fun SavingCard(
     }
 
     if (showEditRateDialog) {
-        AlertDialog(
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
             onDismissRequest = { showEditRateDialog = false },
-            title = { Text("Điều chỉnh lãi suất tiết kiệm") },
-            text = {
-                OutlinedTextField(
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "Điều chỉnh lãi suất tiết kiệm",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                TextField(
                     value = rateInput,
                     onValueChange = { rateInput = it },
                     label = { Text("Lãi suất mới (%/năm, tối đa 15.0%)") },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onUpdateInterestRate(rateInput)
-                        showEditRateDialog = false
-                    },
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text("Lưu lãi suất")
+                    FilledTonalButton(
+                        onClick = { showEditRateDialog = false },
+                        shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 6.dp, bottomEnd = 6.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                    ) {
+                        Text("Hủy", fontWeight = FontWeight.SemiBold)
+                    }
+                    Button(
+                        onClick = {
+                            onUpdateInterestRate(rateInput)
+                            showEditRateDialog = false
+                        },
+                        shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 20.dp, bottomEnd = 20.dp),
+                        modifier = Modifier
+                            .weight(1.45f)
+                            .height(50.dp),
+                    ) {
+                        Text("Lưu lãi suất", fontWeight = FontWeight.Bold)
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditRateDialog = false }) {
-                    Text("Hủy")
-                }
-            },
-        )
+            }
+        }
     }
 }
 

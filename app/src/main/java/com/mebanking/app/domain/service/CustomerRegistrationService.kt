@@ -86,7 +86,7 @@ class DefaultCustomerRegistrationService(
                 if (qualityResult.isFailure) {
                     Result.failure(
                         DomainError.InvalidData(
-                            qualityResult.exceptionOrNull()?.message ?: "Chất lượng ảnh khuôn mặt không đạt chuẩn eKYC",
+                            qualityResult.exceptionOrNull()?.message ?: "Chất lượng ảnh khuôn mặt không đạt chuẩn sinh trắc học",
                         ),
                     )
                 } else {

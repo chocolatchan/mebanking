@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -42,10 +44,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,7 +63,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.carousel.HorizontalCenteredHeroCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -175,10 +184,10 @@ fun AccountSelectionCarousel(
     Column(modifier = modifier.fillMaxWidth()) {
         HorizontalCenteredHeroCarousel(
             state = carouselState,
-            maxItemWidth = 286.dp,
-            itemSpacing = 10.dp,
-            minSmallItemWidth = 52.dp,
-            maxSmallItemWidth = 72.dp,
+            maxItemWidth = 316.dp,
+            itemSpacing = 8.dp,
+            minSmallItemWidth = 24.dp,
+            maxSmallItemWidth = 44.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(152.dp),
@@ -187,7 +196,7 @@ fun AccountSelectionCarousel(
             val selected = account.id == selectedAccountId || page == carouselState.currentItem
             val visibleRatio = (carouselItemDrawInfo.size / carouselItemDrawInfo.maxSize.coerceAtLeast(1f))
                 .coerceIn(0f, 1f)
-            val detailAlpha = ((visibleRatio - 0.30f) / 0.70f).coerceIn(0f, 1f)
+            val detailAlpha = ((visibleRatio - 0.45f) / 0.55f).coerceIn(0f, 1f)
 
             AccountHeroCard(
                 account = account,
@@ -744,6 +753,122 @@ fun TopSearchAppBar(
                 onQueryChange = onQueryChange,
                 placeholder = placeholder,
             )
+        }
+    }
+}
+
+/**
+ * Shared Material 3 ModalBottomSheet for Smart OTP verification.
+ * Displays the incoming OTP code via a live [Snackbar] and dismisses it as soon
+ * as OTP verification succeeds or the sheet is closed.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OtpVerificationBottomSheet(
+    title: String,
+    subtitle: String? = null,
+    otpCode: String,
+    otpInput: String,
+    onOtpInputChanged: (String) -> Unit,
+    errorMessage: String? = null,
+    confirmText: String = "Xác thực",
+    onVerify: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(otpCode) {
+        snackbarHostState.currentSnackbarData?.dismiss()
+        if (otpCode.isNotBlank()) {
+            snackbarHostState.showSnackbar(
+                message = "Mã Smart OTP gửi đến: $otpCode",
+                actionLabel = "Đóng",
+                duration = SnackbarDuration.Indefinite,
+            )
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            snackbarHostState.currentSnackbarData?.dismiss()
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            onDismiss()
+        },
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(start = 20.dp, top = 0.dp, end = 20.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SnackbarHost(hostState = snackbarHostState)
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextField(
+                value = otpInput,
+                onValueChange = { onOtpInputChanged(it.filter(Char::isDigit).take(6)) },
+                label = { Text("Nhập mã OTP 6 chữ số") },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = tonalTextFieldColors(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (!errorMessage.isNullOrBlank()) {
+                TonalFeedbackBanner(message = errorMessage, isError = true)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                FilledTonalButton(
+                    onClick = {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        onDismiss()
+                    },
+                    shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 6.dp, bottomEnd = 6.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                ) {
+                    Text("Hủy", fontWeight = FontWeight.SemiBold)
+                }
+                Button(
+                    onClick = onVerify,
+                    enabled = otpInput.length == 6,
+                    shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 20.dp, bottomEnd = 20.dp),
+                    modifier = Modifier
+                        .weight(1.45f)
+                        .height(52.dp),
+                ) {
+                    Text(confirmText, fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }

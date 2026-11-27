@@ -102,7 +102,7 @@ class TransferViewModel(
                     if (!hasEnrolled) {
                         _uiState.update {
                             it.copy(
-                                errorMessage = "Giao dịch giá trị cao (> 10.000.000 VND) yêu cầu xác thực khuôn mặt nhưng tài khoản chưa đăng ký sinh trắc học eKYC. Vui lòng liên hệ cán bộ ngân hàng để hoàn tất eKYC.",
+                                errorMessage = "Giao dịch giá trị cao (> 10.000.000 VND) yêu cầu xác thực khuôn mặt nhưng tài khoản chưa đăng ký sinh trắc học. Vui lòng liên hệ cán bộ ngân hàng để hoàn tất sinh trắc học.",
                             )
                         }
                     } else {

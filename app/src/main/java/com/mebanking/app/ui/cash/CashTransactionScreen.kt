@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,21 +15,23 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -269,23 +272,54 @@ private fun CashTransactionContent(
     }
 
     if (state.showConfirmation) {
-        AlertDialog(
+        val account = state.selectedAccount
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
             onDismissRequest = onCancelConfirmation,
-            shape = RoundedCornerShape(22.dp),
-            title = { Text("Xác nhận $title", fontWeight = FontWeight.Bold) },
-            text = {
-                val account = state.selectedAccount
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "Xác nhận $title",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
                 Text(
                     text = "${CurrencyFormatter.formatVnd(state.amount ?: 0L)} cho tài khoản ${account?.accountNumber.orEmpty()}?",
                     style = MaterialTheme.typography.bodyLarge,
                 )
-            },
-            confirmButton = {
-                Button(onClick = onConfirm, shape = RoundedCornerShape(12.dp)) {
-                    Text("Xác nhận", fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    FilledTonalButton(
+                        onClick = onCancelConfirmation,
+                        shape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp, topEnd = 6.dp, bottomEnd = 6.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                    ) {
+                        Text("Hủy", fontWeight = FontWeight.SemiBold)
+                    }
+                    Button(
+                        onClick = onConfirm,
+                        shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp, topEnd = 20.dp, bottomEnd = 20.dp),
+                        modifier = Modifier
+                            .weight(1.45f)
+                            .height(50.dp),
+                    ) {
+                        Text("Xác nhận", fontWeight = FontWeight.Bold)
+                    }
                 }
-            },
-            dismissButton = { TextButton(onClick = onCancelConfirmation) { Text("Hủy") } },
-        )
+            }
+        }
     }
 }

@@ -77,96 +77,37 @@ fun rememberServicePaymentAuthGate(
     }
 
     if (showOtpDialog) {
-        AlertDialog(
-            onDismissRequest = {
+        OtpVerificationBottomSheet(
+            title = "Xác thực Smart OTP",
+            subtitle = pendingDescription.takeIf { it.isNotBlank() },
+            otpCode = otpDisplayCode,
+            otpInput = otpInput,
+            onOtpInputChanged = {
+                otpInput = it
+                otpError = null
+            },
+            errorMessage = otpError,
+            confirmText = "Xác nhận thanh toán",
+            onVerify = {
+                val otpService = appContainer?.otpService
+                val userId = appContainer?.sessionManager?.currentSession?.userId ?: 1L
+                val cId = otpChallengeId
+                val valid = if (otpService != null && cId != null) {
+                    otpService.verify(cId, userId, otpInput)
+                } else {
+                    otpInput == otpDisplayCode
+                }
+                if (valid) {
+                    cId?.let { otpService?.cancel(it) }
+                    showOtpDialog = false
+                    onAuthenticated()
+                } else {
+                    otpError = "Mã OTP không đúng hoặc đã hết hạn"
+                }
+            },
+            onDismiss = {
                 otpChallengeId?.let { appContainer?.otpService?.cancel(it) }
                 showOtpDialog = false
-            },
-            shape = RoundedCornerShape(16.dp),
-            title = {
-                Text(
-                    text = "Xác thực Smart OTP",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (pendingDescription.isNotBlank()) {
-                        Text(
-                            text = pendingDescription,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            text = "Mã Smart OTP: $otpDisplayCode",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(10.dp),
-                        )
-                    }
-                    OutlinedTextField(
-                        value = otpInput,
-                        onValueChange = {
-                            otpInput = it.filter(Char::isDigit).take(6)
-                            otpError = null
-                        },
-                        label = { Text("Nhập mã OTP 6 chữ số") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (otpError != null) {
-                        Text(
-                            text = otpError!!,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val otpService = appContainer?.otpService
-                        val userId = appContainer?.sessionManager?.currentSession?.userId ?: 1L
-                        val cId = otpChallengeId
-                        val valid = if (otpService != null && cId != null) {
-                            otpService.verify(cId, userId, otpInput)
-                        } else {
-                            otpInput == otpDisplayCode
-                        }
-                        if (valid) {
-                            cId?.let { otpService?.cancel(it) }
-                            showOtpDialog = false
-                            onAuthenticated()
-                        } else {
-                            otpError = "Mã OTP không đúng hoặc đã hết hạn"
-                        }
-                    },
-                    enabled = otpInput.length == 6,
-                    shape = RoundedCornerShape(10.dp),
-                ) {
-                    Text("Xác nhận thanh toán", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        otpChallengeId?.let { appContainer?.otpService?.cancel(it) }
-                        showOtpDialog = false
-                    },
-                ) {
-                    Text("Hủy")
-                }
             },
         )
     }

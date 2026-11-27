@@ -8,6 +8,7 @@ import com.mebanking.app.data.repository.DefaultAccountRepository
 import com.mebanking.app.data.repository.DefaultAuthRepository
 import com.mebanking.app.data.repository.DefaultSimulatorRepository
 import com.mebanking.app.data.repository.DefaultTransactionRepository
+import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.model.BillStatus
 import com.mebanking.app.domain.model.SessionState
 import com.mebanking.app.domain.service.DefaultAuthService
@@ -18,9 +19,13 @@ import com.mebanking.app.domain.service.DefaultTransactionService
 import com.mebanking.app.domain.service.DefaultFaceRecognitionService
 import com.mebanking.app.ui.auth.LoginViewModel
 import com.mebanking.app.ui.bills.BillPaymentViewModel
+import com.mebanking.app.ui.cash.DepositViewModel
+import com.mebanking.app.ui.cash.WithdrawViewModel
+import com.mebanking.app.ui.lifestyle.observeActivePaymentAccounts
 import com.mebanking.app.ui.transfer.TransferViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -236,7 +241,7 @@ class Phase4ViewModelIntegrationTest {
         viewModel.beginAuthenticationChallenge()
         awaitCondition("ekyc required message") { viewModel.uiState.value.errorMessage != null }
 
-        assertTrue(viewModel.uiState.value.errorMessage!!.contains("chưa đăng ký sinh trắc học eKYC"))
+        assertTrue(viewModel.uiState.value.errorMessage!!.contains("chưa đăng ký sinh trắc học"))
         assertFalse(viewModel.uiState.value.showFaceVerificationDialog)
         assertEquals(50_000_000L, db.accountDao().getById(1L)?.balance)
     }
@@ -338,5 +343,44 @@ class Phase4ViewModelIntegrationTest {
 
         assertEquals(50_000_000L, db.accountDao().getById(1L)?.balance)
         assertEquals(BillStatus.UNPAID, db.billDao().getById(1L)?.status)
+    }
+
+    @Test
+    fun paymentAndTransferViewModels_excludeMortgageAccountsFromSourceSelection() = runBlocking {
+        authenticate()
+        val userId = sessionManager.currentSession!!.userId
+        val existing = accountRepository.getAccountsByUserIdSync(userId)
+        if (existing.none { it.accountType == AccountType.MORTGAGE }) {
+            accountRepository.createAccount(
+                existing.first().copy(
+                    id = 0L,
+                    accountNumber = "900123456789",
+                    accountType = AccountType.MORTGAGE,
+                    status = "ACTIVE",
+                ),
+            )
+        }
+        assertTrue(accountRepository.getAccountsByUserIdSync(userId).any { it.accountType == AccountType.MORTGAGE })
+
+        val transferVm = TransferViewModel(transactionService, accountRepository, sessionManager)
+        val billVm = BillPaymentViewModel(simulatorService, accountRepository, sessionManager)
+        val depositVm = DepositViewModel(transactionService, accountRepository, sessionManager)
+        val withdrawVm = WithdrawViewModel(transactionService, accountRepository, sessionManager)
+
+        awaitCondition("all source account lists loaded") {
+            !transferVm.uiState.value.isLoading &&
+                !billVm.uiState.value.isLoading &&
+                !depositVm.uiState.value.isLoading &&
+                !withdrawVm.uiState.value.isLoading
+        }
+
+        val lifestyleAccounts = observeActivePaymentAccounts(sessionManager, accountRepository).first()
+
+        assertTrue(transferVm.uiState.value.accounts.isNotEmpty())
+        assertTrue(transferVm.uiState.value.accounts.none { it.accountType == AccountType.MORTGAGE })
+        assertTrue(billVm.uiState.value.accounts.none { it.accountType == AccountType.MORTGAGE })
+        assertTrue(depositVm.uiState.value.accounts.none { it.accountType == AccountType.MORTGAGE })
+        assertTrue(withdrawVm.uiState.value.accounts.none { it.accountType == AccountType.MORTGAGE })
+        assertTrue(lifestyleAccounts.none { it.accountType == AccountType.MORTGAGE })
     }
 }
