@@ -19,7 +19,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -235,8 +234,7 @@ fun BranchLocatorContent(
         Surface(
             onClick = onBack,
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f),
             shadowElevation = 4.dp,
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -314,9 +312,8 @@ fun BranchLocatorContent(
 
             if (!hasLocationPermission) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.96f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Row(
@@ -608,11 +605,10 @@ private fun BottomSearchOverlay(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(18.dp),
         tonalElevation = 2.dp,
         shadowElevation = 4.dp,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
@@ -682,8 +678,7 @@ private fun BottomMapControlPill(
     Surface(
         modifier = modifier,
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
         shadowElevation = 4.dp,
     ) {
         Row(
@@ -745,10 +740,9 @@ private fun BranchDetailsCard(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.97f)),
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             Row(

@@ -18,14 +18,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.horizontalScroll
@@ -40,11 +39,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -115,6 +116,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -127,6 +129,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -137,9 +140,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -415,7 +420,23 @@ private fun ModernAccountsContent(
     isCustomer: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
+    val scrollExpandProgress by remember(listState) {
+        derivedStateOf {
+            val idx = listState.firstVisibleItemIndex
+            val offset = listState.firstVisibleItemScrollOffset
+            ((idx * 240f + offset) / 140f).coerceIn(0f, 1f)
+        }
+    }
+    var manuallyExpanded by remember { mutableStateOf(false) }
+    val expandProgress by animateFloatAsState(
+        targetValue = if (manuallyExpanded) 1f else scrollExpandProgress,
+        label = "accountsStackExpansion",
+    )
+    val uniqueAccounts = remember(uiState.accounts) { uiState.accounts.distinctBy { it.id } }
+
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 168.dp),
     ) {
@@ -488,7 +509,7 @@ private fun ModernAccountsContent(
             )
         }
 
-        // 6. Accounts List Section (Customer only)
+        // 6. Accounts Stacked Deck Section (Customer only — expands as user scrolls down)
         if (isCustomer) {
             item {
                 Spacer(Modifier.height(20.dp))
@@ -504,22 +525,34 @@ private fun ModernAccountsContent(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
-                    Text(
-                        text = "${uiState.accounts.size} tài khoản",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        onClick = { manuallyExpanded = !manuallyExpanded },
+                    ) {
+                        Text(
+                            text = if (uniqueAccounts.size > 1) {
+                                "${uniqueAccounts.size} TK · ${if (expandProgress > 0.5f) "Thu gọn" else "Bung thẻ"}"
+                            } else {
+                                "${uniqueAccounts.size} tài khoản"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        )
+                    }
                 }
             }
 
-            if (uiState.accounts.isEmpty()) {
+            if (uniqueAccounts.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     ) {
                         Text(
                             text = stringResource(R.string.home_empty),
@@ -530,11 +563,12 @@ private fun ModernAccountsContent(
                     }
                 }
             } else {
-                items(uiState.accounts.distinctBy { it.id }, key = { "account-${it.id}" }) { account ->
-                    ModernAccountItem(
-                        account = account,
+                item(key = "accounts-stacked-deck") {
+                    StackedAccountsDeck(
+                        accounts = uniqueAccounts,
                         isBalanceHidden = isBalanceHidden,
-                        onClick = {
+                        expandProgress = expandProgress,
+                        onAccountClick = { account ->
                             account.id.toLongOrNull()?.let(onNavigateToAccountDetail)
                         },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
@@ -587,8 +621,7 @@ private fun BankingTopHeader(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (faceBitmap != null) {
@@ -643,8 +676,7 @@ private fun HeaderCircleButton(icon: ImageVector, contentDescription: String, on
         modifier = Modifier
             .size(38.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -678,9 +710,8 @@ private fun VipBankMasterCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Box(
@@ -713,9 +744,8 @@ private fun VipBankMasterCard(
                     }
 
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
                     ) {
                         Text(
                             text = if (isCustomer) "Tài khoản thanh toán" else "Tài khoản quản trị",
@@ -764,11 +794,10 @@ private fun VipBankMasterCard(
                         )
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
                                 .clickable { onCopyAccount(accountNumber) }
-                                .padding(horizontal = 7.dp, vertical = 3.dp),
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
@@ -816,8 +845,7 @@ private fun VipBankMasterCard(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surface)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
                                 .clickable(onClick = onToggleBalanceVisibility),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -971,12 +999,7 @@ private fun RecipientAvatarItem(
             modifier = Modifier
                 .size(52.dp)
                 .clip(CircleShape)
-                .background(if (isAdd) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer)
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    shape = CircleShape,
-                ),
+                .background(if (isAdd) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
             if (icon != null) {
@@ -1037,8 +1060,8 @@ private fun UtilityServicesGrid(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -1185,24 +1208,76 @@ private fun UtilityGridItem(
 // -----------------------------------------------------------------------------
 
 @Composable
+private fun StackedAccountsDeck(
+    accounts: List<Account>,
+    isBalanceHidden: Boolean,
+    expandProgress: Float,
+    onAccountClick: (Account) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val cardHeight = 84.dp
+    val peekStep = 18.dp
+    val expandedStep = cardHeight + 10.dp
+    val collapsedTotal = cardHeight + peekStep * (accounts.size - 1)
+    val expandedTotal = cardHeight * accounts.size + 10.dp * (accounts.size - 1)
+    val totalHeight = lerp(collapsedTotal, expandedTotal, expandProgress)
+
+    val tonalPalette = listOf(
+        MaterialTheme.colorScheme.surfaceContainerHighest,
+        MaterialTheme.colorScheme.secondaryContainer,
+        MaterialTheme.colorScheme.tertiaryContainer,
+        MaterialTheme.colorScheme.surfaceContainerHigh,
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(totalHeight),
+    ) {
+        accounts.forEachIndexed { index, account ->
+            val offsetY = lerp(peekStep * index, expandedStep * index, expandProgress)
+            val collapsedScale = (1f - index * 0.045f).coerceAtLeast(0.84f)
+            val cardScale = collapsedScale + (1f - collapsedScale) * expandProgress
+            val containerColor = tonalPalette[index % tonalPalette.size]
+
+            ModernAccountItem(
+                account = account,
+                isBalanceHidden = isBalanceHidden,
+                containerColor = containerColor,
+                onClick = { onAccountClick(account) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(cardHeight)
+                    .offset(y = offsetY)
+                    .zIndex((accounts.size - index).toFloat())
+                    .graphicsLayer {
+                        scaleX = cardScale
+                        scaleY = 1f
+                    },
+            )
+        }
+    }
+}
+
+@Composable
 private fun ModernAccountItem(
     account: Account,
     isBalanceHidden: Boolean,
+    containerColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -1215,7 +1290,7 @@ private fun ModernAccountItem(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -1231,6 +1306,8 @@ private fun ModernAccountItem(
                         text = account.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = account.iban,
@@ -1369,20 +1446,22 @@ internal fun BankingToolsFloatingToolbar(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 4.dp,
             shadowElevation = 8.dp,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier
+                    .height(56.dp)
+                    .padding(horizontal = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 tools.forEach { tool ->
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(18.dp))
-                            .clickable(onClick = tool.onClick)
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                            .size(width = 80.dp, height = 46.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = tool.onClick),
                     ) {
                         Icon(
                             imageVector = tool.icon,
@@ -1410,6 +1489,7 @@ internal fun BankingToolsFloatingToolbar(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp),
+            modifier = Modifier.size(56.dp),
         ) {
             Icon(
                 imageVector = if (isCustomer) Icons.Filled.QrCodeScanner else Icons.Filled.SupervisorAccount,
@@ -1486,9 +1566,8 @@ private fun QrPayModalDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         ) {
             Column(
                 modifier = Modifier
@@ -1667,11 +1746,11 @@ private fun QrPayModalDialog(
                                 )
                             }
 
-                            // Corner border indicators (QR target frame)
+                            // Corner target guide (QR target frame)
                             Box(
                                 modifier = Modifier
                                     .size(180.dp)
-                                    .border(2.dp, Color(0x80FFFFFF), RoundedCornerShape(12.dp)),
+                                    .background(Color(0x22FFFFFF), RoundedCornerShape(16.dp)),
                             )
 
                             // Bottom label
@@ -1770,11 +1849,10 @@ private fun QrPayModalDialog(
                             val preview = parsedPreview
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (preview != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                    containerColor = if (preview != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                                 ),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     if (preview != null) {
@@ -1839,9 +1917,8 @@ private fun QrPayModalDialog(
                         Box(
                             modifier = Modifier
                                 .size(220.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
                             contentAlignment = Alignment.Center,
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {

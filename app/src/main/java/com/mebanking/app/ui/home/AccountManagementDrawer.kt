@@ -4,10 +4,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.BitmapFactory
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -213,9 +211,8 @@ internal fun AccountManagementDrawerContent(
         ) {
             // Drawer Header: Tapping user avatar collapses drawer back
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onCollapseDrawer),
@@ -229,8 +226,7 @@ internal fun AccountManagementDrawerContent(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                            .background(MaterialTheme.colorScheme.surface),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (faceBitmap != null) {
@@ -317,9 +313,8 @@ internal fun AccountManagementDrawerContent(
 
             // 1. Account & eKYC Profile Card
             Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
@@ -368,8 +363,7 @@ internal fun AccountManagementDrawerContent(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .size(44.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)),
+                                    .clip(RoundedCornerShape(12.dp)),
                             )
                             Text(
                                 text = "Ảnh khuôn mặt eKYC đã lưu trên hệ thống",
@@ -423,9 +417,8 @@ internal fun AccountManagementDrawerContent(
 
             // 2. Security Toggles Card
             Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(
@@ -463,9 +456,8 @@ internal fun AccountManagementDrawerContent(
             // 3. Accounts List Shortcut (Customer only)
             if (isCustomer && uiState.accounts.isNotEmpty()) {
                 Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(
@@ -522,14 +514,16 @@ internal fun AccountManagementDrawerContent(
             }
 
             Spacer(Modifier.height(4.dp))
-            OutlinedButton(
+            Button(
                 onClick = {
                     onCollapseDrawer()
                     onLogout()
                 },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                ),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(

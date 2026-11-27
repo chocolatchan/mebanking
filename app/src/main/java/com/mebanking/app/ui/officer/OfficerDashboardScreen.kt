@@ -1,6 +1,5 @@
 package com.mebanking.app.ui.officer
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -234,17 +233,13 @@ private fun OfficerDashboardContent(
                 val isSelected = state.selectedCustomer?.id == customer.id
                 item(key = "customer_${customer.id}") {
                     Card(
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (isSelected) {
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                MaterialTheme.colorScheme.primaryContainer
                             } else {
-                                MaterialTheme.colorScheme.surface
+                                MaterialTheme.colorScheme.surfaceContainerLow
                             },
-                        ),
-                        border = BorderStroke(
-                            width = if (isSelected) 1.5.dp else 1.dp,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier.fillMaxWidth().clickable {
@@ -290,9 +285,8 @@ private fun OfficerDashboardContent(
             if (!state.isCreating && state.selectedCustomer != null) {
                 item {
                     Card(
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -551,9 +545,8 @@ private fun CustomerProfileDialogCard(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {

@@ -5,9 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -211,7 +209,6 @@ fun LoginContent(
                     modifier = Modifier.size(64.dp),
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.primaryContainer,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -240,12 +237,11 @@ fun LoginContent(
 
                 Spacer(Modifier.height(24.dp))
 
-                // Flat Login Card (12dp rounded corners, hairline border, no shadow)
+                // Tonal Login Card (no hairline border)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
@@ -454,11 +450,10 @@ fun LoginContent(
                         if (isRemembered) {
                             Spacer(Modifier.height(12.dp))
 
-                            OutlinedButton(
+                            androidx.compose.material3.FilledTonalButton(
                                 onClick = onOpenBiometricDialog,
                                 enabled = !uiState.isSubmitting,
-                                shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                                shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(48.dp),
@@ -612,9 +607,8 @@ private fun DemoQuickCredentialsCard(
     onSelect: (String, String) -> Unit,
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(18.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp)) {

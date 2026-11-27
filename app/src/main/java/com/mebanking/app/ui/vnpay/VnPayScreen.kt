@@ -15,7 +15,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -221,9 +220,8 @@ fun VnPayScreen(
             // Source Account Card
             item {
                 Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -241,9 +239,8 @@ fun VnPayScreen(
                             uiState.accounts.forEach { acc ->
                                 val selected = acc.id == uiState.selectedAccount?.id
                                 Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                    border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable { viewModel.onAccountSelected(acc.id) },
@@ -276,9 +273,8 @@ fun VnPayScreen(
             // Payment Details Card
             item {
                 Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -337,9 +333,8 @@ fun VnPayScreen(
             // Collapsible Sandbox Merchant Config
             item {
                 Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -509,8 +504,7 @@ private fun VnPayWebViewScreen(
         },
         bottomBar = {
             Surface(
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
             ) {
                 Row(

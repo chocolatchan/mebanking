@@ -1,6 +1,5 @@
 package com.mebanking.app.ui.services
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -22,7 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -44,11 +42,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,8 +59,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mebanking.app.ui.components.segmentedListItemShape
+import com.mebanking.app.ui.components.tonalTextFieldColors
 import com.mebanking.app.ui.theme.PastelPurplePrimary
 import com.mebanking.app.ui.theme.SynchronizedStatusBar
 import com.mebanking.app.ui.theme.TcbRedPrimary
@@ -125,7 +125,7 @@ fun ServicesScreen(
                 icon = Icons.Filled.QrCode2,
                 iconColor = PastelPurplePrimary,
                 title = "Cổng thanh toán VNPay",
-                subtitle = "Thanh toán liên ngân hàng qua VNPay Sandbox 2.1.0",
+                subtitle = "Thanh toán liên ngân hàng qua VNPay",
                 onClick = onNavigateToVnPay,
             ),
             ServiceMenuItem(
@@ -133,7 +133,7 @@ fun ServicesScreen(
                 icon = Icons.Filled.Receipt,
                 iconColor = Color(0xFF0288D1),
                 title = "Thanh toán hóa đơn",
-                subtitle = "Điện EVN, Nước Sawaco, Internet VNPT/Viettel",
+                subtitle = "Điện EVN, Nước, Internet VNPT/Viettel",
                 onClick = onNavigateToBills,
             ),
             ServiceMenuItem(
@@ -141,7 +141,7 @@ fun ServicesScreen(
                 icon = Icons.Filled.PhoneAndroid,
                 iconColor = Color(0xFFE65100),
                 title = "Nạp tiền điện thoại",
-                subtitle = "Nạp top-up trực tiếp, xác thực sinh trắc học",
+                subtitle = "Nạp top-up nhanh, xác thực sinh trắc học",
                 onClick = onNavigateToTopup,
             ),
             ServiceMenuItem(
@@ -165,7 +165,7 @@ fun ServicesScreen(
                 icon = Icons.Filled.Hotel,
                 iconColor = Color(0xFF7B1FA2),
                 title = "Đặt phòng khách sạn",
-                subtitle = "Hàng ngàn phòng nghỉ ưu đãi tại Việt Nam",
+                subtitle = "Hàng ngàn phòng nghỉ ưu đãi toàn quốc",
                 onClick = onNavigateToHotels,
             ),
             ServiceMenuItem(
@@ -189,7 +189,7 @@ fun ServicesScreen(
                 icon = Icons.Filled.LocationOn,
                 iconColor = PastelPurplePrimary,
                 title = "Mạng lưới ATM & Chi nhánh",
-                subtitle = "Bản đồ trực quan, chỉ đường thông minh",
+                subtitle = "Bản đồ trực quan, chỉ đường xe máy",
                 onClick = onNavigateToBranchLocator,
             ),
             ServiceMenuItem(
@@ -197,7 +197,7 @@ fun ServicesScreen(
                 icon = Icons.Filled.SmartToy,
                 iconColor = Color(0xFF00897B),
                 title = "Trợ lý tài chính AI",
-                subtitle = "Giải đáp thắc mắc và tư vấn tài chính 24/7",
+                subtitle = "Tư vấn & giải đáp giao dịch 24/7",
                 onClick = onNavigateToChatbot,
             ),
         )
@@ -216,14 +216,14 @@ fun ServicesScreen(
 
     val groupedSections = remember(filteredItems) {
         val order = listOf(
-            ServiceCategory.PAYMENT to ("Thanh toán & Hóa đơn" to "Điện, nước, internet & nạp tiền"),
-            ServiceCategory.TRAVEL to ("Du lịch & Giải trí" to "Vé máy bay, khách sạn và phim ảnh"),
-            ServiceCategory.SHOPPING to ("Mua sắm & Tiêu dùng" to "Đặc quyền mua sắm hoàn tiền"),
-            ServiceCategory.UTILITY to ("Tiện ích ngân hàng" to "Bản đồ chi nhánh & Trợ lý ảo"),
+            ServiceCategory.PAYMENT to "Thanh toán & Hóa đơn",
+            ServiceCategory.TRAVEL to "Du lịch & Giải trí",
+            ServiceCategory.SHOPPING to "Mua sắm & Tiêu dùng",
+            ServiceCategory.UTILITY to "Tiện ích ngân hàng",
         )
-        order.mapNotNull { (cat, header) ->
+        order.mapNotNull { (cat, title) ->
             val items = filteredItems.filter { it.category == cat }
-            if (items.isEmpty()) null else Triple(header.first, header.second, items)
+            if (items.isEmpty()) null else title to items
         }
     }
 
@@ -259,10 +259,10 @@ fun ServicesScreen(
             contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 104.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Search & Filter Bar
+            // Search & Filter Pills (Tonal, borderless)
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
+                    TextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         placeholder = { Text("Tìm kiếm dịch vụ (điện, vé bay, ATM...)") },
@@ -284,11 +284,8 @@ fun ServicesScreen(
                             }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surface,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        ),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                         modifier = Modifier.fillMaxWidth(),
                     )
 
@@ -309,12 +306,72 @@ fun ServicesScreen(
                 }
             }
 
+            // Featured Quick Spotlight Bento (shown when unfiltered)
+            if (searchQuery.isBlank() && selectedCategory == ServiceCategory.ALL) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Dịch vụ nổi bật",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            FeaturedServiceCard(
+                                title = "VNPay QR",
+                                subtitle = "Thanh toán nhanh",
+                                icon = Icons.Filled.QrCode2,
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                onClick = onNavigateToVnPay,
+                                modifier = Modifier.weight(1f),
+                            )
+                            FeaturedServiceCard(
+                                title = "Hóa đơn",
+                                subtitle = "Điện, Nước, Net",
+                                icon = Icons.Filled.Receipt,
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                onClick = onNavigateToBills,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            FeaturedServiceCard(
+                                title = "Nạp ĐT",
+                                subtitle = "Chiết khấu cao",
+                                icon = Icons.Filled.PhoneAndroid,
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                onClick = onNavigateToTopup,
+                                modifier = Modifier.weight(1f),
+                            )
+                            FeaturedServiceCard(
+                                title = "Trợ lý AI",
+                                subtitle = "Hỗ trợ 24/7",
+                                icon = Icons.Filled.SmartToy,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = MaterialTheme.colorScheme.onSurface,
+                                onClick = onNavigateToChatbot,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+            }
+
             if (groupedSections.isEmpty()) {
                 item {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(
@@ -337,31 +394,22 @@ fun ServicesScreen(
                     }
                 }
             } else {
-                groupedSections.forEach { (sectionTitle, sectionSubtitle, items) ->
+                groupedSections.forEach { (sectionTitle, items) ->
                     item(key = sectionTitle) {
-                        Column {
-                            ServiceSectionHeader(sectionTitle, sectionSubtitle)
-                            Spacer(Modifier.height(8.dp))
-                            Card(
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                                    items.forEachIndexed { idx, item ->
-                                        ServiceItemRow(
-                                            icon = item.icon,
-                                            iconColor = item.iconColor,
-                                            title = item.title,
-                                            subtitle = item.subtitle,
-                                            onClick = item.onClick,
-                                        )
-                                        if (idx < items.lastIndex) {
-                                            ServiceDivider()
-                                        }
-                                    }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = sectionTitle,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 4.dp),
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                items.forEachIndexed { idx, item ->
+                                    SegmentedServiceRow(
+                                        item = item,
+                                        shape = segmentedListItemShape(idx, items.size),
+                                    )
                                 }
                             }
                         }
@@ -373,82 +421,117 @@ fun ServicesScreen(
 }
 
 @Composable
-private fun ServiceSectionHeader(title: String, subtitle: String) {
-    Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun ServiceItemRow(
-    icon: ImageVector,
-    iconColor: Color,
+private fun FeaturedServiceCard(
     title: String,
     subtitle: String,
+    icon: ImageVector,
+    containerColor: Color,
+    contentColor: Color,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = modifier,
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(iconColor.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconColor,
-                modifier = Modifier.size(24.dp),
-            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = contentColor,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = contentColor.copy(alpha = 0.78f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
-        Spacer(Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-            )
-        }
-        Icon(
-            imageVector = Icons.Filled.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
     }
 }
 
 @Composable
-private fun ServiceDivider() {
-    Surface(
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(1.dp),
-    ) {}
+private fun SegmentedServiceRow(
+    item: ServiceMenuItem,
+    shape: RoundedCornerShape,
+) {
+    Card(
+        onClick = item.onClick,
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(item.iconColor.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    tint = item.iconColor,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = item.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+            }
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
 }

@@ -2,7 +2,6 @@ package com.mebanking.app.ui.transfer
 
 import android.content.Context
 import android.content.ContextWrapper
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,13 +25,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,14 +37,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,7 +71,9 @@ import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.auth.DeviceAuthenticationResult
 import com.mebanking.app.ui.auth.DeviceAuthenticator
-import com.mebanking.app.ui.common.label
+import com.mebanking.app.ui.components.AccountSelectionCarousel
+import com.mebanking.app.ui.components.LargeAmountInputSection
+import com.mebanking.app.ui.components.tonalTextFieldColors
 import com.mebanking.app.ui.ekyc.FaceCaptureDialog
 import com.mebanking.app.ui.theme.MEbankingTheme
 import com.mebanking.app.ui.theme.SynchronizedStatusBar
@@ -189,12 +190,15 @@ fun TransferContent(
         }
     }
     SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text("Chuyển tiền nội bộ", fontWeight = FontWeight.SemiBold) },
+            LargeTopAppBar(
+                title = { Text("Chuyển tiền nội bộ", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -203,6 +207,11 @@ fun TransferContent(
                         )
                     }
                 },
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
+                ),
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { innerPadding ->
@@ -220,9 +229,10 @@ fun TransferContent(
             else -> LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .navigationBarsPadding(),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 // Success Digital Receipt Card
                 if (uiState.successMessage != null) {
@@ -236,9 +246,9 @@ fun TransferContent(
                         val txId = receipt?.transactionId
 
                         Card(
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            shape = RoundedCornerShape(22.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Column(
@@ -249,7 +259,7 @@ fun TransferContent(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(52.dp)
+                                        .size(56.dp)
                                         .clip(CircleShape)
                                         .background(MaterialTheme.colorScheme.primaryContainer),
                                     contentAlignment = Alignment.Center,
@@ -258,7 +268,7 @@ fun TransferContent(
                                         imageVector = Icons.Filled.CheckCircle,
                                         contentDescription = "Thành công",
                                         tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(32.dp),
+                                        modifier = Modifier.size(34.dp),
                                     )
                                 }
                                 Spacer(Modifier.height(10.dp))
@@ -276,23 +286,26 @@ fun TransferContent(
                                 )
 
                                 Spacer(Modifier.height(16.dp))
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                Spacer(Modifier.height(16.dp))
-
-                                ReceiptDetailRow(label = "Tài khoản nguồn", value = fromAccount)
-                                Spacer(Modifier.height(8.dp))
-                                ReceiptDetailRow(label = "Tài khoản thụ hưởng", value = toAccount)
-                                if (!recipientName.isNullOrBlank()) {
-                                    Spacer(Modifier.height(8.dp))
-                                    ReceiptDetailRow(label = "Người nhận", value = recipientName)
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                ReceiptDetailRow(label = "Phí giao dịch", value = "Miễn phí (0 VND)")
-                                Spacer(Modifier.height(8.dp))
-                                ReceiptDetailRow(label = "Nội dung", value = note)
-                                if (txId != null) {
-                                    Spacer(Modifier.height(8.dp))
-                                    ReceiptDetailRow(label = "Mã giao dịch", value = "#$txId")
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        ReceiptDetailRow(label = "Tài khoản nguồn", value = fromAccount)
+                                        ReceiptDetailRow(label = "Tài khoản thụ hưởng", value = toAccount)
+                                        if (!recipientName.isNullOrBlank()) {
+                                            ReceiptDetailRow(label = "Người nhận", value = recipientName)
+                                        }
+                                        ReceiptDetailRow(label = "Phí giao dịch", value = "Miễn phí (0 VND)")
+                                        ReceiptDetailRow(label = "Nội dung", value = note)
+                                        if (txId != null) {
+                                            ReceiptDetailRow(label = "Mã giao dịch", value = "#$txId")
+                                        }
+                                    }
                                 }
 
                                 Spacer(Modifier.height(20.dp))
@@ -300,56 +313,41 @@ fun TransferContent(
                                     onClick = onBack,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(48.dp),
-                                    shape = RoundedCornerShape(10.dp),
+                                        .height(56.dp),
+                                    shape = RoundedCornerShape(16.dp),
                                 ) {
-                                    Text("Về trang chủ", fontWeight = FontWeight.SemiBold)
+                                    Text("Về trang chủ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
                     }
                 } else {
-                    // 1. Source Account Section
+                    // 1. Source Account Carousel
                     item {
-                        Text(
-                            text = "Tài khoản nguồn",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    if (uiState.accounts.isEmpty()) {
-                        item {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(
-                                text = "Không có tài khoản khả dụng để chuyển tiền",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall,
+                                text = "Tài khoản nguồn",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
-                        }
-                    } else {
-                        item {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                uiState.accounts.forEach { account ->
-                                    SourceAccountRow(
-                                        account = account,
-                                        selected = uiState.selectedFromAccountId == account.id,
-                                        onClick = { onFromAccountSelected(account.id) },
-                                    )
-                                }
-                            }
+                            AccountSelectionCarousel(
+                                accounts = uiState.accounts,
+                                selectedAccountId = uiState.selectedFromAccountId,
+                                onAccountSelected = onFromAccountSelected,
+                            )
                         }
                     }
 
-                    // 2. Beneficiary Shortcuts Row (Quick Contacts)
+                    // 2. Beneficiary Shortcuts Row (Tonal pills without borders)
                     item {
-                        Column {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 text = "Người nhận gần đây",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
-                            Spacer(Modifier.height(8.dp))
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -359,30 +357,29 @@ fun TransferContent(
                                 DefaultRecipientShortcuts.forEach { shortcut ->
                                     val isSelected = uiState.toAccountNumber == shortcut.accountNumber
                                     Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                        border = BorderStroke(
-                                            1.dp,
-                                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                                        ),
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                                         onClick = { onSelectShortcut(shortcut) },
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         ) {
                                             Box(
                                                 modifier = Modifier
-                                                    .size(24.dp)
+                                                    .size(28.dp)
                                                     .clip(CircleShape)
-                                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+                                                    .background(
+                                                        if (isSelected) MaterialTheme.colorScheme.primary
+                                                        else MaterialTheme.colorScheme.secondaryContainer,
+                                                    ),
                                                 contentAlignment = Alignment.Center,
                                             ) {
                                                 Text(
                                                     text = shortcut.initials,
-                                                    color = Color.White,
-                                                    fontSize = 10.sp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
                                                 )
                                             }
@@ -396,7 +393,11 @@ fun TransferContent(
                                                 Text(
                                                     text = shortcut.accountNumber,
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                                    },
                                                     fontSize = 10.sp,
                                                 )
                                             }
@@ -407,116 +408,112 @@ fun TransferContent(
                         }
                     }
 
-                    // 3. Destination Account Input (Locked when chosen from shortcut)
+                    // 3. Enlarged Destination Account Input (Tonal surface, borderless)
                     item {
-                        OutlinedTextField(
-                            value = uiState.toAccountNumber,
-                            onValueChange = onToAccountNumberChanged,
-                            label = { Text("Số tài khoản đích") },
-                            supportingText = {
-                                if (uiState.isRecipientLocked) {
-                                    Text(
-                                        text = "✓ Người thụ hưởng: ${uiState.recipientName ?: "Tài khoản MEbanking"} (Đã khóa)",
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                } else {
-                                    Text("Nhập số tài khoản nội bộ MEbanking (ví dụ: 200123456789)")
-                                }
-                            },
-                            trailingIcon = {
-                                if (uiState.isRecipientLocked) {
-                                    TextButton(onClick = onUnlockRecipient) {
-                                        Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Đổi", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            },
-                            singleLine = true,
-                            enabled = !uiState.isSubmitting && !uiState.isRecipientLocked,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                                disabledBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                                disabledLabelColor = MaterialTheme.colorScheme.primary,
-                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-
-                    // 4. Amount Input
-                    item {
-                        OutlinedTextField(
-                            value = uiState.amountInput,
-                            onValueChange = onAmountChanged,
-                            label = { Text("Số tiền (VND)") },
-                            singleLine = true,
-                            enabled = !uiState.isSubmitting,
-                            shape = RoundedCornerShape(10.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                            supportingText = {
-                                val balance = uiState.selectedFromAccount?.balance
-                                Text(
-                                    if (balance != null) {
-                                        "Số dư khả dụng: ${CurrencyFormatter.formatVnd(balance)}"
-                                    } else {
-                                        "Nhập số tiền muốn chuyển"
-                                    }
-                                )
+                        Surface(
+                            shape = RoundedCornerShape(22.dp),
+                            color = if (uiState.isRecipientLocked) {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerHigh
                             },
                             modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-
-                    // 5. Quick Amount Selection Chips
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            listOf(
-                                "100000" to "100.000đ",
-                                "200000" to "200.000đ",
-                                "500000" to "500.000đ",
-                                "1000000" to "1.000.000đ",
-                                "2000000" to "2.000.000đ",
-                                "5000000" to "5.000.000đ",
-                            ).forEach { (amountVal, label) ->
-                                val isSelected = uiState.amountInput == amountVal
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                                    ),
-                                    onClick = { onAmountChanged(amountVal) },
+                            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Text(
-                                        text = label,
-                                        style = MaterialTheme.typography.labelSmall,
+                                        text = "Số tài khoản đích",
+                                        style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
+                                    if (uiState.isRecipientLocked) {
+                                        TextButton(onClick = onUnlockRecipient) {
+                                            Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Đổi TK", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
                                 }
+
+                                TextField(
+                                    value = uiState.toAccountNumber,
+                                    onValueChange = onToAccountNumberChanged,
+                                    placeholder = {
+                                        Text(
+                                            text = "200123456789",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Filled.AccountBalance,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                    },
+                                    singleLine = true,
+                                    enabled = !uiState.isSubmitting && !uiState.isRecipientLocked,
+                                    textStyle = MaterialTheme.typography.titleLarge.copy(
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    ),
+                                    colors = tonalTextFieldColors(
+                                        containerColor = Color.Transparent,
+                                        disabledContainerColor = Color.Transparent,
+                                    ),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Next,
+                                    ),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+
+                                Text(
+                                    text = if (uiState.isRecipientLocked) {
+                                        "✓ Người thụ hưởng: ${uiState.recipientName ?: "Tài khoản MEbanking"} (Đã khóa)"
+                                    } else {
+                                        "Nhập số tài khoản nội bộ MEbanking"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = if (uiState.isRecipientLocked) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (uiState.isRecipientLocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
 
-                    // 6. Note Input
+                    // 4. Enlarged Amount Input & Quick Chips
                     item {
-                        OutlinedTextField(
+                        val balance = uiState.selectedFromAccount?.balance
+                        LargeAmountInputSection(
+                            amountInput = uiState.amountInput,
+                            onAmountChanged = onAmountChanged,
+                            helperText = if (balance != null) {
+                                "Số dư khả dụng: ${CurrencyFormatter.formatVnd(balance)}"
+                            } else {
+                                "Nhập số tiền muốn chuyển"
+                            },
+                            enabled = !uiState.isSubmitting,
+                        )
+                    }
+
+                    // 5. Note Input (Borderless tonal container)
+                    item {
+                        TextField(
                             value = uiState.note,
                             onValueChange = onNoteChanged,
                             label = { Text("Nội dung (không bắt buộc)") },
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(18.dp),
                             enabled = !uiState.isSubmitting,
+                            colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                             maxLines = 2,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -525,7 +522,7 @@ fun TransferContent(
                     if (uiState.errorMessage != null) {
                         item {
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(14.dp),
                                 color = MaterialTheme.colorScheme.errorContainer,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
@@ -533,30 +530,35 @@ fun TransferContent(
                                     text = uiState.errorMessage,
                                     color = MaterialTheme.colorScheme.onErrorContainer,
                                     style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(12.dp),
+                                    modifier = Modifier.padding(14.dp),
                                 )
                             }
                         }
                     }
 
+                    // 6. Enlarged Confirm Transfer Button
                     item {
                         Spacer(Modifier.height(4.dp))
                         Button(
                             onClick = onSubmit,
                             enabled = uiState.canSubmit && uiState.accounts.isNotEmpty(),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(18.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
+                                .height(60.dp),
                         ) {
                             if (uiState.isSubmitting) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.height(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color.White,
+                                    modifier = Modifier.size(22.dp),
+                                    strokeWidth = 2.5.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                 )
                             } else {
-                                Text("Xác nhận chuyển khoản", fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "Xác nhận chuyển khoản",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
                             }
                         }
                     }
@@ -568,23 +570,31 @@ fun TransferContent(
     if (uiState.showOtpDialog) {
         AlertDialog(
             onDismissRequest = onCancelOtp,
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(22.dp),
             title = { Text("Xác nhận mã OTP", fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Nhập mã OTP bảo mật 6 chữ số để xác thực giao dịch:")
-                    Text(
-                        uiState.otpCode.ifBlank { "Mã đã hết hạn" },
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    OutlinedTextField(
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = uiState.otpCode.ifBlank { "Mã đã hết hạn" },
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
+                    TextField(
                         value = uiState.otpInput,
                         onValueChange = onOtpInputChanged,
                         label = { Text("Mã OTP") },
                         singleLine = true,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = tonalTextFieldColors(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -594,7 +604,7 @@ fun TransferContent(
                 Button(
                     onClick = onVerifyOtp,
                     enabled = uiState.otpInput.length == 6,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(12.dp),
                 ) {
                     Text("Xác thực")
                 }
@@ -619,60 +629,6 @@ private tailrec fun Context.findFragmentActivity(): FragmentActivity? = when (th
     is FragmentActivity -> this
     is ContextWrapper -> baseContext.findFragmentActivity()
     else -> null
-}
-
-@Composable
-private fun SourceAccountRow(
-    account: Account,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(
-            1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-        ),
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surface
-            },
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${account.accountType.label()} • ${account.accountNumber}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Số dư: ${CurrencyFormatter.formatVnd(account.balance)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (selected) {
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
-    }
 }
 
 @Composable
