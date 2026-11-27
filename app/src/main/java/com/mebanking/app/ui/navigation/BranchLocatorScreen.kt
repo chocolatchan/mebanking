@@ -1,7 +1,15 @@
 package com.mebanking.app.ui.navigation
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -25,7 +33,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Public
@@ -47,24 +54,25 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.CameraPositionState
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
@@ -74,7 +82,9 @@ import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.mebanking.app.domain.model.navigation.BranchDistance
 import com.mebanking.app.domain.model.navigation.BranchFilter
+import com.mebanking.app.domain.model.navigation.GeoPoint
 import com.mebanking.app.ui.theme.SynchronizedStatusBar
+import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -86,10 +96,44 @@ fun BranchLocatorScreen(
         factory = BranchLocatorViewModel.factory(LocalContext.current),
     ),
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    var hasLocationPermission by remember {
+        mutableStateOf(hasAnyLocationPermission(context))
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        val granted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        hasLocationPermission = granted
+        if (granted) {
+            fetchLastKnownLocation(context)?.let { loc ->
+                viewModel.onUserLocationChanged(GeoPoint(loc.latitude, loc.longitude))
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasLocationPermission) {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                ),
+            )
+        } else {
+            fetchLastKnownLocation(context)?.let { loc ->
+                viewModel.onUserLocationChanged(GeoPoint(loc.latitude, loc.longitude))
+            }
+        }
+    }
 
     BranchLocatorContent(
         uiState = uiState,
+        hasLocationPermission = hasLocationPermission,
         onBack = onBack,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onFilterSelected = viewModel::onFilterSelected,
@@ -99,15 +143,10 @@ fun BranchLocatorScreen(
     )
 }
 
-enum class MapViewMode {
-    INTERACTIVE,      // Real street tiles, markers & distance polyline (works everywhere, offline & online)
-    GOOGLE_MAPS,     // Native Google Maps SDK
-    OFFLINE_VECTOR,  // Vector canvas map
-}
-
 @Composable
 fun BranchLocatorContent(
     uiState: BranchLocatorUiState,
+    hasLocationPermission: Boolean = false,
     onBack: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onFilterSelected: (BranchFilter) -> Unit,
@@ -117,50 +156,25 @@ fun BranchLocatorContent(
 ) {
     SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
 
-    var mapMode by remember { mutableStateOf(MapViewMode.INTERACTIVE) }
-    var zoom by remember { mutableFloatStateOf(1.0f) }
-    var panOffset by remember { mutableStateOf(Offset.Zero) }
+    val scope = rememberCoroutineScope()
+    val userLatLng = remember(uiState.userLocation) {
+        LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)
+    }
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(userLatLng, 15f)
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 1. Central Map View (Interactive Live Map by default, with toggles for SDK & Vector)
-        when (mapMode) {
-            MapViewMode.INTERACTIVE -> {
-                InteractiveMapView(
-                    userLocation = uiState.userLocation,
-                    branches = uiState.branches,
-                    selectedBranch = uiState.selectedBranch,
-                    onBranchClick = onBranchSelected,
-                    onMapUnavailable = { mapMode = MapViewMode.OFFLINE_VECTOR },
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            MapViewMode.GOOGLE_MAPS -> {
-                GoogleMapsContainer(
-                    uiState = uiState,
-                    onBranchSelected = onBranchSelected,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            MapViewMode.OFFLINE_VECTOR -> {
-                OfflineMapView(
-                    userLocation = uiState.userLocation,
-                    roadGraph = uiState.roadGraph,
-                    branches = uiState.branches,
-                    selectedBranch = uiState.selectedBranch,
-                    currentRoute = uiState.currentRoute,
-                    onBranchClick = onBranchSelected,
-                    zoom = zoom,
-                    panOffset = panOffset,
-                    onTransform = { zChange, pChange ->
-                        zoom = (zoom * zChange).coerceIn(MapProjection.MIN_ZOOM, MapProjection.MAX_ZOOM)
-                        panOffset += pChange
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
+        // 1. Native Google Maps SDK
+        GoogleMapsContainer(
+            uiState = uiState,
+            hasLocationPermission = hasLocationPermission,
+            cameraPositionState = cameraPositionState,
+            onBranchSelected = onBranchSelected,
+            modifier = Modifier.fillMaxSize(),
+        )
 
-        // 2. Top search bar and filter chips (Padded under system status bar, zero overlap)
+        // 2. Top search bar and filter chips
         TopControlsOverlay(
             searchQuery = uiState.searchQuery,
             onSearchQueryChanged = onSearchQueryChanged,
@@ -174,25 +188,28 @@ fun BranchLocatorContent(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         )
 
-        // 3. Floating map controls & Mode Switcher
+        // 3. Floating Google Maps zoom & recenter controls
         FloatingMapControls(
-            currentMode = mapMode,
-            onToggleMapMode = {
-                mapMode = when (mapMode) {
-                    MapViewMode.INTERACTIVE -> MapViewMode.GOOGLE_MAPS
-                    MapViewMode.GOOGLE_MAPS -> MapViewMode.OFFLINE_VECTOR
-                    MapViewMode.OFFLINE_VECTOR -> MapViewMode.INTERACTIVE
+            onZoomIn = {
+                scope.launch {
+                    try {
+                        cameraPositionState.animate(CameraUpdateFactory.zoomIn(), 300)
+                    } catch (_: Exception) {}
                 }
             },
-            onZoomIn = {
-                zoom = (zoom * 1.3f).coerceIn(MapProjection.MIN_ZOOM, MapProjection.MAX_ZOOM)
-            },
             onZoomOut = {
-                zoom = (zoom / 1.3f).coerceIn(MapProjection.MIN_ZOOM, MapProjection.MAX_ZOOM)
+                scope.launch {
+                    try {
+                        cameraPositionState.animate(CameraUpdateFactory.zoomOut(), 300)
+                    } catch (_: Exception) {}
+                }
             },
             onRecenter = {
-                zoom = 1.0f
-                panOffset = Offset.Zero
+                scope.launch {
+                    try {
+                        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(userLatLng, 15.5f), 600)
+                    } catch (_: Exception) {}
+                }
             },
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -208,7 +225,7 @@ fun BranchLocatorContent(
             )
         }
 
-        // 5. Selected / Nearest Branch details bottom sheet / card (Padded above navigation bar)
+        // 5. Selected / Nearest Branch details card
         AnimatedVisibility(
             visible = uiState.selectedBranch != null,
             enter = fadeIn(),
@@ -232,25 +249,18 @@ fun BranchLocatorContent(
 @Composable
 private fun GoogleMapsContainer(
     uiState: BranchLocatorUiState,
+    hasLocationPermission: Boolean,
+    cameraPositionState: CameraPositionState,
     onBranchSelected: (BranchDistance) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val initialLatLng = remember(uiState.userLocation) {
-        LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)
-    }
-
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(initialLatLng, 15f)
-    }
-
-    // Animate camera to focus on selected branch when chosen
     LaunchedEffect(uiState.selectedBranch) {
         uiState.selectedBranch?.let { b ->
             val targetLatLng = LatLng(b.branch.latitude, b.branch.longitude)
             try {
                 cameraPositionState.animate(
                     CameraUpdateFactory.newLatLngZoom(targetLatLng, 15.5f),
-                    1000,
+                    800,
                 )
             } catch (_: Exception) {}
         }
@@ -265,7 +275,7 @@ private fun GoogleMapsContainer(
             mapToolbarEnabled = false,
         ),
         properties = MapProperties(
-            isMyLocationEnabled = false,
+            isMyLocationEnabled = hasLocationPermission,
         ),
     ) {
         // 1. User Location Pin (Azure marker)
@@ -276,7 +286,7 @@ private fun GoogleMapsContainer(
             icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE),
         )
 
-        // 2. Pre-marked bank markers (Vietcombank, Techcombank, BIDV, Agribank, etc.)
+        // 2. Pre-marked bank & ATM markers
         for (bDist in uiState.branches) {
             val b = bDist.branch
             val isSelected = uiState.selectedBranch?.branch?.id == b.id
@@ -299,7 +309,7 @@ private fun GoogleMapsContainer(
             )
         }
 
-        // 3. Distance line / Polyline to selected bank
+        // 3. Distance polyline to selected bank
         uiState.selectedBranch?.let { selected ->
             val userLatLng = LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)
             val branchLatLng = LatLng(selected.branch.latitude, selected.branch.longitude)
@@ -312,7 +322,7 @@ private fun GoogleMapsContainer(
 
             Polyline(
                 points = polylinePoints,
-                color = Color(0xFF1A73E8), // Google Maps Blue
+                color = Color(0xFF1A73E8),
                 width = 12f,
                 geodesic = true,
             )
@@ -338,7 +348,6 @@ private fun TopControlsOverlay(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // Search Input Row
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
@@ -354,57 +363,45 @@ private fun TopControlsOverlay(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = onSearchQueryChanged,
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Tìm chi nhánh, ATM ngân hàng...") },
-                    singleLine = true,
+                    placeholder = { Text("Tìm chi nhánh, ngân hàng, ATM...") },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Filled.Search,
-                            contentDescription = "Tìm kiếm",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
                         )
                     },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { onSearchQueryChanged("") }) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = "Xóa",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp),
-                                )
+                                Icon(Icons.Filled.Close, contentDescription = "Xóa tìm kiếm")
                             }
                         }
                     },
-                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f),
                 )
             }
 
             Spacer(Modifier.height(8.dp))
 
-            // Filter Chips Row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilterChip(
-                    selected = currentFilter == BranchFilter.ALL,
-                    onClick = { onFilterSelected(BranchFilter.ALL) },
-                    label = { Text("Tất cả ngân hàng") },
+                val filters = listOf(
+                    BranchFilter.ALL to "Tất cả",
+                    BranchFilter.BRANCH_ONLY to "Chi nhánh",
+                    BranchFilter.ATM_ONLY to "ATM",
                 )
-                FilterChip(
-                    selected = currentFilter == BranchFilter.BRANCH_ONLY,
-                    onClick = { onFilterSelected(BranchFilter.BRANCH_ONLY) },
-                    label = { Text("Chi nhánh") },
-                )
-                FilterChip(
-                    selected = currentFilter == BranchFilter.ATM_ONLY,
-                    onClick = { onFilterSelected(BranchFilter.ATM_ONLY) },
-                    label = { Text("ATM") },
-                )
+                filters.forEach { (filter, label) ->
+                    FilterChip(
+                        selected = currentFilter == filter,
+                        onClick = { onFilterSelected(filter) },
+                        label = { Text(label) },
+                    )
+                }
             }
         }
     }
@@ -412,8 +409,6 @@ private fun TopControlsOverlay(
 
 @Composable
 private fun FloatingMapControls(
-    currentMode: MapViewMode,
-    onToggleMapMode: () -> Unit,
     onZoomIn: () -> Unit,
     onZoomOut: () -> Unit,
     onRecenter: () -> Unit,
@@ -422,25 +417,8 @@ private fun FloatingMapControls(
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalAlignment = Alignment.End,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Toggle Map View
-        SmallFloatingActionButton(
-            onClick = onToggleMapMode,
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        ) {
-            Icon(
-                imageVector = when (currentMode) {
-                    MapViewMode.INTERACTIVE -> Icons.Filled.Public
-                    MapViewMode.GOOGLE_MAPS -> Icons.Filled.Map
-                    MapViewMode.OFFLINE_VECTOR -> Icons.Filled.NearMe
-                },
-                contentDescription = "Chuyển chế độ bản đồ",
-                modifier = Modifier.size(20.dp),
-            )
-        }
-
         SmallFloatingActionButton(
             onClick = onZoomIn,
             containerColor = MaterialTheme.colorScheme.surface,
@@ -491,7 +469,6 @@ private fun BranchDetailsCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            // Header Row: Name & Type Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -524,7 +501,6 @@ private fun BranchDetailsCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // Address
             Text(
                 text = b.address,
                 style = MaterialTheme.typography.bodyMedium,
@@ -535,7 +511,6 @@ private fun BranchDetailsCard(
 
             Spacer(Modifier.height(6.dp))
 
-            // Hours & Phone
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -556,7 +531,6 @@ private fun BranchDetailsCard(
 
             Spacer(Modifier.height(10.dp))
 
-            // Distance & walking minutes
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
@@ -587,7 +561,6 @@ private fun BranchDetailsCard(
 
             Spacer(Modifier.height(14.dp))
 
-            // Dual Action Buttons: "Vạch lộ trình" & "Google Maps"
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -638,6 +611,25 @@ private fun BranchDetailsCard(
                 }
             }
         }
+    }
+}
+
+private fun hasAnyLocationPermission(context: Context): Boolean {
+    val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    return fine || coarse
+}
+
+@SuppressLint("MissingPermission")
+private fun fetchLastKnownLocation(context: Context): Location? {
+    if (!hasAnyLocationPermission(context)) return null
+    return try {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
+        lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            ?: lm.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+    } catch (_: Throwable) {
+        null
     }
 }
 
