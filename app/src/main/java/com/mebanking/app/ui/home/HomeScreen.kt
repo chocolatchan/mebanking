@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -94,12 +95,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -174,6 +176,7 @@ fun HomeScreen(
     onNavigateToTopup: () -> Unit = {},
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
+    openQrTrigger: Int = 0,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -197,6 +200,7 @@ fun HomeScreen(
         onNavigateToTopup = onNavigateToTopup,
         onLogout = onLogout,
         isCustomer = isCustomer,
+        openQrTrigger = openQrTrigger,
         modifier = modifier,
     )
 }
@@ -224,6 +228,7 @@ fun HomeScreen(
     onNavigateToTopup: () -> Unit = {},
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
+    openQrTrigger: Int = 0,
 ) {
     LaunchedEffect(Unit) {
         onRetry()
@@ -232,7 +237,6 @@ fun HomeScreen(
     var isBalanceHidden by remember { mutableStateOf(false) }
     var showQrModal by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
-    var currentBottomTab by remember { mutableIntStateOf(0) }
 
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
@@ -257,6 +261,12 @@ fun HomeScreen(
             showQrModal = true
         } else {
             qrPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+        }
+    }
+
+    LaunchedEffect(openQrTrigger) {
+        if (openQrTrigger > 0) {
+            openQrScanner()
         }
     }
 
@@ -301,24 +311,6 @@ fun HomeScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        bottomBar = {
-            ModernBankingBottomBar(
-                selectedTab = currentBottomTab,
-                onTabSelected = { tab ->
-                    currentBottomTab = tab
-                    when (tab) {
-                        0 -> {} // Home
-                        1 -> onNavigateToHistory()
-                        2 -> openQrScanner()
-                        3 -> onNavigateToServices()
-                        4 -> {
-                            val primaryId = uiState.accounts.firstOrNull()?.id?.toLongOrNull() ?: -1L
-                            onNavigateToAccountDetail(primaryId)
-                        }
-                    }
-                },
-            )
-        },
     ) { innerPadding ->
         when {
             uiState.isLoading -> LoadingContent(Modifier.padding(innerPadding))
@@ -389,7 +381,7 @@ private fun ModernAccountsContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        contentPadding = PaddingValues(bottom = 104.dp),
     ) {
         // 1. Top Header with Gradient & Greeting
         item {
@@ -761,7 +753,7 @@ private fun VipBankMasterCard(
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                text = if (isBalanceHidden) "•••••••• đ" else CurrencyFormatter.formatVnd(uiState.totalBalance),
+                                text = if (isBalanceHidden) "•••••••• đ" else CurrencyFormatter.formatVnd(primaryAccount?.balance ?: uiState.totalBalance),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
@@ -1319,82 +1311,98 @@ private fun ModernAccountItem(
 }
 
 // -----------------------------------------------------------------------------
-// Bottom Navigation Bar (Clean Vector Icons)
+// Material 3 Expressive Floating Toolbar
 // -----------------------------------------------------------------------------
 
 @Composable
-private fun ModernBankingBottomBar(
+internal fun ModernBankingFloatingToolbar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val navItemColors = NavigationBarItemDefaults.colors(
-        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-        selectedIconColor = MaterialTheme.colorScheme.primary,
-        selectedTextColor = MaterialTheme.colorScheme.primary,
-        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 4.dp,
-        modifier = Modifier.shadow(elevation = 8.dp),
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        NavigationBarItem(
-            icon = { Icon(Icons.Filled.Home, contentDescription = "Trang chủ") },
-            label = { Text("Trang chủ", fontWeight = FontWeight.SemiBold) },
-            selected = selectedTab == 0,
-            onClick = { onTabSelected(0) },
-            colors = navItemColors,
-        )
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 3.dp,
+            shadowElevation = 6.dp,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ToolbarIconAction(
+                    icon = Icons.Filled.Home,
+                    contentDescription = "Trang chủ",
+                    selected = selectedTab == 0,
+                    onClick = { onTabSelected(0) },
+                )
+                ToolbarIconAction(
+                    icon = Icons.Filled.History,
+                    contentDescription = "Lịch sử",
+                    selected = selectedTab == 1,
+                    onClick = { onTabSelected(1) },
+                )
+                ToolbarIconAction(
+                    icon = Icons.Filled.Receipt,
+                    contentDescription = "Dịch vụ",
+                    selected = selectedTab == 3,
+                    onClick = { onTabSelected(3) },
+                )
+                ToolbarIconAction(
+                    icon = Icons.Filled.Person,
+                    contentDescription = "Tài khoản",
+                    selected = selectedTab == 4,
+                    onClick = { onTabSelected(4) },
+                )
+            }
+        }
 
-        NavigationBarItem(
-            icon = { Icon(Icons.Filled.History, contentDescription = "Lịch sử") },
-            label = { Text("Lịch sử", fontWeight = FontWeight.SemiBold) },
-            selected = selectedTab == 1,
-            onClick = { onTabSelected(1) },
-            colors = navItemColors,
-        )
-
-        // Center highlighted QR Pay button (Pastel Purple flat highlight)
-        NavigationBarItem(
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                        .shadow(elevation = 2.dp, shape = CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.QrCodeScanner,
-                        contentDescription = "Quét QR",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            },
-            label = { Text("Quét QR", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
-            selected = selectedTab == 2,
+        FloatingActionButton(
             onClick = { onTabSelected(2) },
-        )
+            shape = RoundedCornerShape(18.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.QrCodeScanner,
+                contentDescription = "Quét QR",
+            )
+        }
+    }
+}
 
-        NavigationBarItem(
-            icon = { Icon(Icons.Filled.Receipt, contentDescription = "Dịch vụ") },
-            label = { Text("Dịch vụ", fontWeight = FontWeight.SemiBold) },
-            selected = selectedTab == 3,
-            onClick = { onTabSelected(3) },
-            colors = navItemColors,
-        )
-
-        NavigationBarItem(
-            icon = { Icon(Icons.Filled.Person, contentDescription = "Tài khoản") },
-            label = { Text("Tài khoản", fontWeight = FontWeight.SemiBold) },
-            selected = selectedTab == 4,
-            onClick = { onTabSelected(4) },
-            colors = navItemColors,
-        )
+@Composable
+private fun ToolbarIconAction(
+    icon: ImageVector,
+    contentDescription: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    if (selected) {
+        FilledIconButton(
+            onClick = onClick,
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.primary,
+            ),
+        ) {
+            Icon(imageVector = icon, contentDescription = contentDescription)
+        }
+    } else {
+        IconButton(onClick = onClick) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

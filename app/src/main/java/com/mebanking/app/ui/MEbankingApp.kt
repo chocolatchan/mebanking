@@ -1,20 +1,28 @@
 package com.mebanking.app.ui
 
 import android.net.Uri
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.mebanking.app.MEbankingApplication
@@ -28,6 +36,8 @@ import com.mebanking.app.ui.cash.WithdrawScreen
 import com.mebanking.app.ui.bills.BillPaymentScreen
 import com.mebanking.app.ui.chatbot.ChatbotScreen
 import com.mebanking.app.ui.home.HomeScreen
+import com.mebanking.app.ui.home.HomeViewModel
+import com.mebanking.app.ui.home.ModernBankingFloatingToolbar
 import com.mebanking.app.ui.history.TransactionHistoryScreen
 import com.mebanking.app.ui.history.TransactionDetailScreen
 import com.mebanking.app.ui.lifestyle.CinemaBookingScreen
@@ -84,15 +94,35 @@ private fun AuthenticatedApp(
     isCustomer: Boolean,
     onLogout: () -> Unit,
 ) {
-    val navController = rememberNavController()
+    val context = LocalContext.current
+    val appContainer = (context.applicationContext as MEbankingApplication).container
+    val homeViewModel: HomeViewModel = viewModel(factory = appContainer.viewModelFactory)
+    val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+    val primaryAccountId = homeUiState.accounts.firstOrNull()?.id?.toLongOrNull() ?: -1L
 
-    NavHost(
-        navController = navController,
-        startDestination = "home",
-    ) {
-        composable("home") {
-            HomeScreen(
-                onNavigateToBranchLocator = {
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    var openQrTrigger by remember { mutableIntStateOf(0) }
+
+    val selectedMainTab = when (currentRoute) {
+        "home" -> 0
+        "transaction_history" -> 1
+        "services" -> 3
+        "account_detail/{accountId}" -> 4
+        else -> null
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        NavHost(
+            navController = navController,
+            startDestination = "home",
+        ) {
+            composable("home") {
+                HomeScreen(
+                    viewModel = homeViewModel,
+                    openQrTrigger = openQrTrigger,
+                    onNavigateToBranchLocator = {
                     navController.navigate("branch_locator") { launchSingleTop = true }
                 },
                 onNavigateToTransfer = { account, name, amount, note ->
@@ -280,5 +310,48 @@ private fun AuthenticatedApp(
                 )
             }
         }
+    }
+
+    if (selectedMainTab != null) {
+        ModernBankingFloatingToolbar(
+            selectedTab = selectedMainTab,
+            onTabSelected = { tab ->
+                when (tab) {
+                    0 -> navController.navigate("home") {
+                        popUpTo("home") { inclusive = false }
+                        launchSingleTop = true
+                    }
+                    1 -> navController.navigate("transaction_history") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                    2 -> {
+                        openQrTrigger += 1
+                        if (currentRoute != "home") {
+                            navController.navigate("home") {
+                                popUpTo("home") { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                    3 -> navController.navigate("services") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                    4 -> navController.navigate("account_detail/$primaryAccountId") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 16.dp),
+        )
+    }
     }
 }

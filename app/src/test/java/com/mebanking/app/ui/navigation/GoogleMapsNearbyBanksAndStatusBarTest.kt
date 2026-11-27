@@ -72,10 +72,10 @@ class GoogleMapsNearbyBanksAndStatusBarTest {
         assertTrue(banks.any { it.name.contains("MBBank") })
         assertTrue(banks.any { it.name.contains("ACB") })
 
-        // Check valid coordinates inside central HCMC
+        // Check valid coordinates inside inner & belt HCMC
         for (b in banks) {
-            assertTrue("Latitude must be in central HCMC", b.latitude in 10.7..10.9)
-            assertTrue("Longitude must be in central HCMC", b.longitude in 106.6..106.8)
+            assertTrue("Latitude must be in HCMC (${b.name}: ${b.latitude})", b.latitude in 10.65..10.95)
+            assertTrue("Longitude must be in HCMC (${b.name}: ${b.longitude})", b.longitude in 106.55..106.85)
             assertTrue("Address must not be empty", b.address.isNotEmpty())
             assertTrue("Opening hours must not be empty", b.openingHours.isNotEmpty())
         }
@@ -104,17 +104,21 @@ class GoogleMapsNearbyBanksAndStatusBarTest {
 
         val state = viewModel.uiState.value
         assertFalse(state.isLoading)
-        // Should contain 3 internal branches + 8 nearby partner banks = 11 banks total
-        assertEquals(11, state.branches.size)
+        // Should contain 3 internal branches + all nearby partner banks (inner & belt HCMC)
+        assertEquals(3 + NearbyBanksProvider.NEARBY_BANKS.size, state.branches.size)
 
         // Verify sorted by distance ascending
         for (i in 0 until state.branches.size - 1) {
             assertTrue(state.branches[i].directDistanceMeters <= state.branches[i + 1].directDistanceMeters)
         }
 
-        // Must have selected nearest branch by default
+        // Since ATM Ben Thanh is within 20m of default userLocation, the 2nd nearest (>20m) is selected
+        val expectedSelected = state.branches.first {
+            it.directDistanceMeters > BranchLocatorViewModel.MIN_SCAN_DISTANCE_METERS
+        }
         assertNotNull(state.selectedBranch)
-        assertEquals(state.branches.first().branch.id, state.selectedBranch?.branch?.id)
+        assertEquals(expectedSelected.branch.id, state.selectedBranch?.branch?.id)
+        assertNotNull(state.currentRoute)
     }
 
     @Test

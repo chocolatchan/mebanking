@@ -6,11 +6,17 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.data.local.AppDatabase
+import com.mebanking.app.data.local.entity.BranchEntity
+import com.mebanking.app.data.navigation.HcmcBankPoiRemoteSource
 import com.mebanking.app.data.navigation.RoadGraphLoader
 import com.mebanking.app.data.repository.BranchNavigationRepository
 import com.mebanking.app.domain.model.navigation.BranchDistance
 import com.mebanking.app.domain.model.navigation.BranchFilter
 import com.mebanking.app.domain.model.navigation.GeoPoint
+import com.mebanking.app.domain.model.navigation.NearbyBanksProvider
+import com.mebanking.app.domain.model.navigation.RoadEdge
+import com.mebanking.app.domain.model.navigation.RoadNode
+import com.mebanking.app.domain.model.navigation.RouteResult
 import com.mebanking.app.domain.model.toDomainError
 import com.mebanking.app.domain.navigation.GeoDistanceCalculator
 import com.mebanking.app.domain.navigation.PathFinder
@@ -29,48 +35,52 @@ import kotlinx.coroutines.launch
  */
 class BranchLocatorViewModel(
     private val repository: BranchNavigationRepository,
+    private val poiRemoteSource: HcmcBankPoiRemoteSource? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BranchLocatorUiState())
     val uiState: StateFlow<BranchLocatorUiState> = _uiState.asStateFlow()
 
+    @Volatile
+    private var remoteHcmcPois: List<BranchEntity> = emptyList()
+
     init {
         loadData()
+        loadRemoteHcmcPois()
     }
 
     fun loadData(): Job = viewModelScope.launch {
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
         try {
             val graph = runSuspendCatching { repository.getRoadGraph() }.getOrNull()
-            val entities = repository.searchBranches(
-                query = _uiState.value.searchQuery,
-                filter = _uiState.value.filter,
-            ) + com.mebanking.app.domain.model.navigation.NearbyBanksProvider.searchNearby(
+            val userLoc = _uiState.value.userLocation
+            val branchDistances = computeSortedBranches(
+                userLocation = userLoc,
                 query = _uiState.value.searchQuery,
                 filter = _uiState.value.filter,
             )
-            val userLoc = _uiState.value.userLocation
-            val branchDistances = entities.map { b ->
-                val dist = GeoDistanceCalculator.haversineDistanceMeters(
-                    userLoc,
-                    GeoPoint(b.latitude, b.longitude),
-                )
-                BranchDistance(
-                    branch = b,
-                    directDistanceMeters = dist,
-                    routeResult = null,
-                    estimatedMinutes = PathFinder.calculateEstimatedMinutes(dist),
-                )
-            }.sortedBy { it.directDistanceMeters }
 
-            val initialSelected = _uiState.value.selectedBranch ?: branchDistances.firstOrNull()
+            val nearest = _uiState.value.selectedBranch?.let { prev ->
+                branchDistances.firstOrNull { it.branch.id == prev.branch.id }
+            } ?: selectNearestTarget(branchDistances)
+
+            val route = nearest?.let { resolveRouteForBranch(userLoc, it) }
+            val selectedWithRoute = nearest?.copy(routeResult = route)
+            val updatedBranches = if (selectedWithRoute != null) {
+                branchDistances.map { b ->
+                    if (b.branch.id == selectedWithRoute.branch.id) selectedWithRoute else b
+                }
+            } else {
+                branchDistances
+            }
 
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     roadGraph = graph,
-                    branches = branchDistances,
-                    selectedBranch = initialSelected,
+                    branches = updatedBranches,
+                    selectedBranch = selectedWithRoute,
+                    currentRoute = route,
                     errorMessage = null,
                 )
             }
@@ -167,49 +177,55 @@ class BranchLocatorViewModel(
 
     fun onUserLocationChanged(location: GeoPoint): Job {
         _uiState.update { it.copy(userLocation = location) }
-        return refreshBranches(recalculateRoute = true)
+        return refreshBranches(selectNearest = true, recalculateRoute = true)
     }
 
-    private fun refreshBranches(recalculateRoute: Boolean = false): Job = viewModelScope.launch {
+    /**
+     * Scans all banks/ATMs sorted by distance from the user's current location.
+     * If the closest match is within [MIN_SCAN_DISTANCE_METERS] (20m), automatically
+     * selects the next nearest location (>20m) and calculates the route to it.
+     */
+    fun scanNearestAndRoute(): Job = refreshBranches(selectNearest = true, recalculateRoute = true)
+
+    private fun refreshBranches(
+        selectNearest: Boolean = false,
+        recalculateRoute: Boolean = false,
+    ): Job = viewModelScope.launch {
         try {
             val currentState = _uiState.value
-            val entities = repository.searchBranches(
-                query = currentState.searchQuery,
-                filter = currentState.filter,
-            ) + com.mebanking.app.domain.model.navigation.NearbyBanksProvider.searchNearby(
+            val branchDistances = computeSortedBranches(
+                userLocation = currentState.userLocation,
                 query = currentState.searchQuery,
                 filter = currentState.filter,
             )
-            val branchDistances = entities.map { b ->
-                val dist = GeoDistanceCalculator.haversineDistanceMeters(
-                    currentState.userLocation,
-                    GeoPoint(b.latitude, b.longitude),
-                )
-                BranchDistance(
-                    branch = b,
-                    directDistanceMeters = dist,
-                    routeResult = if (stateMatchesBranch(currentState.selectedBranch, b.id)) {
-                        currentState.currentRoute
-                    } else null,
-                    estimatedMinutes = PathFinder.calculateEstimatedMinutes(dist),
-                )
-            }.sortedBy { it.directDistanceMeters }
 
             val currentSelectedId = currentState.selectedBranch?.branch?.id
-            val updatedSelected = branchDistances.firstOrNull { it.branch.id == currentSelectedId }
-                ?: branchDistances.firstOrNull()
-
-            val newRoute = if (recalculateRoute && updatedSelected != null && currentState.currentRoute != null) {
-                repository.calculateRouteToBranch(currentState.userLocation, updatedSelected.branch.id)
-            } else if (updatedSelected?.branch?.id == currentSelectedId) {
-                currentState.currentRoute
+            val targetBranch = if (selectNearest) {
+                selectNearestTarget(branchDistances)
             } else {
-                null
+                branchDistances.firstOrNull { it.branch.id == currentSelectedId }
+                    ?: selectNearestTarget(branchDistances)
+            }
+
+            val newRoute = when {
+                targetBranch == null -> null
+                recalculateRoute || targetBranch.branch.id != currentSelectedId || currentState.currentRoute == null ->
+                    resolveRouteForBranch(currentState.userLocation, targetBranch)
+                else -> currentState.currentRoute
+            }
+
+            val updatedSelected = targetBranch?.copy(routeResult = newRoute)
+            val updatedBranches = if (updatedSelected != null) {
+                branchDistances.map { b ->
+                    if (b.branch.id == updatedSelected.branch.id) updatedSelected else b
+                }
+            } else {
+                branchDistances
             }
 
             _uiState.update {
                 it.copy(
-                    branches = branchDistances,
+                    branches = updatedBranches,
                     selectedBranch = updatedSelected,
                     currentRoute = newRoute,
                 )
@@ -224,11 +240,119 @@ class BranchLocatorViewModel(
         }
     }
 
-    private fun stateMatchesBranch(selected: BranchDistance?, branchId: Long): Boolean {
-        return selected?.branch?.id == branchId
+    private fun loadRemoteHcmcPois() {
+        val remote = poiRemoteSource ?: return
+        viewModelScope.launch {
+            val pois = runSuspendCatching { remote.fetchHcmcBankAndAtmPois() }.getOrNull().orEmpty()
+            if (pois.isNotEmpty()) {
+                remoteHcmcPois = pois
+                refreshBranches(selectNearest = false, recalculateRoute = false)
+            }
+        }
+    }
+
+    private suspend fun computeSortedBranches(
+        userLocation: GeoPoint,
+        query: String,
+        filter: BranchFilter,
+    ): List<BranchDistance> {
+        val localEntities = repository.searchBranches(query = query, filter = filter) +
+            NearbyBanksProvider.searchNearby(query = query, filter = filter)
+        val filteredRemote = NearbyBanksProvider.filterBranches(remoteHcmcPois, query, filter)
+        val entities = mergeDistinctBranches(localEntities, filteredRemote)
+
+        return entities.map { b ->
+            val dist = GeoDistanceCalculator.haversineDistanceMeters(
+                userLocation,
+                GeoPoint(b.latitude, b.longitude),
+            )
+            BranchDistance(
+                branch = b,
+                directDistanceMeters = dist,
+                routeResult = null,
+                estimatedMinutes = PathFinder.calculateEstimatedMinutes(dist),
+            )
+        }.sortedBy { it.directDistanceMeters }
+    }
+
+    private fun mergeDistinctBranches(
+        primary: List<BranchEntity>,
+        extra: List<BranchEntity>,
+    ): List<BranchEntity> {
+        if (extra.isEmpty()) return primary
+        val merged = primary.toMutableList()
+        for (candidate in extra) {
+            val candidatePoint = GeoPoint(candidate.latitude, candidate.longitude)
+            val isDuplicate = merged.any { existing ->
+                GeoDistanceCalculator.haversineDistanceMeters(
+                    GeoPoint(existing.latitude, existing.longitude),
+                    candidatePoint,
+                ) < 25.0
+            }
+            if (!isDuplicate) {
+                merged.add(candidate)
+            }
+        }
+        return merged
+    }
+
+    private fun selectNearestTarget(branchDistances: List<BranchDistance>): BranchDistance? {
+        val first = branchDistances.firstOrNull() ?: return null
+        return if (first.directDistanceMeters <= MIN_SCAN_DISTANCE_METERS) {
+            branchDistances.firstOrNull { it.directDistanceMeters > MIN_SCAN_DISTANCE_METERS }
+                ?: branchDistances.getOrNull(1)
+                ?: first
+        } else {
+            first
+        }
+    }
+
+    private suspend fun resolveRouteForBranch(
+        userLocation: GeoPoint,
+        branchDistance: BranchDistance,
+    ): RouteResult {
+        val graphRoute = try {
+            repository.calculateRouteToBranch(userLocation, branchDistance.branch.id)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+        val startNode = RoadNode(
+            id = "user_location",
+            name = "Vị trí của bạn",
+            latitude = userLocation.latitude,
+            longitude = userLocation.longitude,
+        )
+        val endNode = RoadNode(
+            id = "branch_${branchDistance.branch.id}",
+            name = branchDistance.branch.name,
+            latitude = branchDistance.branch.latitude,
+            longitude = branchDistance.branch.longitude,
+        )
+        return if (graphRoute != null && graphRoute.nodes.size >= 2) {
+            graphRoute
+        } else {
+            RouteResult(
+                nodes = listOf(startNode, endNode),
+                edges = listOf(
+                    RoadEdge(
+                        id = "direct_${branchDistance.branch.id}",
+                        fromNodeId = startNode.id,
+                        toNodeId = endNode.id,
+                        distanceMeters = branchDistance.directDistanceMeters,
+                        streetName = "Đường đi trực tiếp",
+                    ),
+                ),
+                totalDistanceMeters = branchDistance.directDistanceMeters,
+                estimatedMinutes = branchDistance.estimatedMinutes,
+            )
+        }
     }
 
     companion object {
+        const val MIN_SCAN_DISTANCE_METERS = 20.0
+
         fun factory(context: Context): ViewModelProvider.Factory {
             val app = context.applicationContext as? MEbankingApplication
             return app?.container?.viewModelFactory ?: object : ViewModelProvider.Factory {
@@ -237,7 +361,7 @@ class BranchLocatorViewModel(
                     val db = AppDatabase.buildDatabase(context)
                     val loader = RoadGraphLoader(context)
                     val repo = BranchNavigationRepository(db.branchDao(), loader)
-                    return BranchLocatorViewModel(repo) as T
+                    return BranchLocatorViewModel(repo, HcmcBankPoiRemoteSource()) as T
                 }
             }
         }

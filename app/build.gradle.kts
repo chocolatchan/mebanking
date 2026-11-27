@@ -84,8 +84,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
     implementation(libs.androidx.navigation.compose)
-    implementation("com.google.maps.android:maps-compose:4.4.1")
-    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("org.maplibre.gl:android-sdk:13.7.1")
 
     // CameraX for Live eKYC & Biometric Scanner
     implementation("androidx.camera:camera-camera2:1.3.4")
