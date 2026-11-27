@@ -16,6 +16,7 @@ import com.mebanking.app.domain.util.VietQrParser
 import com.mebanking.app.ui.home.QrCodeAnalyzer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -95,13 +96,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -177,6 +178,7 @@ fun HomeScreen(
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
     openQrTrigger: Int = 0,
+    isBottomBarVisible: Boolean = true,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -201,6 +203,7 @@ fun HomeScreen(
         onLogout = onLogout,
         isCustomer = isCustomer,
         openQrTrigger = openQrTrigger,
+        isBottomBarVisible = isBottomBarVisible,
         modifier = modifier,
     )
 }
@@ -229,6 +232,7 @@ fun HomeScreen(
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
     openQrTrigger: Int = 0,
+    isBottomBarVisible: Boolean = true,
 ) {
     LaunchedEffect(Unit) {
         onRetry()
@@ -308,44 +312,65 @@ fun HomeScreen(
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isDark)
 
+    val toolbarBottomOffset by animateDpAsState(
+        targetValue = if (isBottomBarVisible) 96.dp else 16.dp,
+        label = "customerToolsToolbarBottomOffset",
+    )
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { innerPadding ->
-        when {
-            uiState.isLoading -> LoadingContent(Modifier.padding(innerPadding))
-            uiState.errorMessage != null -> ErrorContent(
-                message = uiState.errorMessage,
-                onRetry = onRetry,
-                modifier = Modifier.padding(innerPadding),
-            )
-            else -> ModernAccountsContent(
-                uiState = uiState,
-                isBalanceHidden = isBalanceHidden,
-                onToggleBalanceVisibility = { isBalanceHidden = !isBalanceHidden },
-                onCopyAccount = { accountNumber ->
-                    clipboardManager.setText(AnnotatedString(accountNumber))
-                    Toast.makeText(context, "Đã sao chép số tài khoản: $accountNumber", Toast.LENGTH_SHORT).show()
-                },
-                onOpenQr = openQrScanner,
-                onLogoutClick = { showLogoutConfirm = true },
-                onNavigateToBranchLocator = onNavigateToBranchLocator,
-                onNavigateToTransfer = onNavigateToTransfer,
-                onNavigateToDeposit = onNavigateToDeposit,
-                onNavigateToWithdraw = onNavigateToWithdraw,
-                onNavigateToHistory = onNavigateToHistory,
-                onNavigateToOfficerDashboard = onNavigateToOfficerDashboard,
-                onNavigateToBills = onNavigateToBills,
-                onNavigateToChatbot = onNavigateToChatbot,
-                onNavigateToAccountDetail = onNavigateToAccountDetail,
-                onNavigateToFlights = onNavigateToFlights,
-                onNavigateToHotels = onNavigateToHotels,
-                onNavigateToCinema = onNavigateToCinema,
-                onNavigateToShop = onNavigateToShop,
-                onNavigateToTopup = onNavigateToTopup,
-                isCustomer = isCustomer,
-                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = innerPadding.calculateBottomPadding()),
+        ) {
+            when {
+                uiState.isLoading -> LoadingContent()
+                uiState.errorMessage != null -> ErrorContent(
+                    message = uiState.errorMessage,
+                    onRetry = onRetry,
+                )
+                else -> ModernAccountsContent(
+                    uiState = uiState,
+                    isBalanceHidden = isBalanceHidden,
+                    onToggleBalanceVisibility = { isBalanceHidden = !isBalanceHidden },
+                    onCopyAccount = { accountNumber ->
+                        clipboardManager.setText(AnnotatedString(accountNumber))
+                        Toast.makeText(context, "Đã sao chép số tài khoản: $accountNumber", Toast.LENGTH_SHORT).show()
+                    },
+                    onLogoutClick = { showLogoutConfirm = true },
+                    onNavigateToBranchLocator = onNavigateToBranchLocator,
+                    onNavigateToTransfer = onNavigateToTransfer,
+                    onNavigateToDeposit = onNavigateToDeposit,
+                    onNavigateToWithdraw = onNavigateToWithdraw,
+                    onNavigateToHistory = onNavigateToHistory,
+                    onNavigateToOfficerDashboard = onNavigateToOfficerDashboard,
+                    onNavigateToBills = onNavigateToBills,
+                    onNavigateToChatbot = onNavigateToChatbot,
+                    onNavigateToAccountDetail = onNavigateToAccountDetail,
+                    onNavigateToFlights = onNavigateToFlights,
+                    onNavigateToHotels = onNavigateToHotels,
+                    onNavigateToCinema = onNavigateToCinema,
+                    onNavigateToShop = onNavigateToShop,
+                    onNavigateToTopup = onNavigateToTopup,
+                    isCustomer = isCustomer,
+                )
+            }
+
+            if (isCustomer && !uiState.isLoading && uiState.errorMessage == null) {
+                CustomerToolsFloatingToolbar(
+                    onTransfer = { onNavigateToTransfer(null, null, null, null) },
+                    onDeposit = onNavigateToDeposit,
+                    onWithdraw = onNavigateToWithdraw,
+                    onOpenQr = openQrScanner,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = toolbarBottomOffset),
+                )
+            }
         }
     }
 }
@@ -360,7 +385,6 @@ private fun ModernAccountsContent(
     isBalanceHidden: Boolean,
     onToggleBalanceVisibility: () -> Unit,
     onCopyAccount: (String) -> Unit,
-    onOpenQr: () -> Unit,
     onLogoutClick: () -> Unit,
     onNavigateToBranchLocator: () -> Unit,
     onNavigateToTransfer: (String?, String?, String?, String?) -> Unit,
@@ -381,7 +405,7 @@ private fun ModernAccountsContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 104.dp),
+        contentPadding = PaddingValues(bottom = if (isCustomer) 168.dp else 104.dp),
     ) {
         // 1. Top Header with Gradient & Greeting
         item {
@@ -415,22 +439,10 @@ private fun ModernAccountsContent(
             }
         }
 
-        // 3. Quick Action 4-Bar (Techcombank iconic floating buttons)
+        // 3. Recent Transfer Recipients (Customer only)
         if (isCustomer) {
             item {
                 Spacer(Modifier.height(16.dp))
-                QuickActionsFourBar(
-                    onTransfer = { onNavigateToTransfer(null, null, null, null) },
-                    onOpenQr = onOpenQr,
-                    onDeposit = onNavigateToDeposit,
-                    onWithdraw = onNavigateToWithdraw,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
-
-            // 4. Recent Transfer Recipients
-            item {
-                Spacer(Modifier.height(20.dp))
                 RecentRecipientsSection(
                     onRecipientClick = { account, name -> onNavigateToTransfer(account, name, null, null) },
                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -812,102 +824,6 @@ private fun VipBankMasterCard(
 }
 
 // -----------------------------------------------------------------------------
-// Quick Actions Bar (Techcombank 4 Primary Circular Actions with Vector Icons)
-// -----------------------------------------------------------------------------
-
-@Composable
-private fun QuickActionsFourBar(
-    onTransfer: () -> Unit,
-    onOpenQr: () -> Unit,
-    onDeposit: () -> Unit,
-    onWithdraw: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CircleActionItem(
-                icon = Icons.Filled.Send,
-                title = "Chuyển tiền",
-                bgColor = MaterialTheme.colorScheme.primaryContainer,
-                tintColor = MaterialTheme.colorScheme.primary,
-                onClick = onTransfer,
-            )
-            CircleActionItem(
-                icon = Icons.Filled.QrCodeScanner,
-                title = "Quét QR",
-                bgColor = MaterialTheme.colorScheme.secondaryContainer,
-                tintColor = MaterialTheme.colorScheme.secondary,
-                onClick = onOpenQr,
-            )
-            CircleActionItem(
-                icon = Icons.Filled.AddCircle,
-                title = "Nạp tiền",
-                bgColor = MaterialTheme.colorScheme.tertiaryContainer,
-                tintColor = MaterialTheme.colorScheme.tertiary,
-                onClick = onDeposit,
-            )
-            CircleActionItem(
-                icon = Icons.Filled.LocalAtm,
-                title = "Rút tiền",
-                bgColor = MaterialTheme.colorScheme.surfaceVariant,
-                tintColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                onClick = onWithdraw,
-            )
-        }
-    }
-}
-
-@Composable
-private fun CircleActionItem(
-    icon: ImageVector,
-    title: String,
-    bgColor: Color,
-    tintColor: Color,
-    onClick: () -> Unit,
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(bgColor),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = tintColor,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
-}
-
 // -----------------------------------------------------------------------------
 // Recent Recipients (Clean Avatar Circles)
 // -----------------------------------------------------------------------------
@@ -1311,99 +1227,143 @@ private fun ModernAccountItem(
 }
 
 // -----------------------------------------------------------------------------
-// Material 3 Expressive Floating Toolbar
+// Collapsible Main BottomBar & Customer Tools Floating Toolbar
 // -----------------------------------------------------------------------------
 
+private data class BankingNavTab(
+    val id: Int,
+    val label: String,
+    val icon: ImageVector,
+)
+
 @Composable
-internal fun ModernBankingFloatingToolbar(
+internal fun ModernBankingBottomBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     isCustomer: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 3.dp,
-            shadowElevation = 6.dp,
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ToolbarIconAction(
-                    icon = Icons.Filled.Home,
-                    contentDescription = "Trang chủ",
-                    selected = selectedTab == 0,
-                    onClick = { onTabSelected(0) },
-                )
-                ToolbarIconAction(
-                    icon = if (isCustomer) Icons.Filled.History else Icons.Filled.Assessment,
-                    contentDescription = if (isCustomer) "Lịch sử" else "Báo cáo giao dịch",
-                    selected = selectedTab == 1,
-                    onClick = { onTabSelected(1) },
-                )
-                if (isCustomer) {
-                    ToolbarIconAction(
-                        icon = Icons.Filled.Receipt,
-                        contentDescription = "Dịch vụ",
-                        selected = selectedTab == 3,
-                        onClick = { onTabSelected(3) },
-                    )
-                }
-                ToolbarIconAction(
-                    icon = Icons.Filled.Person,
-                    contentDescription = if (isCustomer) "Tài khoản" else "Hồ sơ cán bộ",
-                    selected = selectedTab == 4,
-                    onClick = { onTabSelected(4) },
-                )
-            }
+    val tabs = remember(isCustomer) {
+        if (isCustomer) {
+            listOf(
+                BankingNavTab(0, "Trang chủ", Icons.Filled.Home),
+                BankingNavTab(1, "Lịch sử", Icons.Filled.History),
+                BankingNavTab(3, "Dịch vụ", Icons.Filled.Receipt),
+                BankingNavTab(4, "Tài khoản", Icons.Filled.Person),
+            )
+        } else {
+            listOf(
+                BankingNavTab(0, "Trang chủ", Icons.Filled.Home),
+                BankingNavTab(1, "Báo cáo GD", Icons.Filled.Assessment),
+                BankingNavTab(5, "Quản lý KH", Icons.Filled.SupervisorAccount),
+                BankingNavTab(4, "Hồ sơ", Icons.Filled.Person),
+            )
         }
+    }
 
-        FloatingActionButton(
-            onClick = { onTabSelected(if (isCustomer) 2 else 5) },
-            shape = RoundedCornerShape(18.dp),
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),
-        ) {
-            Icon(
-                imageVector = if (isCustomer) Icons.Filled.QrCodeScanner else Icons.Filled.SupervisorAccount,
-                contentDescription = if (isCustomer) "Quét QR" else "Quản lý hồ sơ khách hàng",
+    NavigationBar(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 4.dp,
+    ) {
+        tabs.forEach { tab ->
+            NavigationBarItem(
+                selected = selectedTab == tab.id,
+                onClick = { onTabSelected(tab.id) },
+                icon = {
+                    Icon(
+                        imageVector = tab.icon,
+                        contentDescription = tab.label,
+                    )
+                },
+                label = {
+                    Text(
+                        text = tab.label,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                alwaysShowLabel = true,
             )
         }
     }
 }
 
+private data class FloatingBankingTool(
+    val label: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit,
+)
+
 @Composable
-private fun ToolbarIconAction(
-    icon: ImageVector,
-    contentDescription: String,
-    selected: Boolean,
-    onClick: () -> Unit,
+internal fun CustomerToolsFloatingToolbar(
+    onTransfer: () -> Unit,
+    onDeposit: () -> Unit,
+    onWithdraw: () -> Unit,
+    onOpenQr: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    if (selected) {
-        FilledIconButton(
-            onClick = onClick,
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.primary,
-            ),
+    val tools = listOf(
+        FloatingBankingTool("Chuyển tiền", Icons.Filled.Send, onTransfer),
+        FloatingBankingTool("Nạp tiền", Icons.Filled.AddCircle, onDeposit),
+        FloatingBankingTool("Rút tiền", Icons.Filled.LocalAtm, onWithdraw),
+    )
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 4.dp,
+            shadowElevation = 8.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
         ) {
-            Icon(imageVector = icon, contentDescription = contentDescription)
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                tools.forEach { tool ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .clickable(onClick = tool.onClick)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Icon(
+                            imageVector = tool.icon,
+                            contentDescription = tool.label,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = tool.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
         }
-    } else {
-        IconButton(onClick = onClick) {
+
+        FloatingActionButton(
+            onClick = onOpenQr,
+            shape = RoundedCornerShape(18.dp),
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp),
+        ) {
             Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                imageVector = Icons.Filled.QrCodeScanner,
+                contentDescription = "Quét QR",
             )
         }
     }

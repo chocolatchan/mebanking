@@ -1,13 +1,18 @@
 package com.mebanking.app.ui
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +20,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,7 +46,7 @@ import com.mebanking.app.ui.bills.BillPaymentScreen
 import com.mebanking.app.ui.chatbot.ChatbotScreen
 import com.mebanking.app.ui.home.HomeScreen
 import com.mebanking.app.ui.home.HomeViewModel
-import com.mebanking.app.ui.home.ModernBankingFloatingToolbar
+import com.mebanking.app.ui.home.ModernBankingBottomBar
 import com.mebanking.app.ui.history.TransactionHistoryScreen
 import com.mebanking.app.ui.history.TransactionDetailScreen
 import com.mebanking.app.ui.lifestyle.CinemaBookingScreen
@@ -104,6 +113,24 @@ private fun AuthenticatedApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     var openQrTrigger by remember { mutableIntStateOf(0) }
+    var isBottomBarVisible by remember { mutableStateOf(true) }
+
+    LaunchedEffect(currentRoute) {
+        isBottomBarVisible = true
+    }
+
+    val bottomBarNestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -8f) {
+                    isBottomBarVisible = false
+                } else if (available.y > 8f) {
+                    isBottomBarVisible = true
+                }
+                return Offset.Zero
+            }
+        }
+    }
 
     val selectedMainTab = when (currentRoute) {
         "home" -> 0
@@ -114,7 +141,11 @@ private fun AuthenticatedApp(
         else -> null
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(bottomBarNestedScrollConnection),
+    ) {
         NavHost(
             navController = navController,
             startDestination = "home",
@@ -123,6 +154,7 @@ private fun AuthenticatedApp(
                 HomeScreen(
                     viewModel = homeViewModel,
                     openQrTrigger = openQrTrigger,
+                    isBottomBarVisible = selectedMainTab == null || isBottomBarVisible,
                     onNavigateToBranchLocator = {
                     navController.navigate("branch_locator") { launchSingleTop = true }
                 },
@@ -313,9 +345,14 @@ private fun AuthenticatedApp(
         }
     }
 
-    if (selectedMainTab != null) {
-        ModernBankingFloatingToolbar(
-            selectedTab = selectedMainTab,
+    AnimatedVisibility(
+        visible = selectedMainTab != null && isBottomBarVisible,
+        enter = slideInVertically { it } + fadeIn(),
+        exit = slideOutVertically { it } + fadeOut(),
+        modifier = Modifier.align(Alignment.BottomCenter),
+    ) {
+        ModernBankingBottomBar(
+            selectedTab = selectedMainTab ?: 0,
             isCustomer = isCustomer,
             onTabSelected = { tab ->
                 when (tab) {
@@ -327,15 +364,6 @@ private fun AuthenticatedApp(
                         popUpTo("home") { saveState = true }
                         launchSingleTop = true
                         restoreState = true
-                    }
-                    2 -> if (isCustomer) {
-                        openQrTrigger += 1
-                        if (currentRoute != "home") {
-                            navController.navigate("home") {
-                                popUpTo("home") { inclusive = false }
-                                launchSingleTop = true
-                            }
-                        }
                     }
                     3 -> if (isCustomer) {
                         navController.navigate("services") {
@@ -358,10 +386,6 @@ private fun AuthenticatedApp(
                     }
                 }
             },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp),
         )
     }
     }
