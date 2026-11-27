@@ -531,7 +531,7 @@ private fun BankingTopHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(Color.Transparent)
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
