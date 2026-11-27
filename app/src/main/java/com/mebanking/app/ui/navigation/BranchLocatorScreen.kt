@@ -5,6 +5,11 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
 import android.location.Location
 import android.location.LocationManager
 import android.net.Uri
@@ -90,6 +95,7 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
@@ -364,12 +370,14 @@ fun BranchLocatorContent(
 private const val OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
 private const val BRANCHES_SOURCE_ID = "branches-source"
 private const val BRANCHES_LAYER_ID = "branches-layer"
-private const val BRANCHES_LABEL_LAYER_ID = "branches-label-layer"
 private const val USER_LOCATION_SOURCE_ID = "user-location-source"
 private const val USER_LOCATION_LAYER_ID = "user-location-layer"
 private const val PROP_BRANCH_ID = "branchId"
 private const val PROP_BRANCH_NAME = "branchName"
-private const val PROP_MARKER_COLOR = "markerColor"
+private const val PROP_MARKER_ICON = "markerIcon"
+private const val ICON_BRANCH = "marker-branch"
+private const val ICON_ATM = "marker-atm"
+private const val ICON_SELECTED = "marker-selected"
 
 @Composable
 private fun MapLibreContainer(
@@ -426,7 +434,13 @@ private fun MapLibreContainer(
 
             map.addOnMapClickListener { point ->
                 val screenPoint = map.projection.toScreenLocation(point)
-                val features = map.queryRenderedFeatures(screenPoint, BRANCHES_LAYER_ID)
+                val hitBox = RectF(
+                    screenPoint.x - 48f,
+                    screenPoint.y - 48f,
+                    screenPoint.x + 48f,
+                    screenPoint.y + 48f,
+                )
+                val features = map.queryRenderedFeatures(hitBox, BRANCHES_LAYER_ID)
                 val tappedId = features.firstOrNull()?.getNumberProperty(PROP_BRANCH_ID)?.toLong()
                 if (tappedId != null) {
                     currentBranches.firstOrNull { it.branch.id == tappedId }?.let {
@@ -483,25 +497,33 @@ private fun MapLibreContainer(
 }
 
 private fun ensureMapLayers(style: Style) {
+    if (style.getImage(ICON_BRANCH) == null) {
+        style.addImage(ICON_BRANCH, createPinBitmap(0xFFE53935.toInt(), scale = 1.0f))
+    }
+    if (style.getImage(ICON_ATM) == null) {
+        style.addImage(ICON_ATM, createPinBitmap(0xFF00897B.toInt(), scale = 1.0f))
+    }
+    if (style.getImage(ICON_SELECTED) == null) {
+        style.addImage(ICON_SELECTED, createPinBitmap(0xFFFF6D00.toInt(), scale = 1.25f))
+    }
+
     if (style.getSource(BRANCHES_SOURCE_ID) == null) {
         style.addSource(GeoJsonSource(BRANCHES_SOURCE_ID))
         style.addLayer(
-            CircleLayer(BRANCHES_LAYER_ID, BRANCHES_SOURCE_ID).withProperties(
-                PropertyFactory.circleRadius(9f),
-                PropertyFactory.circleColor(Expression.get(PROP_MARKER_COLOR)),
-                PropertyFactory.circleStrokeWidth(2.5f),
-                PropertyFactory.circleStrokeColor("#FFFFFF"),
-            ),
-        )
-        style.addLayer(
-            SymbolLayer(BRANCHES_LABEL_LAYER_ID, BRANCHES_SOURCE_ID).withProperties(
+            SymbolLayer(BRANCHES_LAYER_ID, BRANCHES_SOURCE_ID).withProperties(
+                PropertyFactory.iconImage(Expression.get(PROP_MARKER_ICON)),
+                PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                PropertyFactory.iconAllowOverlap(true),
+                PropertyFactory.iconIgnorePlacement(true),
                 PropertyFactory.textField(Expression.get(PROP_BRANCH_NAME)),
+                PropertyFactory.textFont(arrayOf("Noto Sans Regular")),
                 PropertyFactory.textSize(11f),
-                PropertyFactory.textOffset(arrayOf(0f, 1.5f)),
+                PropertyFactory.textOffset(arrayOf(0f, 0.4f)),
+                PropertyFactory.textAnchor(Property.TEXT_ANCHOR_TOP),
                 PropertyFactory.textColor("#1F2937"),
                 PropertyFactory.textHaloColor("#FFFFFF"),
                 PropertyFactory.textHaloWidth(1.5f),
-                PropertyFactory.textAllowOverlap(false),
+                PropertyFactory.textOptional(true),
             ),
         )
     }
@@ -519,20 +541,65 @@ private fun ensureMapLayers(style: Style) {
     }
 }
 
+private fun createPinBitmap(color: Int, scale: Float): Bitmap {
+    val width = (72 * scale).roundToInt()
+    val height = (92 * scale).roundToInt()
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val cx = width / 2f
+    val cy = width / 2f
+    val radius = width * 0.36f
+
+    val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = 0x33000000
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, height - 6f * scale, radius * 0.45f, shadowPaint)
+
+    val pinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color
+        style = Paint.Style.FILL
+    }
+    val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = 0xFFFFFFFF.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 4f * scale
+    }
+
+    val pinPath = Path().apply {
+        addCircle(cx, cy, radius, Path.Direction.CW)
+        moveTo(cx - radius * 0.72f, cy + radius * 0.55f)
+        lineTo(cx, height - 6f * scale)
+        lineTo(cx + radius * 0.72f, cy + radius * 0.55f)
+        close()
+    }
+    canvas.drawPath(pinPath, pinPaint)
+    canvas.drawCircle(cx, cy, radius, borderPaint)
+
+    val innerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = 0xFFFFFFFF.toInt()
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(cx, cy, radius * 0.38f, innerPaint)
+
+    return bitmap
+}
+
 private fun updateMapData(style: Style, uiState: BranchLocatorUiState) {
     val branchFeatures = uiState.branches.map { bDist ->
         val b = bDist.branch
         val isSelected = uiState.selectedBranch?.branch?.id == b.id
         val isAtm = b.name.contains("ATM", ignoreCase = true) || b.type.equals("ATM", ignoreCase = true)
-        val colorHex = when {
-            isSelected -> "#FF9800"
-            isAtm -> "#00BCD4"
-            else -> "#E53935"
+        val iconName = when {
+            isSelected -> ICON_SELECTED
+            isAtm -> ICON_ATM
+            else -> ICON_BRANCH
         }
         Feature.fromGeometry(Point.fromLngLat(b.longitude, b.latitude)).apply {
             addNumberProperty(PROP_BRANCH_ID, b.id)
             addStringProperty(PROP_BRANCH_NAME, b.name)
-            addStringProperty(PROP_MARKER_COLOR, colorHex)
+            addStringProperty(PROP_MARKER_ICON, iconName)
         }
     }
     style.getSourceAs<GeoJsonSource>(BRANCHES_SOURCE_ID)
