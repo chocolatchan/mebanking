@@ -1,8 +1,8 @@
 package com.mebanking.app.ui.lifestyle
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,38 +12,35 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,6 +50,12 @@ import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.data.local.entity.lifestyle.HotelBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.HotelEntity
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.PrimaryActionButton
+import com.mebanking.app.ui.components.TonalFeedbackBanner
+import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
+import com.mebanking.app.ui.components.segmentedListItemShape
+import com.mebanking.app.ui.components.tonalTextFieldColors
+import com.mebanking.app.ui.theme.SynchronizedStatusBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,98 +67,73 @@ fun HotelBookingScreen(
     ),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            LargeTopAppBar(
                 title = { Text("Đặt phòng khách sạn", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Quay lại",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
                 ),
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .navigationBarsPadding(),
         ) {
-            TabRow(selectedTabIndex = uiState.selectedTab) {
+            PrimaryTabRow(
+                selectedTabIndex = uiState.selectedTab,
+                containerColor = Color.Transparent,
+            ) {
                 Tab(
                     selected = uiState.selectedTab == 0,
                     onClick = { viewModel.onTabSelected(0) },
-                    text = { Text("Tìm & Đặt phòng") },
+                    text = { Text("Tìm & Đặt phòng", fontWeight = FontWeight.SemiBold) },
                 )
                 Tab(
                     selected = uiState.selectedTab == 1,
                     onClick = { viewModel.onTabSelected(1) },
-                    text = { Text("Phòng của tôi (${uiState.userBookings.size})") },
+                    text = { Text("Phòng của tôi (${uiState.userBookings.size})", fontWeight = FontWeight.SemiBold) },
                 )
             }
 
             uiState.errorMessage?.let { error ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = error,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = viewModel::dismissMessages) {
-                            Text("Đóng")
-                        }
-                    }
-                }
+                TonalFeedbackBanner(
+                    message = error,
+                    isError = true,
+                    onDismiss = viewModel::dismissMessages,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
             }
 
             uiState.successMessage?.let { msg ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = msg,
-                            color = Color(0xFF1B5E20),
-                            modifier = Modifier.weight(1f),
-                            fontWeight = FontWeight.Medium,
-                        )
-                        TextButton(onClick = viewModel::dismissMessages) {
-                            Text("Đóng")
-                        }
-                    }
-                }
+                TonalFeedbackBanner(
+                    message = msg,
+                    isError = false,
+                    onDismiss = viewModel::dismissMessages,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
             }
 
-            val requestHotelAuth = com.mebanking.app.ui.components.rememberServicePaymentAuthGate {
+            val requestHotelAuth = rememberServicePaymentAuthGate {
                 viewModel.bookHotel()
             }
 
@@ -188,6 +166,7 @@ private fun HotelSearchAndBookContent(
     onBookHotel: () -> Unit,
 ) {
     val cities = listOf("Tất cả", "TP. Hồ Chí Minh", "Đà Lạt", "Đà Nẵng")
+    val uniqueHotels = uiState.hotels.distinctBy { it.id }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -197,23 +176,33 @@ private fun HotelSearchAndBookContent(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Điểm đến / Thành phố", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         cities.forEach { city ->
                             val isSelected = if (city == "Tất cả") uiState.selectedCity.isBlank() else uiState.selectedCity == city
-                            FilterChip(
-                                selected = isSelected,
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                                 onClick = { onCitySelected(if (city == "Tất cả") "" else city) },
-                                label = { Text(city, style = MaterialTheme.typography.bodySmall) },
-                            )
+                            ) {
+                                Text(
+                                    text = city,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -222,88 +211,97 @@ private fun HotelSearchAndBookContent(
 
         item {
             Text(
-                "Khách sạn & Khu nghỉ dưỡng (${uiState.hotels.size})",
+                text = "Khách sạn & Khu nghỉ dưỡng (${uniqueHotels.size})",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
 
-        if (uiState.hotels.isEmpty()) {
+        if (uniqueHotels.isEmpty()) {
             item {
-                Text(
-                    "Không tìm thấy khách sạn phù hợp tại khu vực này.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Không tìm thấy khách sạn phù hợp tại khu vực này.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(20.dp),
+                    )
+                }
             }
-        }
-
-        items(uiState.hotels.distinctBy { it.id }, key = { "hotel-${it.id}" }) { hotel ->
-            val isSelected = uiState.selectedHotel?.id == hotel.id
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onHotelSelected(hotel) }
-                    .then(
-                        if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
-                        else Modifier
-                    ),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    else MaterialTheme.colorScheme.surface,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = hotel.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Box(
+        } else {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    uniqueHotels.forEachIndexed { idx, hotel ->
+                        val isSelected = uiState.selectedHotel?.id == hotel.id
+                        Card(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFFFFF8E1))
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                .fillMaxWidth()
+                                .clickable { onHotelSelected(hotel) },
+                            shape = segmentedListItemShape(idx, uniqueHotels.size),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceContainerLow,
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         ) {
-                            Text(
-                                text = "★ ${hotel.rating}",
-                                color = Color(0xFFF57F17),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                            )
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = hotel.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                                    ) {
+                                        Text(
+                                            text = "★ ${hotel.rating}",
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(hotel.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Hạng phòng: ${hotel.roomType}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = "Còn ${hotel.availableRooms} phòng trống",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (hotel.availableRooms > 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                    )
+                                    Text(
+                                        text = "${CurrencyFormatter.formatVnd(hotel.pricePerNightVnd)} / đêm",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(hotel.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Hạng phòng: ${hotel.roomType}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "Còn ${hotel.availableRooms} phòng trống",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (hotel.availableRooms > 2) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
-                        )
-                        Text(
-                            text = "${CurrencyFormatter.formatVnd(hotel.pricePerNightVnd)} / đêm",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
                     }
                 }
             }
@@ -313,51 +311,56 @@ private fun HotelSearchAndBookContent(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             "Thông tin khách lưu trú & Số đêm",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
 
-                        OutlinedTextField(
+                        TextField(
                             value = uiState.guestName,
                             onValueChange = onGuestNameChanged,
                             label = { Text("Họ và tên khách đại diện") },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Text("Thời gian lưu trú: ${uiState.checkInDate} đến ${uiState.checkOutDate}", style = MaterialTheme.typography.bodySmall)
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Thời gian lưu trú: ${uiState.checkInDate} → ${uiState.checkOutDate}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Số đêm lưu trú: ${uiState.nights} đêm", style = MaterialTheme.typography.bodyMedium)
+                            Text("Số đêm: ${uiState.nights} đêm", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(
+                                FilledTonalButton(
                                     onClick = { if (uiState.nights > 1) onNightsChanged(uiState.nights - 1) },
                                     enabled = uiState.nights > 1,
+                                    shape = RoundedCornerShape(12.dp),
                                 ) {
-                                    Text("-1")
+                                    Text("-1", fontWeight = FontWeight.Bold)
                                 }
-                                OutlinedButton(
+                                FilledTonalButton(
                                     onClick = { onNightsChanged(uiState.nights + 1) },
+                                    shape = RoundedCornerShape(12.dp),
                                 ) {
-                                    Text("+1")
+                                    Text("+1", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(12.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -367,29 +370,18 @@ private fun HotelSearchAndBookContent(
                             Text("Tổng tiền lưu trú:", style = MaterialTheme.typography.titleSmall)
                             Text(
                                 CurrencyFormatter.formatVnd(uiState.calculatedTotalVnd),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
+                        PrimaryActionButton(
+                            text = "Xác nhận đặt phòng ngay",
                             onClick = onBookHotel,
-                            modifier = Modifier.fillMaxWidth(),
                             enabled = uiState.canBook,
-                        ) {
-                            if (uiState.isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.width(20.dp).height(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            Text("Xác nhận đặt phòng ngay")
-                        }
+                            isLoading = uiState.isLoading,
+                        )
                     }
                 }
             }
@@ -402,7 +394,8 @@ private fun MyHotelBookingsContent(
     bookings: List<HotelBookingEntity>,
     onCancelBooking: (Long) -> Unit,
 ) {
-    if (bookings.isEmpty()) {
+    val uniqueBookings = bookings.distinctBy { it.id }
+    if (uniqueBookings.isEmpty()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -419,12 +412,15 @@ private fun MyHotelBookingsContent(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            items(bookings.distinctBy { it.id }, key = { "hotel-booking-${it.id}" }) { booking ->
+            items(uniqueBookings.size, key = { idx -> "hotel-booking-${uniqueBookings[idx].id}" }) { idx ->
+                val booking = uniqueBookings[idx]
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = segmentedListItemShape(idx, uniqueBookings.size),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -440,36 +436,37 @@ private fun MyHotelBookingsContent(
                             )
 
                             val isPaid = booking.status == "PAID"
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isPaid) Color(0xFFE8F5E9) else Color(0xFFFFEBEE))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isPaid) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
                             ) {
                                 Text(
                                     text = if (isPaid) "ĐÃ XÁC NHẬN" else "ĐÃ HỦY",
-                                    color = if (isPaid) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+                                    color = if (isPaid) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Khách lưu trú: ${booking.guestName}", style = MaterialTheme.typography.bodyMedium)
-                        Text("Thời gian: ${booking.checkInDate} -> ${booking.checkOutDate} (${booking.nights} đêm)", style = MaterialTheme.typography.bodySmall)
+                        Text("Thời gian: ${booking.checkInDate} → ${booking.checkOutDate} (${booking.nights} đêm)", style = MaterialTheme.typography.bodySmall)
                         Text(
                             "Tổng tiền: ${CurrencyFormatter.formatVnd(booking.totalAmountVnd)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
                         )
 
                         if (booking.status == "PAID") {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedButton(
+                            Spacer(modifier = Modifier.height(10.dp))
+                            FilledTonalButton(
                                 onClick = { onCancelBooking(booking.id) },
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
                                 ),
                             ) {
                                 Text("Hủy đặt phòng này")

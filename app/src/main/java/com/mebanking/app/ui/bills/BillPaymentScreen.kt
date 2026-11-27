@@ -11,34 +11,40 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Router
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,14 +54,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.model.Account
 import com.mebanking.app.domain.model.AccountType
-import com.mebanking.app.ui.theme.SynchronizedStatusBar
-import com.mebanking.app.ui.theme.VcbGreenPrimary
 import com.mebanking.app.domain.model.Bill
 import com.mebanking.app.domain.model.BillStatus
 import com.mebanking.app.domain.model.BillType
 import com.mebanking.app.domain.util.CurrencyFormatter
-import com.mebanking.app.ui.common.label
+import com.mebanking.app.ui.components.AccountSelectionCarousel
+import com.mebanking.app.ui.components.PrimaryActionButton
+import com.mebanking.app.ui.components.TonalFeedbackBanner
+import com.mebanking.app.ui.components.segmentedListItemShape
 import com.mebanking.app.ui.theme.MEbankingTheme
+import com.mebanking.app.ui.theme.SynchronizedStatusBar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -96,12 +104,17 @@ fun BillPaymentContent(
     modifier: Modifier = Modifier,
 ) {
     SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val unpaidBills = uiState.unpaidBills.distinctBy { it.id }
+    val paidBills = uiState.paidBills.distinctBy { it.id }
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text("Thanh toán hóa đơn") },
+            LargeTopAppBar(
+                title = { Text("Thanh toán hóa đơn", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -110,6 +123,11 @@ fun BillPaymentContent(
                         )
                     }
                 },
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
+                ),
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { innerPadding ->
@@ -127,78 +145,89 @@ fun BillPaymentContent(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .navigationBarsPadding(),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                // 1. Source Account Carousel
                 item {
-                    Text("Hóa đơn chưa thanh toán", style = MaterialTheme.typography.titleMedium)
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Tài khoản thanh toán",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        AccountSelectionCarousel(
+                            accounts = uiState.accounts.distinctBy { it.id },
+                            selectedAccountId = uiState.selectedAccountId,
+                            onAccountSelected = onAccountSelected,
+                        )
+                    }
                 }
-                if (uiState.unpaidBills.isEmpty()) {
-                    item {
-                        Card(
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
+
+                // 2. Unpaid Bills Segmented List
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Hóa đơn cần thanh toán (${unpaidBills.size})",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        if (unpaidBills.isEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.CheckCircle,
-                                    contentDescription = null,
-                                    tint = VcbGreenPrimary,
-                                    modifier = Modifier.size(32.dp),
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                Text(
-                                    text = "Hiện không có hóa đơn nào cần thanh toán.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                )
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.CheckCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(34.dp),
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = "Hiện không có hóa đơn nào cần thanh toán.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                }
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                unpaidBills.forEachIndexed { idx, bill ->
+                                    SegmentedBillRow(
+                                        bill = bill,
+                                        selected = uiState.selectedBillId == bill.id,
+                                        shape = segmentedListItemShape(idx, unpaidBills.size),
+                                        onClick = { onBillSelected(bill.id) },
+                                    )
+                                }
                             }
                         }
                     }
-                } else {
-                    items(uiState.unpaidBills.distinctBy { it.id }, key = { "unpaid-bill-${it.id}" }) { bill ->
-                        BillRow(
-                            bill = bill,
-                            selected = uiState.selectedBillId == bill.id,
-                            onClick = { onBillSelected(bill.id) },
-                        )
-                    }
                 }
 
-                item {
-                    Spacer(Modifier.height(4.dp))
-                    Text("Tài khoản thanh toán", style = MaterialTheme.typography.titleMedium)
-                }
-                items(uiState.accounts.distinctBy { it.id }, key = { "pay-account-${it.id}" }) { account ->
-                    AccountRow(
-                        account = account,
-                        selected = uiState.selectedAccountId == account.id,
-                        onClick = { onAccountSelected(account.id) },
-                    )
-                }
-
-                if (uiState.errorMessage != null) {
+                uiState.errorMessage?.let { err ->
                     item {
-                        Text(
-                            text = uiState.errorMessage,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        TonalFeedbackBanner(message = err, isError = true)
                     }
                 }
+
                 if (uiState.successMessage != null) {
                     item {
                         Card(
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                            shape = RoundedCornerShape(22.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Column(
@@ -211,17 +240,17 @@ fun BillPaymentContent(
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFFE8F5E9)),
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.CheckCircle,
                                         contentDescription = "Thành công",
-                                        tint = VcbGreenPrimary,
-                                        modifier = Modifier.size(36.dp),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(34.dp),
                                     )
                                 }
-                                Spacer(Modifier.height(12.dp))
+                                Spacer(Modifier.height(10.dp))
                                 Text(
                                     text = "Thanh toán hóa đơn thành công",
                                     style = MaterialTheme.typography.titleMedium,
@@ -232,63 +261,70 @@ fun BillPaymentContent(
                                     text = uiState.selectedBill?.let { CurrencyFormatter.formatVnd(it.amount) } ?: "",
                                     style = MaterialTheme.typography.headlineMedium,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = VcbGreenPrimary,
+                                    color = MaterialTheme.colorScheme.primary,
                                 )
 
-                                Spacer(Modifier.height(16.dp))
-                                HorizontalDivider(color = Color(0xFFF1F5F9))
-                                Spacer(Modifier.height(16.dp))
-
-                                uiState.selectedBill?.let { bill ->
-                                    BillReceiptDetailRow(label = "Dịch vụ", value = "${bill.billType.label()} • ${bill.provider}")
-                                    Spacer(Modifier.height(8.dp))
-                                    BillReceiptDetailRow(label = "Kỳ hóa đơn", value = formatDate(bill.dueDate))
-                                    Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(14.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        uiState.selectedBill?.let { bill ->
+                                            BillReceiptDetailRow("Dịch vụ", "${bill.billType.label()} · ${bill.provider}")
+                                            BillReceiptDetailRow("Kỳ hóa đơn", formatDate(bill.dueDate))
+                                        }
+                                        BillReceiptDetailRow("Phí giao dịch", "Miễn phí (0 VND)")
+                                    }
                                 }
-                                BillReceiptDetailRow(label = "Phí giao dịch", value = "Miễn phí (0 VND)")
 
-                                Spacer(Modifier.height(20.dp))
+                                Spacer(Modifier.height(16.dp))
                                 Button(
                                     onClick = onBack,
+                                    shape = RoundedCornerShape(16.dp),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(48.dp),
-                                    shape = RoundedCornerShape(12.dp),
+                                        .height(54.dp),
                                 ) {
-                                    Text("Về trang chủ", fontWeight = FontWeight.SemiBold)
+                                    Text("Về trang chủ", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
                     }
-                }
-
-                item {
-                    Button(
-                        onClick = onPay,
-                        enabled = uiState.canPay,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                    ) {
-                        if (uiState.isSubmitting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.height(22.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            val amount = uiState.selectedBill?.let { CurrencyFormatter.formatVnd(it.amount) } ?: ""
-                            Text(if (amount.isBlank()) "Thanh toán" else "Thanh toán $amount")
-                        }
-                    }
-                }
-
-                if (uiState.paidBills.isNotEmpty()) {
+                } else {
                     item {
-                        Spacer(Modifier.height(8.dp))
-                        Text("Lịch sử đã thanh toán", style = MaterialTheme.typography.titleMedium)
+                        val amount = uiState.selectedBill?.let { CurrencyFormatter.formatVnd(it.amount) } ?: ""
+                        PrimaryActionButton(
+                            text = if (amount.isBlank()) "Thanh toán hóa đơn" else "Thanh toán $amount",
+                            onClick = onPay,
+                            enabled = uiState.canPay,
+                            isLoading = uiState.isSubmitting,
+                        )
                     }
-                    items(uiState.paidBills.distinctBy { it.id }, key = { "paid-bill-${it.id}" }) { bill ->
-                        PaidBillRow(bill)
+                }
+
+                if (paidBills.isNotEmpty()) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Lịch sử đã thanh toán",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                paidBills.forEachIndexed { idx, bill ->
+                                    SegmentedPaidBillRow(
+                                        bill = bill,
+                                        shape = segmentedListItemShape(idx, paidBills.size),
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -297,65 +333,87 @@ fun BillPaymentContent(
 }
 
 @Composable
-private fun BillRow(
+private fun SegmentedBillRow(
     bill: Bill,
     selected: Boolean,
+    shape: RoundedCornerShape,
     onClick: () -> Unit,
 ) {
+    val icon = when (bill.billType) {
+        BillType.ELECTRICITY -> Icons.Filled.Bolt
+        BillType.WATER -> Icons.Filled.WaterDrop
+        BillType.INTERNET -> Icons.Filled.Router
+        BillType.PHONE -> Icons.Filled.PhoneAndroid
+    }
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        shape = shape,
         colors = CardDefaults.cardColors(
             containerColor = if (selected) {
                 MaterialTheme.colorScheme.primaryContainer
             } else {
-                MaterialTheme.colorScheme.surfaceVariant
+                MaterialTheme.colorScheme.surfaceContainerLow
             },
         ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (selected) MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+                        else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "${bill.billType.label()} • ${bill.provider}",
+                    text = "${bill.billType.label()} · ${bill.provider}",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    fontWeight = FontWeight.Bold,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "Hạn thanh toán: ${formatDate(bill.dueDate)}",
+                    text = "Hạn: ${formatDate(bill.dueDate)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f) else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
                 text = CurrencyFormatter.formatVnd(bill.amount),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
             )
         }
     }
 }
 
 @Composable
-private fun AccountRow(
-    account: Account,
-    selected: Boolean,
-    onClick: () -> Unit,
+private fun SegmentedPaidBillRow(
+    bill: Bill,
+    shape: RoundedCornerShape,
 ) {
-    Card(
-        onClick = onClick,
+    Surface(
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            },
-        ),
     ) {
         Row(
             modifier = Modifier
@@ -365,34 +423,9 @@ private fun AccountRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "${account.accountType.label()} • ${account.accountNumber}",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = "Số dư: ${CurrencyFormatter.formatVnd(account.balance)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            if (selected) {
-                Text("✓", style = MaterialTheme.typography.titleLarge)
-            }
-        }
-    }
-}
-
-@Composable
-private fun PaidBillRow(bill: Bill) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${bill.billType.label()} • ${bill.provider}",
+                    text = "${bill.billType.label()} · ${bill.provider}",
                     style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
                 )
                 Text(
                     text = "Đã thanh toán: ${bill.paidAt?.let(::formatDate) ?: "—"}",
@@ -402,7 +435,9 @@ private fun PaidBillRow(bill: Bill) {
             }
             Text(
                 text = CurrencyFormatter.formatVnd(bill.amount),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }
@@ -425,17 +460,9 @@ private fun BillReceiptDetailRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(8.dp))
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
     }
 }
 

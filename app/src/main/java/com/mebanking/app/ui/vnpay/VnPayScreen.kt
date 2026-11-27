@@ -38,7 +38,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
@@ -50,21 +49,23 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,7 +85,11 @@ import com.mebanking.app.BuildConfig
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.service.vnpay.VnPayConfig
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.AccountSelectionCarousel
+import com.mebanking.app.ui.components.LargeAmountInputSection
+import com.mebanking.app.ui.components.PrimaryActionButton
 import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
+import com.mebanking.app.ui.components.tonalTextFieldColors
 import com.mebanking.app.ui.theme.SynchronizedStatusBar
 
 private val VnPayBankOptions = listOf(
@@ -134,30 +139,27 @@ fun VnPayScreen(
         return
     }
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Cổng thanh toán VNPay", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Liên ngân hàng & Sandbox 2.1.0 (HMAC-SHA512)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
+            LargeTopAppBar(
+                title = { Text("Cổng thanh toán VNPay", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Quay lại")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
                     titleContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { innerPadding ->
@@ -168,24 +170,24 @@ fun VnPayScreen(
                 .navigationBarsPadding()
                 .imePadding(),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (uiState.successMessage != null) {
                 item {
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(18.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(
-                            modifier = Modifier.padding(14.dp),
+                            modifier = Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Text(
                                 text = uiState.successMessage!!,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -198,18 +200,18 @@ fun VnPayScreen(
                 item {
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(18.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(
-                            modifier = Modifier.padding(14.dp),
+                            modifier = Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             Icon(Icons.Filled.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
                             Text(
                                 text = uiState.errorMessage!!,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                             )
                         }
@@ -217,52 +219,91 @@ fun VnPayScreen(
                 }
             }
 
-            // Source Account Card
+            // 1. Source Account Carousel (matches TransferScreen)
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Tài khoản nguồn thanh toán",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (uiState.isLoading) {
+                        androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    } else {
+                        AccountSelectionCarousel(
+                            accounts = uiState.accounts,
+                            selectedAccountId = uiState.selectedAccount?.id,
+                            onAccountSelected = viewModel::onAccountSelected,
+                        )
+                    }
+                }
+            }
+
+            // 2. Enlarged Amount Input & Quick Chips (matches TransferScreen)
+            item {
+                val balance = uiState.selectedAccount?.balance
+                LargeAmountInputSection(
+                    amountInput = uiState.amountInput,
+                    onAmountChanged = viewModel::onAmountChanged,
+                    helperText = if (balance != null) {
+                        "Số dư khả dụng: ${CurrencyFormatter.formatVnd(balance)} · Tối thiểu 10.000 đ"
+                    } else {
+                        "Số tiền tối thiểu 10.000 đ"
+                    },
+                    quickAmounts = listOf(
+                        "50000" to "50.000đ",
+                        "100000" to "100.000đ",
+                        "500000" to "500.000đ",
+                        "1000000" to "1.000.000đ",
+                        "2000000" to "2.000.000đ",
+                        "5000000" to "5.000.000đ",
+                    ),
+                    enabled = !uiState.isProcessing,
+                )
+            }
+
+            // 3. Order Info & Bank Channel Selection (Tonal surface, borderless)
             item {
                 Card(
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(22.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Tài khoản nguồn thanh toán", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        if (uiState.isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                        } else if (uiState.accounts.isEmpty()) {
-                            Text(
-                                "Không có tài khoản thanh toán khả dụng",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        } else {
-                            uiState.accounts.forEach { acc ->
-                                val selected = acc.id == uiState.selectedAccount?.id
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Nội dung & Kênh thanh toán", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+
+                        TextField(
+                            value = uiState.orderInfo,
+                            onValueChange = viewModel::onOrderInfoChanged,
+                            label = { Text("Nội dung thanh toán") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                            colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        Text("Ngân hàng / Ví VNPay", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            VnPayBankOptions.forEach { (code, label) ->
+                                val selected = uiState.selectedBankCode == code
                                 Surface(
-                                    shape = RoundedCornerShape(14.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { viewModel.onAccountSelected(acc.id) },
+                                    onClick = { viewModel.onBankCodeSelected(code) },
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Icon(Icons.Filled.AccountBalance, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                                            Column {
-                                                Text(acc.accountNumber, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text(acc.accountType.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        }
-                                        Text(
-                                            CurrencyFormatter.formatVnd(acc.balance),
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary,
-                                        )
-                                    }
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    )
                                 }
                             }
                         }
@@ -270,67 +311,7 @@ fun VnPayScreen(
                 }
             }
 
-            // Payment Details Card
-            item {
-                Card(
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Thông tin giao dịch VNPay", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-
-                        OutlinedTextField(
-                            value = uiState.amountInput,
-                            onValueChange = viewModel::onAmountChanged,
-                            label = { Text("Số tiền (VND, tối thiểu 10.000 đ)") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            listOf(50_000L, 100_000L, 500_000L, 1_000_000L).forEach { amt ->
-                                FilterChip(
-                                    selected = uiState.parsedAmount == amt,
-                                    onClick = { viewModel.onAmountChanged(amt.toString()) },
-                                    label = { Text(CurrencyFormatter.formatVnd(amt), fontSize = 11.sp) },
-                                )
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = uiState.orderInfo,
-                            onValueChange = viewModel::onOrderInfoChanged,
-                            label = { Text("Nội dung thanh toán") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-
-                        Text("Kênh / Ngân hàng thanh toán", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            VnPayBankOptions.forEach { (code, label) ->
-                                FilterChip(
-                                    selected = uiState.selectedBankCode == code,
-                                    onClick = { viewModel.onBankCodeSelected(code) },
-                                    label = { Text(label, fontSize = 12.sp) },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Collapsible Sandbox Merchant Config
+            // 4. Collapsible Sandbox Merchant Config
             item {
                 Card(
                     shape = RoundedCornerShape(18.dp),
@@ -354,20 +335,22 @@ fun VnPayScreen(
                         }
                         AnimatedVisibility(visible = showSandboxConfig) {
                             Column(modifier = Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                OutlinedTextField(
+                                TextField(
                                     value = uiState.tmnCode,
                                     onValueChange = viewModel::onTmnCodeChanged,
                                     label = { Text("vnp_TmnCode") },
                                     singleLine = true,
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = tonalTextFieldColors(),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
-                                OutlinedTextField(
+                                TextField(
                                     value = uiState.hashSecret,
                                     onValueChange = viewModel::onHashSecretChanged,
                                     label = { Text("vnp_HashSecret (HMAC-SHA512)") },
                                     singleLine = true,
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = tonalTextFieldColors(),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -376,41 +359,32 @@ fun VnPayScreen(
                 }
             }
 
-            // Action Buttons (Protected by ServicePaymentAuthGate)
+            // 5. Enlarged Action Buttons (Protected by ServicePaymentAuthGate)
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
+                    PrimaryActionButton(
+                        text = "Thanh toán qua VNPay",
                         onClick = {
                             authForLiveWebView("Xác thực thanh toán VNPay ${CurrencyFormatter.formatVnd(uiState.parsedAmount ?: 0L)}")
                         },
                         enabled = uiState.canPay,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                    ) {
-                        if (uiState.isProcessing) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                        } else {
-                            Icon(Icons.Filled.QrCode2, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Thanh toán qua VNPay", fontWeight = FontWeight.Bold)
-                        }
-                    }
+                        isLoading = uiState.isProcessing,
+                        icon = Icons.Filled.QrCode2,
+                    )
 
-                    OutlinedButton(
+                    FilledTonalButton(
                         onClick = {
                             authForOfflineSim("Xác thực thanh toán VNPay ${CurrencyFormatter.formatVnd(uiState.parsedAmount ?: 0L)}")
                         },
-                        enabled = uiState.canPay,
-                        shape = RoundedCornerShape(10.dp),
+                        enabled = uiState.canPay && !uiState.isProcessing,
+                        shape = RoundedCornerShape(18.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
+                            .height(54.dp),
                     ) {
                         Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Xác nhận thanh toán nhanh", fontWeight = FontWeight.SemiBold)
+                        Text("Xác nhận thanh toán nhanh", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -513,16 +487,16 @@ private fun VnPayWebViewScreen(
                         .padding(10.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    OutlinedButton(
+                    FilledTonalButton(
                         onClick = onSimulateCancel,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.weight(1f),
                     ) {
                         Text("Giả lập Hủy", fontSize = 12.sp)
                     }
                     Button(
                         onClick = onSimulateSuccess,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.weight(1f),
                     ) {
                         Text("Giả lập Thành công", fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -556,13 +530,13 @@ private fun VnPayWebViewScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
-                        OutlinedButton(
+                        FilledTonalButton(
                             onClick = {
                                 try {
                                     ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(paymentUrl)))
                                 } catch (_: Throwable) {}
                             },
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(12.dp),
                         ) {
                             Text("Mở cổng VNPay bằng trình duyệt", fontSize = 12.sp)
                         }

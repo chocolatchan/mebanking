@@ -1,6 +1,7 @@
 package com.mebanking.app.ui.lifestyle
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,10 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -21,27 +22,26 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,8 +50,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.data.local.entity.lifestyle.OrderEntity
 import com.mebanking.app.data.local.entity.lifestyle.ProductEntity
-import com.mebanking.app.data.repository.lifestyle.CartItem
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.PrimaryActionButton
+import com.mebanking.app.ui.components.TonalFeedbackBanner
+import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
+import com.mebanking.app.ui.components.segmentedListItemShape
+import com.mebanking.app.ui.components.tonalTextFieldColors
+import com.mebanking.app.ui.theme.SynchronizedStatusBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,103 +68,78 @@ fun ShopScreen(
     ),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text("Mua sắm & Đổi quà", fontWeight = FontWeight.Bold) },
+            LargeTopAppBar(
+                title = { Text("ME Shop & Đổi quà", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Quay lại",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
                 ),
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .navigationBarsPadding(),
         ) {
-            TabRow(selectedTabIndex = uiState.selectedTab) {
+            PrimaryTabRow(
+                selectedTabIndex = uiState.selectedTab,
+                containerColor = Color.Transparent,
+            ) {
                 Tab(
                     selected = uiState.selectedTab == 0,
                     onClick = { viewModel.onTabSelected(0) },
-                    text = { Text("Sản phẩm") },
+                    text = { Text("Sản phẩm", fontWeight = FontWeight.SemiBold) },
                 )
                 Tab(
                     selected = uiState.selectedTab == 1,
                     onClick = { viewModel.onTabSelected(1) },
-                    text = { Text("Giỏ hàng (${uiState.cartItemCount})") },
+                    text = { Text("Giỏ (${uiState.cartItemCount})", fontWeight = FontWeight.SemiBold) },
                 )
                 Tab(
                     selected = uiState.selectedTab == 2,
                     onClick = { viewModel.onTabSelected(2) },
-                    text = { Text("Đơn hàng (${uiState.userOrders.size})") },
+                    text = { Text("Đơn hàng (${uiState.userOrders.size})", fontWeight = FontWeight.SemiBold) },
                 )
             }
 
             uiState.errorMessage?.let { error ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = error,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = viewModel::dismissMessages) {
-                            Text("Đóng")
-                        }
-                    }
-                }
+                TonalFeedbackBanner(
+                    message = error,
+                    isError = true,
+                    onDismiss = viewModel::dismissMessages,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
             }
 
             uiState.successMessage?.let { msg ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = msg,
-                            color = Color(0xFF1B5E20),
-                            modifier = Modifier.weight(1f),
-                            fontWeight = FontWeight.Medium,
-                        )
-                        TextButton(onClick = viewModel::dismissMessages) {
-                            Text("Đóng")
-                        }
-                    }
-                }
+                TonalFeedbackBanner(
+                    message = msg,
+                    isError = false,
+                    onDismiss = viewModel::dismissMessages,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
             }
 
-            val requestShopAuth = com.mebanking.app.ui.components.rememberServicePaymentAuthGate {
+            val requestShopAuth = rememberServicePaymentAuthGate {
                 viewModel.checkout()
             }
 
@@ -193,6 +173,7 @@ private fun ProductCatalogContent(
     onAddToCart: (ProductEntity) -> Unit,
 ) {
     val categories = listOf("Tất cả", "Thiết bị điện tử", "Phụ kiện công nghệ", "Đời sống gia đình")
+    val uniqueProducts = uiState.products.distinctBy { it.id }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -202,23 +183,33 @@ private fun ProductCatalogContent(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Danh mục ngành hàng", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Danh mục ngành hàng", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         categories.forEach { cat ->
                             val isSelected = if (cat == "Tất cả") uiState.selectedCategory.isBlank() else uiState.selectedCategory == cat
-                            FilterChip(
-                                selected = isSelected,
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                                 onClick = { onCategorySelected(if (cat == "Tất cả") "" else cat) },
-                                label = { Text(cat, style = MaterialTheme.typography.bodySmall) },
-                            )
+                            ) {
+                                Text(
+                                    text = cat,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -227,77 +218,84 @@ private fun ProductCatalogContent(
 
         item {
             Text(
-                "Sản phẩm nổi bật (${uiState.products.size})",
+                text = "Sản phẩm nổi bật (${uniqueProducts.size})",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
 
-        items(uiState.products.distinctBy { it.id }, key = { "product-${it.id}" }) { product ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                uniqueProducts.forEachIndexed { idx, product ->
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
+                        shape = segmentedListItemShape(idx, uniqueProducts.size),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     ) {
-                        Text(
-                            text = product.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer)
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                        ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = product.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                ) {
+                                    Text(
+                                        text = product.category,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = product.category,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                style = MaterialTheme.typography.labelSmall,
+                                text = product.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                        }
-                    }
 
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = product.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                            Spacer(modifier = Modifier.height(12.dp))
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column {
+                                    Text(
+                                        text = CurrencyFormatter.formatVnd(product.priceVnd),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Text(
+                                        text = "Còn ${product.stockQuantity} sản phẩm",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (product.stockQuantity > 5) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                    )
+                                }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column {
-                            Text(
-                                text = CurrencyFormatter.formatVnd(product.priceVnd),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            Text(
-                                text = "Còn ${product.stockQuantity} sản phẩm",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (product.stockQuantity > 5) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
-                            )
-                        }
-
-                        Button(
-                            onClick = { onAddToCart(product) },
-                            enabled = product.stockQuantity > 0,
-                        ) {
-                            Text("Thêm vào giỏ")
+                                Button(
+                                    onClick = { onAddToCart(product) },
+                                    enabled = product.stockQuantity > 0,
+                                    shape = RoundedCornerShape(14.dp),
+                                ) {
+                                    Text("Thêm vào giỏ", fontWeight = FontWeight.SemiBold)
+                                }
+                            }
                         }
                     }
                 }
@@ -315,7 +313,8 @@ private fun CartContent(
     onAddressChanged: (String) -> Unit,
     onCheckout: () -> Unit,
 ) {
-    if (uiState.cart.isEmpty()) {
+    val uniqueCart = uiState.cart.distinctBy { it.product.id }
+    if (uniqueCart.isEmpty()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -342,8 +341,9 @@ private fun CartContent(
                 ) {
                     Text(
                         "Sản phẩm đã chọn (${uiState.cartItemCount})",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                     TextButton(onClick = onClearCart) {
                         Text("Xóa giỏ hàng", color = MaterialTheme.colorScheme.error)
@@ -351,59 +351,72 @@ private fun CartContent(
                 }
             }
 
-            items(uiState.cart.distinctBy { it.product.id }, key = { "cart-${it.product.id}" }) { item ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    uniqueCart.forEachIndexed { idx, item ->
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            shape = segmentedListItemShape(idx, uniqueCart.size),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         ) {
-                            Text(
-                                text = item.product.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f),
-                            )
-                            TextButton(onClick = { onRemoveItem(item.product.id) }) {
-                                Text("Xóa", color = MaterialTheme.colorScheme.error)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "Đơn giá: ${CurrencyFormatter.formatVnd(item.product.priceVnd)}",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                OutlinedButton(onClick = { onQuantityChanged(item.product.id, -1) }) {
-                                    Text("-")
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = item.product.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    TextButton(onClick = { onRemoveItem(item.product.id) }) {
+                                        Text("Xóa", color = MaterialTheme.colorScheme.error)
+                                    }
                                 }
-                                Text("${item.quantity}", fontWeight = FontWeight.Bold)
-                                OutlinedButton(onClick = { onQuantityChanged(item.product.id, 1) }) {
-                                    Text("+")
+
+                                Text(
+                                    "Đơn giá: ${CurrencyFormatter.formatVnd(item.product.priceVnd)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        FilledTonalButton(
+                                            onClick = { onQuantityChanged(item.product.id, -1) },
+                                            shape = RoundedCornerShape(10.dp),
+                                        ) {
+                                            Text("-", fontWeight = FontWeight.Bold)
+                                        }
+                                        Text("${item.quantity}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                        FilledTonalButton(
+                                            onClick = { onQuantityChanged(item.product.id, 1) },
+                                            shape = RoundedCornerShape(10.dp),
+                                        ) {
+                                            Text("+", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+
+                                    Text(
+                                        CurrencyFormatter.formatVnd(item.totalVnd),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
                                 }
                             }
-
-                            Text(
-                                CurrencyFormatter.formatVnd(item.totalVnd),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
                         }
                     }
                 }
@@ -412,20 +425,22 @@ private fun CartContent(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Địa chỉ nhận hàng", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
 
-                        OutlinedTextField(
+                        TextField(
                             value = uiState.deliveryAddress,
                             onValueChange = onAddressChanged,
                             label = { Text("Địa chỉ chi tiết") },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                             modifier = Modifier.fillMaxWidth(),
                         )
-
-                        Spacer(modifier = Modifier.height(16.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -436,28 +451,17 @@ private fun CartContent(
                             Text(
                                 CurrencyFormatter.formatVnd(uiState.cartTotalVnd),
                                 style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
+                        PrimaryActionButton(
+                            text = "Xác nhận đặt hàng",
                             onClick = onCheckout,
-                            modifier = Modifier.fillMaxWidth(),
                             enabled = uiState.canCheckout,
-                        ) {
-                            if (uiState.isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.width(20.dp).height(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            Text("Xác nhận đặt hàng")
-                        }
+                            isLoading = uiState.isLoading,
+                        )
                     }
                 }
             }
@@ -470,7 +474,8 @@ private fun OrdersContent(
     orders: List<OrderEntity>,
     onCancelOrder: (Long) -> Unit,
 ) {
-    if (orders.isEmpty()) {
+    val uniqueOrders = orders.distinctBy { it.id }
+    if (uniqueOrders.isEmpty()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -487,12 +492,15 @@ private fun OrdersContent(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            items(orders.distinctBy { it.id }, key = { "order-${it.id}" }) { order ->
+            items(uniqueOrders.size, key = { idx -> "order-${uniqueOrders[idx].id}" }) { idx ->
+                val order = uniqueOrders[idx]
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = segmentedListItemShape(idx, uniqueOrders.size),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -508,37 +516,38 @@ private fun OrdersContent(
                             )
 
                             val isPaid = order.status == "PAID"
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isPaid) Color(0xFFE8F5E9) else Color(0xFFFFEBEE))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isPaid) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
                             ) {
                                 Text(
                                     text = if (isPaid) "ĐÃ THANH TOÁN" else "ĐÃ HỦY",
-                                    color = if (isPaid) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+                                    color = if (isPaid) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Sản phẩm: ${order.itemsSummary}", style = MaterialTheme.typography.bodyMedium)
-                        Text("Địa chỉ: ${order.deliveryAddress}", style = MaterialTheme.typography.bodySmall)
+                        Text("Địa chỉ: ${order.deliveryAddress}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             "Tổng tiền: ${CurrencyFormatter.formatVnd(order.totalAmountVnd)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
                         )
 
                         if (order.status == "PAID") {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedButton(
+                            Spacer(modifier = Modifier.height(10.dp))
+                            FilledTonalButton(
                                 onClick = { onCancelOrder(order.id) },
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
                                 ),
                             ) {
                                 Text("Hủy đơn hàng này")

@@ -1,8 +1,9 @@
 package com.mebanking.app.ui.lifestyle
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,29 +13,29 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,14 +43,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.PrimaryActionButton
+import com.mebanking.app.ui.components.TonalFeedbackBanner
+import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
+import com.mebanking.app.ui.components.segmentedListItemShape
+import com.mebanking.app.ui.components.tonalTextFieldColors
+import com.mebanking.app.ui.theme.SynchronizedStatusBar
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -64,103 +73,78 @@ fun TopupScreen(
     ),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text("Nạp ĐT & Tra cứu tiện ích", fontWeight = FontWeight.Bold) },
+            LargeTopAppBar(
+                title = { Text("Nạp ĐT & Tra cứu", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Quay lại",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
                 ),
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .navigationBarsPadding(),
         ) {
-            TabRow(selectedTabIndex = uiState.selectedTab) {
+            PrimaryTabRow(
+                selectedTabIndex = uiState.selectedTab,
+                containerColor = Color.Transparent,
+            ) {
                 Tab(
                     selected = uiState.selectedTab == 0,
                     onClick = { viewModel.onTabSelected(0) },
-                    text = { Text("Nạp ĐT") },
+                    text = { Text("Nạp ĐT", fontWeight = FontWeight.SemiBold) },
                 )
                 Tab(
                     selected = uiState.selectedTab == 1,
                     onClick = { viewModel.onTabSelected(1) },
-                    text = { Text("Tra cứu hóa đơn") },
+                    text = { Text("Tra cứu HĐ", fontWeight = FontWeight.SemiBold) },
                 )
                 Tab(
                     selected = uiState.selectedTab == 2,
                     onClick = { viewModel.onTabSelected(2) },
-                    text = { Text("Lịch sử nạp (${uiState.topupHistory.size})") },
+                    text = { Text("Lịch sử (${uiState.topupHistory.size})", fontWeight = FontWeight.SemiBold) },
                 )
             }
 
             uiState.errorMessage?.let { error ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = error,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = viewModel::dismissMessages) {
-                            Text("Đóng")
-                        }
-                    }
-                }
+                TonalFeedbackBanner(
+                    message = error,
+                    isError = true,
+                    onDismiss = viewModel::dismissMessages,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
             }
 
             uiState.successMessage?.let { msg ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = msg,
-                            color = Color(0xFF1B5E20),
-                            modifier = Modifier.weight(1f),
-                            fontWeight = FontWeight.Medium,
-                        )
-                        TextButton(onClick = viewModel::dismissMessages) {
-                            Text("Đóng")
-                        }
-                    }
-                }
+                TonalFeedbackBanner(
+                    message = msg,
+                    isError = false,
+                    onDismiss = viewModel::dismissMessages,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
             }
 
-            val requestTopupAuth = com.mebanking.app.ui.components.rememberServicePaymentAuthGate {
+            val requestTopupAuth = rememberServicePaymentAuthGate {
                 viewModel.executeTopup()
             }
 
@@ -202,85 +186,114 @@ private fun MobileTopupContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // Enlarged Tonal Phone Input Hero Card
         item {
-            Card(
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Thông tin thuê bao", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedTextField(
-                        value = uiState.phoneNumber,
-                        onValueChange = onPhoneChanged,
-                        label = { Text("Số điện thoại cần nạp") },
-                        placeholder = { Text("09xxxxxxxx") },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        singleLine = true,
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Số điện thoại cần nạp",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    TextField(
+                        value = uiState.phoneNumber,
+                        onValueChange = onPhoneChanged,
+                        placeholder = {
+                            Text(
+                                text = "09xxxxxxxx",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.PhoneAndroid,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp),
+                            )
+                        },
+                        textStyle = MaterialTheme.typography.titleLarge.copy(
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                        ),
+                        colors = tonalTextFieldColors(containerColor = Color.Transparent),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
 
-                    Text("Chọn nhà mạng:", style = MaterialTheme.typography.labelMedium)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         carriers.forEach { carrier ->
-                            FilterChip(
-                                selected = uiState.selectedCarrier == carrier,
+                            val selected = uiState.selectedCarrier == carrier
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
                                 onClick = { onCarrierSelected(carrier) },
-                                label = { Text(carrier) },
-                            )
+                            ) {
+                                Text(
+                                    text = carrier,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
+        // Amount Grid (Distinct Tonal Containers without borders)
         item {
-            Text("Chọn mệnh giá nạp", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                amounts.chunked(3).forEach { rowAmounts ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        rowAmounts.forEach { amount ->
-                            val isSelected = uiState.selectedAmountVnd == amount
-                            Card(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { onAmountSelected(amount) }
-                                    .then(
-                                        if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
-                                        else Modifier
-                                    ),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surface,
-                                ),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                            ) {
-                                Box(
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Chọn mệnh giá nạp", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    amounts.chunked(3).forEach { rowAmounts ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowAmounts.forEach { amount ->
+                                val isSelected = uiState.selectedAmountVnd == amount
+                                Card(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(14.dp),
-                                    contentAlignment = Alignment.Center,
+                                        .weight(1f)
+                                        .clickable { onAmountSelected(amount) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                        else MaterialTheme.colorScheme.surfaceContainerLow,
+                                    ),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                                 ) {
-                                    Text(
-                                        text = CurrencyFormatter.formatVnd(amount),
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                        else MaterialTheme.colorScheme.onSurface,
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 18.dp, horizontal = 8.dp),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = CurrencyFormatter.formatVnd(amount),
+                                            fontWeight = FontWeight.ExtraBold,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                            else MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -289,35 +302,33 @@ private fun MobileTopupContent(
             }
         }
 
+        // Summary + Enlarged CTA
         item {
-            Card(
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Số tiền thanh toán:", style = MaterialTheme.typography.titleMedium)
+                        Text("Số tiền thanh toán", style = MaterialTheme.typography.titleSmall)
                         Text(
-                            CurrencyFormatter.formatVnd(uiState.selectedAmountVnd),
+                            text = CurrencyFormatter.formatVnd(uiState.selectedAmountVnd),
                             style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
+                    PrimaryActionButton(
+                        text = "Nạp tiền ngay",
                         onClick = onExecuteTopup,
-                        modifier = Modifier.fillMaxWidth(),
                         enabled = uiState.canTopup,
-                    ) {
-                        Text("Nạp tiền ngay")
-                    }
+                    )
                 }
             }
         }
@@ -346,66 +357,78 @@ private fun BillLookupContent(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Tra cứu hóa đơn dịch vụ", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(12.dp))
 
-                    Text("Loại dịch vụ / Nhà cung cấp:", style = MaterialTheme.typography.labelMedium)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         providers.forEach { provider ->
-                            FilterChip(
-                                selected = uiState.lookupProvider == provider,
+                            val selected = uiState.lookupProvider == provider
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                                 onClick = { onProviderChanged(provider) },
-                                label = { Text(provider) },
-                            )
+                            ) {
+                                Text(
+                                    text = provider,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    OutlinedTextField(
+                    TextField(
                         value = uiState.customerCode,
                         onValueChange = onCodeChanged,
                         label = { Text("Mã khách hàng / Danh bộ") },
                         placeholder = { Text("VD: PE01000123456") },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = tonalTextFieldColors(),
+                        textStyle = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text("Mã mẫu tham khảo:", style = MaterialTheme.typography.labelSmall)
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         sampleCodes.forEach { (code, prov) ->
-                            FilterChip(
-                                selected = uiState.customerCode == code,
+                            val selected = uiState.customerCode == code
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                                 onClick = {
                                     onProviderChanged(prov)
                                     onCodeChanged(code)
                                 },
-                                label = { Text(code, style = MaterialTheme.typography.bodySmall) },
-                            )
+                            ) {
+                                Text(
+                                    text = code,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Button(
+                    PrimaryActionButton(
+                        text = "Tra cứu hóa đơn",
                         onClick = onLookup,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Tra cứu hóa đơn")
-                    }
+                    )
                 }
             }
         }
@@ -414,9 +437,11 @@ private fun BillLookupContent(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -426,30 +451,25 @@ private fun BillLookupContent(
                                 text = "Hóa đơn ${result.provider}",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xFFFFF3E0))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
                             ) {
                                 Text(
                                     text = result.status,
-                                    color = Color(0xFFE65100),
+                                    color = MaterialTheme.colorScheme.primary,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                 )
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(8.dp))
                         Text("Khách hàng: ${result.customerName}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                         Text("Mã KH: ${result.customerCode}", style = MaterialTheme.typography.bodyMedium)
                         Text("Kỳ thanh toán: ${result.period}", style = MaterialTheme.typography.bodySmall)
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
+                        Spacer(Modifier.height(4.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -457,9 +477,9 @@ private fun BillLookupContent(
                         ) {
                             Text("Số tiền cần nộp:", style = MaterialTheme.typography.titleSmall)
                             Text(
-                                CurrencyFormatter.formatVnd(result.amountVnd),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
+                                text = CurrencyFormatter.formatVnd(result.amountVnd),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
@@ -475,8 +495,9 @@ private fun TopupHistoryContent(
     history: List<TopupTransaction>,
 ) {
     val dateFormatter = SimpleDateFormat("HH:mm - dd/MM/yyyy", Locale.getDefault())
+    val uniqueHistory = history.distinctBy { it.id }
 
-    if (history.isEmpty()) {
+    if (uniqueHistory.isEmpty()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -493,12 +514,15 @@ private fun TopupHistoryContent(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            items(history.distinctBy { it.id }, key = { "topup-history-${it.id}" }) { tx ->
+            items(uniqueHistory.size, key = { idx -> "topup-history-${uniqueHistory[idx].id}" }) { idx ->
+                val tx = uniqueHistory[idx]
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    shape = segmentedListItemShape(idx, uniqueHistory.size),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -512,33 +536,31 @@ private fun TopupHistoryContent(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                             )
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xFFE8F5E9))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
                             ) {
                                 Text(
                                     text = tx.status,
-                                    color = Color(0xFF2E7D32),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text("Số thuê bao: ${tx.phoneNumber} (${tx.carrier})", style = MaterialTheme.typography.bodyMedium)
                         Text(
                             "Thời gian: ${dateFormatter.format(Date(tx.timestamp))}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             "Số tiền: ${CurrencyFormatter.formatVnd(tx.amountVnd)}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                         )
                     }
