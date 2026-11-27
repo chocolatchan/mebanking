@@ -176,6 +176,7 @@ fun HomeScreen(
     onNavigateToTopup: () -> Unit = {},
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
+    openQrTrigger: Int = 0,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -199,6 +200,7 @@ fun HomeScreen(
         onNavigateToTopup = onNavigateToTopup,
         onLogout = onLogout,
         isCustomer = isCustomer,
+        openQrTrigger = openQrTrigger,
         modifier = modifier,
     )
 }
@@ -226,6 +228,7 @@ fun HomeScreen(
     onNavigateToTopup: () -> Unit = {},
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
+    openQrTrigger: Int = 0,
 ) {
     LaunchedEffect(Unit) {
         onRetry()
@@ -234,7 +237,6 @@ fun HomeScreen(
     var isBalanceHidden by remember { mutableStateOf(false) }
     var showQrModal by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
-    var currentBottomTab by remember { mutableIntStateOf(0) }
 
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
@@ -259,6 +261,12 @@ fun HomeScreen(
             showQrModal = true
         } else {
             qrPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+        }
+    }
+
+    LaunchedEffect(openQrTrigger) {
+        if (openQrTrigger > 0) {
+            openQrScanner()
         }
     }
 
@@ -300,68 +308,45 @@ fun HomeScreen(
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isDark)
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        ) { innerPadding ->
-            when {
-                uiState.isLoading -> LoadingContent(Modifier.padding(innerPadding))
-                uiState.errorMessage != null -> ErrorContent(
-                    message = uiState.errorMessage,
-                    onRetry = onRetry,
-                    modifier = Modifier.padding(innerPadding),
-                )
-                else -> ModernAccountsContent(
-                    uiState = uiState,
-                    isBalanceHidden = isBalanceHidden,
-                    onToggleBalanceVisibility = { isBalanceHidden = !isBalanceHidden },
-                    onCopyAccount = { accountNumber ->
-                        clipboardManager.setText(AnnotatedString(accountNumber))
-                        Toast.makeText(context, "Đã sao chép số tài khoản: $accountNumber", Toast.LENGTH_SHORT).show()
-                    },
-                    onOpenQr = openQrScanner,
-                    onLogoutClick = { showLogoutConfirm = true },
-                    onNavigateToBranchLocator = onNavigateToBranchLocator,
-                    onNavigateToTransfer = onNavigateToTransfer,
-                    onNavigateToDeposit = onNavigateToDeposit,
-                    onNavigateToWithdraw = onNavigateToWithdraw,
-                    onNavigateToHistory = onNavigateToHistory,
-                    onNavigateToOfficerDashboard = onNavigateToOfficerDashboard,
-                    onNavigateToBills = onNavigateToBills,
-                    onNavigateToChatbot = onNavigateToChatbot,
-                    onNavigateToAccountDetail = onNavigateToAccountDetail,
-                    onNavigateToFlights = onNavigateToFlights,
-                    onNavigateToHotels = onNavigateToHotels,
-                    onNavigateToCinema = onNavigateToCinema,
-                    onNavigateToShop = onNavigateToShop,
-                    onNavigateToTopup = onNavigateToTopup,
-                    isCustomer = isCustomer,
-                    modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
-                )
-            }
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+    ) { innerPadding ->
+        when {
+            uiState.isLoading -> LoadingContent(Modifier.padding(innerPadding))
+            uiState.errorMessage != null -> ErrorContent(
+                message = uiState.errorMessage,
+                onRetry = onRetry,
+                modifier = Modifier.padding(innerPadding),
+            )
+            else -> ModernAccountsContent(
+                uiState = uiState,
+                isBalanceHidden = isBalanceHidden,
+                onToggleBalanceVisibility = { isBalanceHidden = !isBalanceHidden },
+                onCopyAccount = { accountNumber ->
+                    clipboardManager.setText(AnnotatedString(accountNumber))
+                    Toast.makeText(context, "Đã sao chép số tài khoản: $accountNumber", Toast.LENGTH_SHORT).show()
+                },
+                onOpenQr = openQrScanner,
+                onLogoutClick = { showLogoutConfirm = true },
+                onNavigateToBranchLocator = onNavigateToBranchLocator,
+                onNavigateToTransfer = onNavigateToTransfer,
+                onNavigateToDeposit = onNavigateToDeposit,
+                onNavigateToWithdraw = onNavigateToWithdraw,
+                onNavigateToHistory = onNavigateToHistory,
+                onNavigateToOfficerDashboard = onNavigateToOfficerDashboard,
+                onNavigateToBills = onNavigateToBills,
+                onNavigateToChatbot = onNavigateToChatbot,
+                onNavigateToAccountDetail = onNavigateToAccountDetail,
+                onNavigateToFlights = onNavigateToFlights,
+                onNavigateToHotels = onNavigateToHotels,
+                onNavigateToCinema = onNavigateToCinema,
+                onNavigateToShop = onNavigateToShop,
+                onNavigateToTopup = onNavigateToTopup,
+                isCustomer = isCustomer,
+                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
+            )
         }
-
-        ModernBankingFloatingToolbar(
-            selectedTab = currentBottomTab,
-            onTabSelected = { tab ->
-                currentBottomTab = tab
-                when (tab) {
-                    0 -> {} // Home
-                    1 -> onNavigateToHistory()
-                    2 -> openQrScanner()
-                    3 -> onNavigateToServices()
-                    4 -> {
-                        val primaryId = uiState.accounts.firstOrNull()?.id?.toLongOrNull() ?: -1L
-                        onNavigateToAccountDetail(primaryId)
-                    }
-                }
-            },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp),
-        )
     }
 }
 
@@ -1330,7 +1315,7 @@ private fun ModernAccountItem(
 // -----------------------------------------------------------------------------
 
 @Composable
-private fun ModernBankingFloatingToolbar(
+internal fun ModernBankingFloatingToolbar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
