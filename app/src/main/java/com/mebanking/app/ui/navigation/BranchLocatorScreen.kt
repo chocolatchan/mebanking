@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Navigation
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -84,7 +83,6 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.location.LocationComponentActivationOptions
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
@@ -92,14 +90,11 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
-import org.maplibre.android.style.layers.LineLayer
-import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
-import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -367,8 +362,6 @@ fun BranchLocatorContent(
 }
 
 private const val OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
-private const val ROUTE_SOURCE_ID = "route-source"
-private const val ROUTE_LAYER_ID = "route-layer"
 private const val BRANCHES_SOURCE_ID = "branches-source"
 private const val BRANCHES_LAYER_ID = "branches-layer"
 private const val BRANCHES_LABEL_LAYER_ID = "branches-label-layer"
@@ -452,7 +445,7 @@ private fun MapLibreContainer(
         }
     }
 
-    LaunchedEffect(loadedStyle, uiState.branches, uiState.selectedBranch, uiState.userLocation, uiState.currentRoute) {
+    LaunchedEffect(loadedStyle, uiState.branches, uiState.selectedBranch, uiState.userLocation) {
         val style = loadedStyle ?: return@LaunchedEffect
         updateMapData(style, uiState)
     }
@@ -476,29 +469,11 @@ private fun MapLibreContainer(
         }
     }
 
-    LaunchedEffect(mapInstance, uiState.selectedBranch, uiState.currentRoute) {
+    LaunchedEffect(mapInstance, uiState.selectedBranch) {
         val map = mapInstance ?: return@LaunchedEffect
         val selected = uiState.selectedBranch ?: return@LaunchedEffect
-        val userPoint = LatLng(uiState.userLocation.latitude, uiState.userLocation.longitude)
         val branchPoint = LatLng(selected.branch.latitude, selected.branch.longitude)
-        if (uiState.currentRoute != null &&
-            (userPoint.latitude != branchPoint.latitude || userPoint.longitude != branchPoint.longitude)
-        ) {
-            try {
-                val bounds = LatLngBounds.Builder()
-                    .include(userPoint)
-                    .include(branchPoint)
-                    .build()
-                map.animateCamera(
-                    CameraUpdateFactory.newLatLngBounds(bounds, 140, 260, 140, 280),
-                    800,
-                )
-            } catch (_: Exception) {
-                map.animateCamera(CameraUpdateFactory.newLatLngZoom(branchPoint, 15.5), 800)
-            }
-        } else {
-            map.animateCamera(CameraUpdateFactory.newLatLngZoom(branchPoint, 15.5), 800)
-        }
+        map.animateCamera(CameraUpdateFactory.newLatLngZoom(branchPoint, 15.5), 800)
     }
 
     AndroidView(
@@ -508,18 +483,6 @@ private fun MapLibreContainer(
 }
 
 private fun ensureMapLayers(style: Style) {
-    if (style.getSource(ROUTE_SOURCE_ID) == null) {
-        style.addSource(GeoJsonSource(ROUTE_SOURCE_ID))
-        style.addLayer(
-            LineLayer(ROUTE_LAYER_ID, ROUTE_SOURCE_ID).withProperties(
-                PropertyFactory.lineColor("#1A73E8"),
-                PropertyFactory.lineWidth(5f),
-                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
-                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-            ),
-        )
-    }
-
     if (style.getSource(BRANCHES_SOURCE_ID) == null) {
         style.addSource(GeoJsonSource(BRANCHES_SOURCE_ID))
         style.addLayer(
@@ -579,22 +542,6 @@ private fun updateMapData(style: Style, uiState: BranchLocatorUiState) {
         Point.fromLngLat(uiState.userLocation.longitude, uiState.userLocation.latitude),
     )
     style.getSourceAs<GeoJsonSource>(USER_LOCATION_SOURCE_ID)?.setGeoJson(userFeature)
-
-    val routeSource = style.getSourceAs<GeoJsonSource>(ROUTE_SOURCE_ID)
-    val selected = uiState.selectedBranch
-    if (selected != null) {
-        val points = if (uiState.currentRoute != null && uiState.currentRoute.nodes.size >= 2) {
-            uiState.currentRoute.nodes.map { Point.fromLngLat(it.longitude, it.latitude) }
-        } else {
-            listOf(
-                Point.fromLngLat(uiState.userLocation.longitude, uiState.userLocation.latitude),
-                Point.fromLngLat(selected.branch.longitude, selected.branch.latitude),
-            )
-        }
-        routeSource?.setGeoJson(Feature.fromGeometry(LineString.fromLngLats(points)))
-    } else {
-        routeSource?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
-    }
 }
 
 @Composable
@@ -827,68 +774,36 @@ private fun BranchDetailsCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-
-                if (branchDistance.routeResult != null) {
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "(Đã vạch đường)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF1A73E8),
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
             }
 
             Spacer(Modifier.height(14.dp))
 
-            Row(
+            Button(
+                onClick = {
+                    val uri = Uri.parse("google.navigation:q=${b.latitude},${b.longitude}&mode=w")
+                    val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                        setPackage("com.google.android.apps.maps")
+                    }
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: Exception) {
+                        val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}")
+                        context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                shape = RoundedCornerShape(12.dp),
             ) {
-                Button(
-                    onClick = onNavigate,
-                    modifier = Modifier.weight(1.2f),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Navigation,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = if (branchDistance.routeResult != null) "Cập nhật vạch đường" else "Vạch đường đi",
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-
-                OutlinedButton(
-                    onClick = {
-                        val uri = Uri.parse("google.navigation:q=${b.latitude},${b.longitude}&mode=w")
-                        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-                            setPackage("com.google.android.apps.maps")
-                        }
-                        try {
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                            val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}")
-                            context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Public,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "Google Maps",
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Filled.Navigation,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Chỉ đường trên Google Maps",
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }
