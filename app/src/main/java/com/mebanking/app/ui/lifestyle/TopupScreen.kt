@@ -53,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.AccountSelectionCarousel
 import com.mebanking.app.ui.components.PrimaryActionButton
 import com.mebanking.app.ui.components.TonalFeedbackBanner
 import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
@@ -151,6 +152,7 @@ fun TopupScreen(
             when (uiState.selectedTab) {
                 0 -> MobileTopupContent(
                     uiState = uiState,
+                    onAccountSelected = viewModel::onAccountSelected,
                     onPhoneChanged = viewModel::onPhoneNumberChanged,
                     onCarrierSelected = viewModel::onCarrierSelected,
                     onAmountSelected = viewModel::onAmountSelected,
@@ -173,6 +175,7 @@ fun TopupScreen(
 @Composable
 private fun MobileTopupContent(
     uiState: TopupUiState,
+    onAccountSelected: (Long) -> Unit,
     onPhoneChanged: (String) -> Unit,
     onCarrierSelected: (String) -> Unit,
     onAmountSelected: (Long) -> Unit,
@@ -186,6 +189,16 @@ private fun MobileTopupContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        if (uiState.accounts.isNotEmpty()) {
+            item {
+                AccountSelectionCarousel(
+                    accounts = uiState.accounts,
+                    selectedAccountId = uiState.selectedAccountId,
+                    onAccountSelected = onAccountSelected,
+                )
+            }
+        }
+
         // Enlarged Tonal Phone Input Hero Card
         item {
             Surface(

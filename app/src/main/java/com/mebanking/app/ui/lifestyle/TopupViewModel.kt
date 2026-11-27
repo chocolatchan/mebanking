@@ -3,11 +3,13 @@ package com.mebanking.app.ui.lifestyle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mebanking.app.data.repository.AccountRepository
+import com.mebanking.app.domain.model.Account
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -33,6 +35,8 @@ data class TopupTransaction(
 
 data class TopupUiState(
     val selectedTab: Int = 0, // 0 = Top-up, 1 = Bill Lookup, 2 = History
+    val accounts: List<Account> = emptyList(),
+    val selectedAccountId: Long? = null,
     val phoneNumber: String = "",
     val selectedCarrier: String = "Viettel",
     val selectedAmountVnd: Long = 50_000L,
@@ -59,6 +63,25 @@ class TopupViewModel(
 
     private val _uiState = MutableStateFlow(TopupUiState())
     val uiState: StateFlow<TopupUiState> = _uiState.asStateFlow()
+
+    init {
+        if (accountRepository != null) {
+            viewModelScope.launch {
+                observeActivePaymentAccounts(sessionManager, accountRepository).collectLatest { accounts ->
+                    _uiState.update { current ->
+                        current.copy(
+                            accounts = accounts,
+                            selectedAccountId = resolvePaymentAccountId(accounts, current.selectedAccountId),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun onAccountSelected(accountId: Long) {
+        _uiState.update { it.copy(selectedAccountId = accountId, errorMessage = null) }
+    }
 
     // Offline mock database of customer utility records
     private val sampleUtilityRecords = listOf(
@@ -198,6 +221,7 @@ class TopupViewModel(
                 transactionService = transactionService,
                 amountVnd = currentState.selectedAmountVnd,
                 note = "Nạp ĐT ${currentState.selectedCarrier} - ${currentState.phoneNumber}",
+                selectedAccountId = currentState.selectedAccountId,
             )
             debitResult.fold(
                 onSuccess = { completeTopup() },

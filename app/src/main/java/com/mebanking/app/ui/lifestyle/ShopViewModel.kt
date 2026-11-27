@@ -7,6 +7,7 @@ import com.mebanking.app.data.local.entity.lifestyle.ProductEntity
 import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.lifestyle.CartItem
 import com.mebanking.app.data.repository.lifestyle.ShopRepository
+import com.mebanking.app.domain.model.Account
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +19,8 @@ import kotlinx.coroutines.launch
 
 data class ShopUiState(
     val selectedTab: Int = 0, // 0 = Catalog, 1 = Cart, 2 = Orders
+    val accounts: List<Account> = emptyList(),
+    val selectedAccountId: Long? = null,
     val selectedCategory: String = "",
     val products: List<ProductEntity> = emptyList(),
     val cart: List<CartItem> = emptyList(),
@@ -50,6 +53,24 @@ class ShopViewModel(
     init {
         loadProducts()
         observeOrders()
+        observeAccounts()
+    }
+
+    private fun observeAccounts() {
+        viewModelScope.launch {
+            observeActivePaymentAccounts(sessionManager, accountRepository).collectLatest { accounts ->
+                _uiState.update { current ->
+                    current.copy(
+                        accounts = accounts,
+                        selectedAccountId = resolvePaymentAccountId(accounts, current.selectedAccountId),
+                    )
+                }
+            }
+        }
+    }
+
+    fun onAccountSelected(accountId: Long) {
+        _uiState.update { it.copy(selectedAccountId = accountId, errorMessage = null) }
     }
 
     fun onTabSelected(index: Int) {
@@ -165,6 +186,7 @@ class ShopViewModel(
                 transactionService = transactionService,
                 amountVnd = currentState.cartTotalVnd,
                 note = "Mua sắm ME Shop: $itemSummary",
+                selectedAccountId = currentState.selectedAccountId,
             )
             if (debitResult.isFailure) {
                 _uiState.update {

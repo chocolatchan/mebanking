@@ -43,16 +43,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -63,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -77,9 +77,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.content.ContextCompat
 import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.M3EAnimatedEntrance
+import com.mebanking.app.ui.components.PrimaryActionButton
+import com.mebanking.app.ui.components.TonalFeedbackBanner
+import com.mebanking.app.ui.components.tonalTextFieldColors
 import com.mebanking.app.ui.ekyc.FaceCaptureDialog
-import com.mebanking.app.ui.theme.VcbGreenDark
-import com.mebanking.app.ui.theme.VcbGreenPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -168,8 +170,8 @@ fun RegisterScreen(
                     Spacer(Modifier.height(4.dp))
 
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
@@ -178,17 +180,17 @@ fun RegisterScreen(
 
                             Spacer(Modifier.height(6.dp))
 
-                            Text("Quà tặng mở tài khoản mới:", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                            Text(CurrencyFormatter.formatVnd(result.initialBalance), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color(0xFFB45309))
+                            Text("Quà tặng mở tài khoản mới:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(CurrencyFormatter.formatVnd(result.initialBalance), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
 
                             Spacer(Modifier.height(6.dp))
 
-                            Text("Định danh sinh trắc học:", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                            Text("Định danh sinh trắc học:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Filled.Verified,
                                     contentDescription = null,
-                                    tint = VcbGreenPrimary,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(16.dp),
                                 )
                                 Spacer(Modifier.width(4.dp))
@@ -196,7 +198,7 @@ fun RegisterScreen(
                                     "Đã kích hoạt xác thực khuôn mặt",
                                     style = MaterialTheme.typography.bodySmall,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = VcbGreenPrimary,
+                                    color = MaterialTheme.colorScheme.primary,
                                 )
                             }
                         }
@@ -204,51 +206,44 @@ fun RegisterScreen(
                 }
             },
             confirmButton = {
-                Button(
+                PrimaryActionButton(
+                    text = "ĐĂNG NHẬP NGAY",
                     onClick = onNavigateBackToLogin,
-                    colors = ButtonDefaults.buttonColors(containerColor = VcbGreenPrimary),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("ĐĂNG NHẬP NGAY", fontWeight = FontWeight.Bold)
-                }
+                )
             },
         )
     }
 
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isDark)
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
+            LargeTopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Mở tài khoản mới",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            text = "Đăng ký tài khoản thanh toán trực tuyến",
-                            color = Color.White.copy(alpha = 0.85f),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
+                    Text(
+                        text = "Mở tài khoản mới",
+                        fontWeight = FontWeight.Bold,
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBackToLogin) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Quay lại đăng nhập",
-                            tint = Color.White,
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = VcbGreenPrimary,
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
                 ),
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { innerPadding ->
@@ -258,206 +253,216 @@ fun RegisterScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .imePadding()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Steps indicator
+            // M3E Tonal Step Indicators
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                StepChip(number = "1", label = "Thông tin cá nhân", isActive = true)
-                Text("───", color = Color.Gray)
-                StepChip(number = "2", label = "Xác thực khuôn mặt", isActive = false)
+                StepChip(
+                    number = "1",
+                    label = "Thông tin cá nhân",
+                    isActive = !uiState.isFaceCaptureOpen,
+                    modifier = Modifier.weight(1f),
+                )
+                StepChip(
+                    number = "2",
+                    label = "Xác thực khuôn mặt",
+                    isActive = uiState.isFaceCaptureOpen,
+                    modifier = Modifier.weight(1f),
+                )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(14.dp))
 
-            // Form Fields
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+            // Form Fields (Borderless M3 Tonal Card + Dynamic Surface Inputs)
+            M3EAnimatedEntrance {
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(
-                        text = "Thông tin đăng ký trực tuyến",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Text(
+                            text = "Thông tin đăng ký trực tuyến",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
 
-                    OutlinedTextField(
-                        value = uiState.fullName,
-                        onValueChange = viewModel::onFullNameChanged,
-                        label = { Text("Họ và tên (như trên CCCD)") },
-                        supportingText = { Text("Tối thiểu 2 ký tự (ví dụ: Nguyễn Văn An)") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Badge,
-                                contentDescription = null,
-                                tint = VcbGreenPrimary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    OutlinedTextField(
-                        value = uiState.phone,
-                        onValueChange = viewModel::onPhoneChanged,
-                        label = { Text("Số điện thoại (dùng làm tên đăng nhập)") },
-                        supportingText = { Text("10 số bắt đầu bằng 0 (dùng để đăng nhập vào ứng dụng)") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Phone,
-                                contentDescription = null,
-                                tint = VcbGreenPrimary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    OutlinedTextField(
-                        value = uiState.nationalId,
-                        onValueChange = viewModel::onNationalIdChanged,
-                        label = { Text("Số CCCD (12 chữ số)") },
-                        supportingText = { Text("12 chữ số theo CCCD gắn chip") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Pin,
-                                contentDescription = null,
-                                tint = VcbGreenPrimary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    OutlinedTextField(
-                        value = uiState.password,
-                        onValueChange = viewModel::onPasswordChanged,
-                        label = { Text("Mật khẩu (tối thiểu 8 ký tự)") },
-                        supportingText = { Text("Tối thiểu 8 ký tự") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Lock,
-                                contentDescription = null,
-                                tint = VcbGreenPrimary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
-                        singleLine = true,
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        TextField(
+                            value = uiState.fullName,
+                            onValueChange = viewModel::onFullNameChanged,
+                            label = { Text("Họ và tên (như trên CCCD)") },
+                            supportingText = { Text("Tối thiểu 2 ký tự (ví dụ: Nguyễn Văn An)") },
+                            leadingIcon = {
                                 Icon(
-                                    imageVector = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                    contentDescription = if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    imageVector = Icons.Filled.Badge,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp),
                                 )
-                            }
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
 
-                    OutlinedTextField(
-                        value = uiState.email,
-                        onValueChange = viewModel::onEmailChanged,
-                        label = { Text("Email liên hệ") },
-                        supportingText = { Text("Email nhận thông báo giao dịch") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Email,
-                                contentDescription = null,
-                                tint = VcbGreenPrimary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                        TextField(
+                            value = uiState.phone,
+                            onValueChange = viewModel::onPhoneChanged,
+                            label = { Text("Số điện thoại (dùng làm tên đăng nhập)") },
+                            supportingText = { Text("10 số bắt đầu bằng 0 (dùng để đăng nhập vào ứng dụng)") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Phone,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        TextField(
+                            value = uiState.nationalId,
+                            onValueChange = viewModel::onNationalIdChanged,
+                            label = { Text("Số CCCD (12 chữ số)") },
+                            supportingText = { Text("12 chữ số theo CCCD gắn chip") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Pin,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        TextField(
+                            value = uiState.password,
+                            onValueChange = viewModel::onPasswordChanged,
+                            label = { Text("Mật khẩu (tối thiểu 8 ký tự)") },
+                            supportingText = { Text("Tối thiểu 8 ký tự") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Lock,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            },
+                            singleLine = true,
+                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+                            trailingIcon = {
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        imageVector = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                        contentDescription = if (passwordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        TextField(
+                            value = uiState.email,
+                            onValueChange = viewModel::onEmailChanged,
+                            label = { Text("Email liên hệ") },
+                            supportingText = { Text("Email nhận thông báo giao dịch") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Email,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
 
             if (uiState.errorMessage != null) {
                 Spacer(Modifier.height(12.dp))
-                Surface(
-                    color = Color(0xFFFFEBEE),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Warning,
-                            contentDescription = null,
-                            tint = Color(0xFFC62828),
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Text(
-                            text = uiState.errorMessage ?: "",
-                            color = Color(0xFFC62828),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
+                TonalFeedbackBanner(
+                    message = uiState.errorMessage ?: "",
+                    isError = true,
+                )
             }
 
             Spacer(Modifier.height(16.dp))
 
             // Notice on biometric requirement
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = RoundedCornerShape(18.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Face,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(22.dp),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Face,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                     Text(
                         text = "Bước tiếp theo: Quét khuôn mặt để xác thực và kích hoạt tài khoản.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                 }
             }
 
             Spacer(Modifier.height(20.dp))
 
-            // CTA Button to Trigger Face Capture
-            Button(
+            // Enlarged Primary CTA Button to Trigger Face Capture
+            PrimaryActionButton(
+                text = "Tiếp tục: Xác thực khuôn mặt",
+                icon = Icons.Filled.PhotoCamera,
+                isLoading = uiState.isSubmitting,
                 onClick = {
                     val validationError = uiState.validationError
                     if (validationError != null) {
@@ -474,66 +479,54 @@ fun RegisterScreen(
                         }
                     }
                 },
-                enabled = !uiState.isSubmitting,
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-            ) {
-                if (uiState.isSubmitting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = Color.White,
-                    )
-                } else {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        Text("TIẾP TỤC: XÁC THỰC KHUÔN MẶT", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Spacer(Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.Filled.PhotoCamera,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-            }
+            )
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
 
 @Composable
-private fun StepChip(number: String, label: String, isActive: Boolean) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+private fun StepChip(
+    number: String,
+    label: String,
+    isActive: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = if (isActive) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+        modifier = modifier,
     ) {
-        Box(
-            modifier = Modifier
-                .size(26.dp)
-                .clip(CircleShape)
-                .background(if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = number,
+                    color = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                )
+            }
             Text(
-                text = number,
-                color = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
             )
         }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }

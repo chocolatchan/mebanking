@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.mebanking.app.data.local.entity.TransactionEntity
 import com.mebanking.app.data.repository.TransactionRepository
 import com.mebanking.app.domain.model.Role
+import com.mebanking.app.domain.model.TransactionStatus
 import com.mebanking.app.domain.model.TransactionType
 import com.mebanking.app.domain.service.SessionManager
+import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.domain.util.FuzzySearchHelper
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +19,10 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 enum class TransactionFilter(val label: String) {
     ALL("Tất cả"), DEPOSIT("Nạp tiền"), WITHDRAWAL("Rút tiền"), TRANSFER("Chuyển khoản"), BILL("Hóa đơn");
@@ -64,6 +70,7 @@ data class TransactionHistoryUiState(
     val isLoading: Boolean = true,
     val transactions: List<TransactionEntity> = emptyList(),
     val filter: TransactionFilter = TransactionFilter.ALL,
+    val searchQuery: String = "",
     val accountQuery: String = "",
     val selectedAccountId: Long? = null,
     val timeFilter: TransactionTimeFilter = TransactionTimeFilter.ALL,
@@ -79,18 +86,39 @@ data class TransactionHistoryUiState(
 
     val filteredTransactions: List<TransactionEntity>
         get() {
-            val query = accountQuery.trim()
+            val accQuery = accountQuery.trim()
+            val globalQuery = searchQuery.trim()
+            val dateFormatter = SimpleDateFormat("dd/MM/yyyy HH:mm dd-MM-yyyy", Locale.getDefault())
             val filtered = transactions.filter { tx ->
                 val matchesType = filter.includes(tx.type)
                 val matchesSelectedAccount = selectedAccountId == null ||
                     tx.fromAccountId == selectedAccountId ||
                     tx.toAccountId == selectedAccountId
-                val matchesAccountQuery = query.isEmpty() ||
-                    tx.fromAccountId?.toString()?.contains(query, ignoreCase = true) == true ||
-                    tx.toAccountId?.toString()?.contains(query, ignoreCase = true) == true ||
-                    tx.toAccountNo?.contains(query, ignoreCase = true) == true
+                val matchesAccountQuery = accQuery.isEmpty() ||
+                    tx.fromAccountId?.toString()?.contains(accQuery, ignoreCase = true) == true ||
+                    tx.toAccountId?.toString()?.contains(accQuery, ignoreCase = true) == true ||
+                    tx.toAccountNo?.contains(accQuery, ignoreCase = true) == true
+                val matchesFuzzySearch = globalQuery.isEmpty() || FuzzySearchHelper.matches(
+                    query = globalQuery,
+                    fields = listOf(
+                        tx.id.toString(),
+                        "#${tx.id}",
+                        tx.amount.toString(),
+                        CurrencyFormatter.formatVnd(tx.amount),
+                        tx.type.name,
+                        tx.type.vietnameseLabel(),
+                        tx.status.name,
+                        tx.status.vietnameseLabel(),
+                        tx.fromAccountId?.toString(),
+                        tx.toAccountId?.toString(),
+                        tx.toAccountNo,
+                        tx.externalBankId?.toString(),
+                        tx.note,
+                        dateFormatter.format(Date(tx.timestamp)),
+                    ),
+                )
                 val matchesTime = timeFilter.includes(tx.timestamp)
-                matchesType && matchesSelectedAccount && matchesAccountQuery && matchesTime
+                matchesType && matchesSelectedAccount && matchesAccountQuery && matchesFuzzySearch && matchesTime
             }
             return when (sortOrder) {
                 TransactionSortOrder.NEWEST -> filtered.sortedByDescending { it.timestamp }
@@ -99,6 +127,20 @@ data class TransactionHistoryUiState(
                 TransactionSortOrder.AMOUNT_ASC -> filtered.sortedBy { it.amount }
             }
         }
+}
+
+private fun TransactionType.vietnameseLabel(): String = when (this) {
+    TransactionType.DEPOSIT -> "Nạp tiền"
+    TransactionType.WITHDRAWAL -> "Rút tiền"
+    TransactionType.INTERNAL_TRANSFER -> "Chuyển khoản nội bộ"
+    TransactionType.INTERBANK_TRANSFER -> "Chuyển khoản liên ngân hàng"
+    TransactionType.BILL_PAYMENT -> "Thanh toán hóa đơn"
+}
+
+private fun TransactionStatus.vietnameseLabel(): String = when (this) {
+    TransactionStatus.SUCCESS -> "Thành công"
+    TransactionStatus.PENDING -> "Đang xử lý"
+    TransactionStatus.FAILED -> "Thất bại"
 }
 
 class TransactionHistoryViewModel(
@@ -111,6 +153,8 @@ class TransactionHistoryViewModel(
     init { observeTransactions() }
 
     fun setFilter(filter: TransactionFilter) { _uiState.update { it.copy(filter = filter) } }
+
+    fun setSearchQuery(query: String) { _uiState.update { it.copy(searchQuery = query) } }
 
     fun setAccountQuery(query: String) { _uiState.update { it.copy(accountQuery = query) } }
 

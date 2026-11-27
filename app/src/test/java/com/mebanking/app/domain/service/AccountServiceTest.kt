@@ -271,4 +271,44 @@ class AccountServiceTest {
         assertEquals(500_000_000L, mortgageTyped.loanAmount)
         assertEquals(15_000_000L, mortgageTyped.monthlyPayment)
     }
+
+    @Test
+    fun openCustomerSavingAccount_andMortgage_createAccountsAndEnforceValidation() = runTest {
+        val savingRes = accountService.openCustomerSavingAccount(
+            initialDeposit = 15_000_000L,
+            interestRate = 6.2,
+            termMonths = 12,
+            session = customer1Session,
+        )
+        assertTrue(savingRes.isSuccess)
+        val saving = savingRes.getOrThrow()
+        assertEquals(AccountType.SAVING, saving.accountType)
+        assertEquals(15_000_000L, saving.balance)
+        assertEquals(6.2, saving.interestRate, 0.001)
+        assertEquals("12 tháng", saving.payCycle)
+
+        val mortgageRes = accountService.openCustomerMortgageAccount(
+            loanAmount = 240_000_000L,
+            interestRate = 8.5,
+            termMonths = 12,
+            payCycle = "BIWEEKLY",
+            session = customer1Session,
+        )
+        assertTrue(mortgageRes.isSuccess)
+        val mortgage = mortgageRes.getOrThrow()
+        assertEquals(AccountType.MORTGAGE, mortgage.accountType)
+        assertEquals(240_000_000L, mortgage.balance)
+        assertEquals("BIWEEKLY", mortgage.payCycle)
+        assertEquals(10_000_000L, mortgage.monthlyPayment)
+
+        // Officer cannot use customer self-service path
+        val officerDenied = accountService.openCustomerSavingAccount(1_000_000L, 5.0, 6, officerSession)
+        assertTrue(officerDenied.isFailure)
+        assertTrue(officerDenied.exceptionOrNull() is DomainError.Forbidden)
+
+        // Invalid rate rejected
+        val badRate = accountService.openCustomerSavingAccount(1_000_000L, 25.0, 12, customer1Session)
+        assertTrue(badRate.isFailure)
+        assertTrue(badRate.exceptionOrNull() is DomainError.InvalidData)
+    }
 }

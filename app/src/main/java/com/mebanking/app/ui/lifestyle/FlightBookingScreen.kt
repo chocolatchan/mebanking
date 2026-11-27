@@ -51,6 +51,7 @@ import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.data.local.entity.lifestyle.FlightBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.FlightEntity
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.AccountSelectionCarousel
 import com.mebanking.app.ui.components.PrimaryActionButton
 import com.mebanking.app.ui.components.TonalFeedbackBanner
 import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
@@ -144,6 +145,7 @@ fun FlightBookingScreen(
             if (uiState.selectedTab == 0) {
                 FlightSearchAndBookContent(
                     uiState = uiState,
+                    onAccountSelected = viewModel::onAccountSelected,
                     onDepartureAirportChanged = viewModel::onDepartureAirportChanged,
                     onArrivalAirportChanged = viewModel::onArrivalAirportChanged,
                     onFlightSelected = viewModel::onFlightSelected,
@@ -164,6 +166,7 @@ fun FlightBookingScreen(
 @Composable
 private fun FlightSearchAndBookContent(
     uiState: FlightBookingUiState,
+    onAccountSelected: (Long) -> Unit,
     onDepartureAirportChanged: (String) -> Unit,
     onArrivalAirportChanged: (String) -> Unit,
     onFlightSelected: (FlightEntity) -> Unit,
@@ -422,6 +425,14 @@ private fun FlightSearchAndBookContent(
                                     Text("Thương gia (+50% giá vé)", fontWeight = FontWeight.Medium)
                                 }
                             }
+                        }
+
+                        if (uiState.accounts.isNotEmpty()) {
+                            AccountSelectionCarousel(
+                                accounts = uiState.accounts,
+                                selectedAccountId = uiState.selectedAccountId,
+                                onAccountSelected = onAccountSelected,
+                            )
                         }
 
                         Row(

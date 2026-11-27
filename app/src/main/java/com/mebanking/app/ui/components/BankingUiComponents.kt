@@ -1,8 +1,20 @@
 package com.mebanking.app.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -23,11 +36,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,9 +53,14 @@ import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -47,6 +68,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mebanking.app.domain.model.Account
@@ -396,7 +419,7 @@ fun LargeAmountInputSection(
 }
 
 /**
- * Uniform enlarged primary CTA button (`60.dp` tall, `18.dp` corner radius).
+ * Uniform enlarged primary CTA button (`60.dp` tall, `18.dp` corner radius) with M3E press spring.
  */
 @Composable
 fun PrimaryActionButton(
@@ -407,13 +430,26 @@ fun PrimaryActionButton(
     icon: ImageVector? = null,
     modifier: Modifier = Modifier,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && enabled && !isLoading) 0.97f else 1f,
+        animationSpec = M3EMotion.fastSpatialSpring(),
+        label = "cta_press_scale",
+    )
+
     Button(
         onClick = onClick,
         enabled = enabled && !isLoading,
+        interactionSource = interactionSource,
         shape = RoundedCornerShape(18.dp),
         modifier = modifier
             .fillMaxWidth()
-            .height(60.dp),
+            .height(60.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
     ) {
         if (isLoading) {
             CircularProgressIndicator(
@@ -484,6 +520,187 @@ fun TonalFeedbackBanner(
                     Text("Đóng", color = contentColor, fontWeight = FontWeight.Bold)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Material 3 Expressive motion tokens:
+ * - Spatial springs have subtle overshoot for physical transforms/bounds.
+ * - Effects springs are critically damped (no overshoot) for opacity/color.
+ */
+object M3EMotion {
+    fun <T> spatialSpring(): FiniteAnimationSpec<T> = spring(
+        dampingRatio = 0.75f,
+        stiffness = 380f,
+    )
+
+    fun <T> fastSpatialSpring(): FiniteAnimationSpec<T> = spring(
+        dampingRatio = 0.72f,
+        stiffness = 650f,
+    )
+
+    fun <T> effectsSpring(): FiniteAnimationSpec<T> = spring(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = 800f,
+    )
+
+    fun offsetSpring(): FiniteAnimationSpec<IntOffset> = spring(
+        dampingRatio = 0.78f,
+        stiffness = 420f,
+    )
+
+    fun sizeSpring(): FiniteAnimationSpec<IntSize> = spring(
+        dampingRatio = 0.8f,
+        stiffness = 420f,
+    )
+}
+
+/**
+ * Adds subtle M3E spring press feedback to interactive tonal surfaces.
+ */
+fun Modifier.m3eBouncyPress(
+    interactionSource: MutableInteractionSource? = null,
+    pressedScale: Float = 0.96f,
+): Modifier = composed {
+    val source = interactionSource ?: remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) pressedScale else 1f,
+        animationSpec = M3EMotion.fastSpatialSpring(),
+        label = "m3e_press",
+    )
+    this.graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }
+}
+
+/**
+ * Staggered M3E reveal entrance for list/grid sections.
+ */
+@Composable
+fun M3EAnimatedEntrance(
+    visible: Boolean = true,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(visible) { shown = visible }
+    AnimatedVisibility(
+        visible = shown,
+        enter = fadeIn(M3EMotion.effectsSpring()) +
+            scaleIn(initialScale = 0.95f, animationSpec = M3EMotion.fastSpatialSpring()) +
+            expandVertically(animationSpec = M3EMotion.sizeSpring()),
+        exit = fadeOut(M3EMotion.effectsSpring()) +
+            shrinkVertically(animationSpec = M3EMotion.sizeSpring()),
+        modifier = modifier,
+    ) {
+        content()
+    }
+}
+
+/**
+ * Shared borderless tonal pill search field used inside TopSearchAppBar across tabs.
+ */
+@Composable
+fun TonalSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = {
+            Text(
+                text = placeholder,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+        trailingIcon = {
+            AnimatedVisibility(
+                visible = query.isNotBlank(),
+                enter = fadeIn(M3EMotion.effectsSpring()) + scaleIn(animationSpec = M3EMotion.fastSpatialSpring()),
+                exit = fadeOut(M3EMotion.effectsSpring()),
+            ) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Xóa tìm kiếm",
+                    )
+                }
+            }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(28.dp),
+        colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        modifier = modifier.fillMaxWidth(),
+    )
+}
+
+/**
+ * Transparent TopAppBar housing a title row (with optional actions) and an integrated M3 Search Bar.
+ */
+@Composable
+fun TopSearchAppBar(
+    title: String,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String,
+    subtitle: String? = null,
+    actions: @Composable () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        color = Color.Transparent,
+        modifier = modifier
+            .fillMaxWidth()
+            .statusBarsPadding(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (!subtitle.isNullOrBlank()) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                actions()
+            }
+            TonalSearchBar(
+                query = query,
+                onQueryChange = onQueryChange,
+                placeholder = placeholder,
+            )
         }
     }
 }

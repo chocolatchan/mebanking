@@ -3,6 +3,7 @@ package com.mebanking.app.ui.history
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,6 +68,8 @@ import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.data.local.entity.TransactionEntity
 import com.mebanking.app.domain.model.TransactionType
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.TopSearchAppBar
+import com.mebanking.app.ui.components.m3eBouncyPress
 import com.mebanking.app.ui.components.segmentedListItemShape
 import com.mebanking.app.ui.components.tonalTextFieldColors
 import java.text.DateFormat
@@ -85,6 +88,7 @@ fun TransactionHistoryScreen(onBack: () -> Unit, onOpenTransaction: (Long) -> Un
         state = state,
         onBack = onBack,
         onFilter = viewModel::setFilter,
+        onSearchQueryChange = viewModel::setSearchQuery,
         onAccountQueryChange = viewModel::setAccountQuery,
         onSelectAccountId = viewModel::setSelectedAccountId,
         onTimeFilterChange = viewModel::setTimeFilter,
@@ -100,6 +104,7 @@ private fun TransactionHistoryContent(
     state: TransactionHistoryUiState,
     onBack: () -> Unit,
     onFilter: (TransactionFilter) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
     onAccountQueryChange: (String) -> Unit,
     onSelectAccountId: (Long?) -> Unit,
     onTimeFilterChange: (TransactionTimeFilter) -> Unit,
@@ -108,27 +113,18 @@ private fun TransactionHistoryContent(
     onRetry: () -> Unit,
 ) {
     com.mebanking.app.ui.theme.SynchronizedStatusBar(darkIcons = !isSystemInDarkTheme())
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     val groupedTransactions = remember(state.filteredTransactions) {
         groupTransactionsByDate(state.filteredTransactions)
     }
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(
-                        text = if (state.isOfficerView) "Báo cáo giao dịch hệ thống" else "Lịch sử giao dịch",
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
-                ),
-                scrollBehavior = scrollBehavior,
+            TopSearchAppBar(
+                title = if (state.isOfficerView) "Báo cáo giao dịch hệ thống" else "Lịch sử giao dịch",
+                query = state.searchQuery,
+                onQueryChange = onSearchQueryChange,
+                placeholder = "Tìm kiếm giao dịch (mã GD, số tiền, nội dung, TK, ngày...)",
             )
         },
     ) { padding ->
@@ -393,12 +389,16 @@ private fun SegmentedTransactionRow(
     val amountColor = if (isInbound) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     val timeText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(transaction.timestamp))
 
+    val interactionSource = remember { MutableInteractionSource() }
     Card(
         onClick = onClick,
+        interactionSource = interactionSource,
         shape = shape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .m3eBouncyPress(interactionSource, pressedScale = 0.98f),
     ) {
         Row(
             modifier = Modifier

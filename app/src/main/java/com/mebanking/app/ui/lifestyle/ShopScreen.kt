@@ -51,6 +51,7 @@ import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.data.local.entity.lifestyle.OrderEntity
 import com.mebanking.app.data.local.entity.lifestyle.ProductEntity
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.AccountSelectionCarousel
 import com.mebanking.app.ui.components.PrimaryActionButton
 import com.mebanking.app.ui.components.TonalFeedbackBanner
 import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
@@ -151,6 +152,7 @@ fun ShopScreen(
                 )
                 1 -> CartContent(
                     uiState = uiState,
+                    onAccountSelected = viewModel::onAccountSelected,
                     onQuantityChanged = viewModel::updateCartQuantity,
                     onRemoveItem = viewModel::removeFromCart,
                     onClearCart = viewModel::clearCart,
@@ -307,6 +309,7 @@ private fun ProductCatalogContent(
 @Composable
 private fun CartContent(
     uiState: ShopUiState,
+    onAccountSelected: (Long) -> Unit,
     onQuantityChanged: (Long, Int) -> Unit,
     onRemoveItem: (Long) -> Unit,
     onClearCart: () -> Unit,
@@ -441,6 +444,14 @@ private fun CartContent(
                             textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                             modifier = Modifier.fillMaxWidth(),
                         )
+
+                        if (uiState.accounts.isNotEmpty()) {
+                            AccountSelectionCarousel(
+                                accounts = uiState.accounts,
+                                selectedAccountId = uiState.selectedAccountId,
+                                onAccountSelected = onAccountSelected,
+                            )
+                        }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),

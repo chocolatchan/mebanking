@@ -1,9 +1,12 @@
 package com.mebanking.app.ui
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
@@ -48,6 +51,8 @@ import com.mebanking.app.ui.cash.DepositScreen
 import com.mebanking.app.ui.cash.WithdrawScreen
 import com.mebanking.app.ui.bills.BillPaymentScreen
 import com.mebanking.app.ui.chatbot.ChatbotScreen
+import com.mebanking.app.ui.components.M3EMotion
+import com.mebanking.app.ui.contacts.ContactsScreen
 import com.mebanking.app.ui.home.AccountManagementDrawerContent
 import com.mebanking.app.ui.home.HomeScreen
 import com.mebanking.app.ui.home.HomeViewModel
@@ -150,6 +155,7 @@ private fun AuthenticatedApp(
         "home" -> 0
         "transaction_history" -> 1
         "services" -> if (isCustomer) 3 else null
+        "contacts" -> if (isCustomer) 6 else null
         "officer_dashboard" -> if (!isCustomer) 5 else null
         else -> null
     }
@@ -182,6 +188,9 @@ private fun AuthenticatedApp(
                 },
                 onUpdateEkyc = homeViewModel::updateEkycWithCapturedFace,
                 onClearEkycMessages = homeViewModel::clearEkycMessages,
+                onOpenSavingAccount = homeViewModel::openSavingAccount,
+                onOpenMortgageAccount = homeViewModel::openMortgageAccount,
+                onClearAccountOpenMessages = homeViewModel::clearAccountOpenMessages,
                 onLogout = onLogout,
             )
         },
@@ -194,6 +203,40 @@ private fun AuthenticatedApp(
             NavHost(
                 navController = navController,
                 startDestination = "home",
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = M3EMotion.offsetSpring(),
+                        initialOffset = { it / 5 },
+                    ) + fadeIn(M3EMotion.effectsSpring()) + scaleIn(
+                        initialScale = 0.97f,
+                        animationSpec = M3EMotion.fastSpatialSpring(),
+                    )
+                },
+                exitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = M3EMotion.offsetSpring(),
+                        targetOffset = { it / 7 },
+                    ) + fadeOut(M3EMotion.effectsSpring())
+                },
+                popEnterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = M3EMotion.offsetSpring(),
+                        initialOffset = { it / 7 },
+                    ) + fadeIn(M3EMotion.effectsSpring())
+                },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = M3EMotion.offsetSpring(),
+                        targetOffset = { it / 5 },
+                    ) + fadeOut(M3EMotion.effectsSpring()) + scaleOut(
+                        targetScale = 0.97f,
+                        animationSpec = M3EMotion.fastSpatialSpring(),
+                    )
+                },
             ) {
                 composable("home") {
                     HomeScreen(
@@ -258,6 +301,15 @@ private fun AuthenticatedApp(
                 onNavigateToTopup = {
                     if (isCustomer) {
                         navController.navigate("topup") { launchSingleTop = true }
+                    }
+                },
+                onNavigateToContacts = {
+                    if (isCustomer) {
+                        navController.navigate("contacts") {
+                            popUpTo("home") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 },
                 onLogout = onLogout,
@@ -358,6 +410,18 @@ private fun AuthenticatedApp(
         composable("vnpay") {
             VnPayScreen(onBack = { navController.popBackStack() })
         }
+        composable("contacts") {
+            ContactsScreen(
+                isBottomBarVisible = isBottomBarVisible,
+                onSelectContactForTransfer = { acc, name ->
+                    val encAcc = Uri.encode(acc)
+                    val encName = Uri.encode(name)
+                    navController.navigate("transfer?targetAccount=$encAcc&targetName=$encName") {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
         composable("chatbot") {
             ChatbotScreen(
                 onBack = { navController.popBackStack() },
@@ -393,8 +457,8 @@ private fun AuthenticatedApp(
 
     AnimatedVisibility(
         visible = selectedMainTab != null && isBottomBarVisible,
-        enter = slideInVertically { it } + fadeIn(),
-        exit = slideOutVertically { it } + fadeOut(),
+        enter = slideInVertically(animationSpec = M3EMotion.offsetSpring()) { it } + fadeIn(M3EMotion.effectsSpring()),
+        exit = slideOutVertically(animationSpec = M3EMotion.offsetSpring()) { it } + fadeOut(M3EMotion.effectsSpring()),
         modifier = Modifier.align(Alignment.BottomCenter),
     ) {
         ModernBankingBottomBar(
@@ -420,6 +484,13 @@ private fun AuthenticatedApp(
                     }
                     5 -> if (!isCustomer) {
                         navController.navigate("officer_dashboard") {
+                            popUpTo("home") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                    6 -> if (isCustomer) {
+                        navController.navigate("contacts") {
                             popUpTo("home") { saveState = true }
                             launchSingleTop = true
                             restoreState = true

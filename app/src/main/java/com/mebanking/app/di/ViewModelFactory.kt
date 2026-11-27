@@ -52,6 +52,7 @@ class ViewModelFactory(
                     faceRecognitionService = container.faceRecognitionService,
                     nationalIdProtector = container.nationalIdProtector,
                     saveFaceImageFn = container.saveFaceImage,
+                    accountService = container.accountService,
                 ) as T
             }
             modelClass.isAssignableFrom(BranchLocatorViewModel::class.java) -> {

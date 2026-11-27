@@ -6,6 +6,7 @@ import com.mebanking.app.data.local.entity.lifestyle.HotelBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.HotelEntity
 import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.lifestyle.HotelRepository
+import com.mebanking.app.domain.model.Account
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,8 @@ import kotlinx.coroutines.launch
 
 data class HotelBookingUiState(
     val selectedTab: Int = 0,
+    val accounts: List<Account> = emptyList(),
+    val selectedAccountId: Long? = null,
     val selectedCity: String = "",
     val hotels: List<HotelEntity> = emptyList(),
     val selectedHotel: HotelEntity? = null,
@@ -49,6 +52,24 @@ class HotelBookingViewModel(
     init {
         loadHotels()
         observeBookings()
+        observeAccounts()
+    }
+
+    private fun observeAccounts() {
+        viewModelScope.launch {
+            observeActivePaymentAccounts(sessionManager, accountRepository).collectLatest { accounts ->
+                _uiState.update { current ->
+                    current.copy(
+                        accounts = accounts,
+                        selectedAccountId = resolvePaymentAccountId(accounts, current.selectedAccountId),
+                    )
+                }
+            }
+        }
+    }
+
+    fun onAccountSelected(accountId: Long) {
+        _uiState.update { it.copy(selectedAccountId = accountId, errorMessage = null) }
     }
 
     fun onTabSelected(index: Int) {
@@ -134,6 +155,7 @@ class HotelBookingViewModel(
                 transactionService = transactionService,
                 amountVnd = currentState.calculatedTotalVnd,
                 note = "Đặt phòng khách sạn ${hotel.name} (${currentState.nights} đêm)",
+                selectedAccountId = currentState.selectedAccountId,
             )
             if (debitResult.isFailure) {
                 _uiState.update {

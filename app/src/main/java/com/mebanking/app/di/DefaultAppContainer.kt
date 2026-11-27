@@ -240,6 +240,10 @@ class DefaultAppContainer(
         com.mebanking.app.domain.service.RememberedCustomerStore(context)
     }
 
+    override val savedContactStore: com.mebanking.app.domain.service.SavedContactStore by lazy {
+        com.mebanking.app.domain.service.SavedContactStore(context)
+    }
+
     override val saveFaceImage: suspend (Long, ByteArray, String?) -> Result<String> = { userId, frameBytes, prevPath ->
         com.mebanking.app.domain.service.face.FaceImageStorage.saveFaceImage(
             context = context,

@@ -1,5 +1,6 @@
 package com.mebanking.app
 
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.fragment.app.FragmentActivity
@@ -12,6 +13,10 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Prevent non-system overlay windows (tapjacking/screen-overlay fraud protection).
+            window.setHideOverlayWindows(true)
+        }
         if (!BuildConfig.DEBUG) {
             // Block screenshots and screen recording of real financial data in
             // release builds. Debug builds stay recordable for the course demo.

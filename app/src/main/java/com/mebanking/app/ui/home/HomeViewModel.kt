@@ -7,6 +7,7 @@ import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.AuthRepository
 import com.mebanking.app.domain.model.SessionState
 import com.mebanking.app.domain.model.toDomainError
+import com.mebanking.app.domain.service.AccountService
 import com.mebanking.app.domain.service.FaceRecognitionService
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.face.FaceQualityValidator
@@ -26,6 +27,7 @@ class HomeViewModel(
     private val faceRecognitionService: FaceRecognitionService? = null,
     private val nationalIdProtector: NationalIdProtector? = null,
     private val saveFaceImageFn: (suspend (Long, ByteArray, String?) -> Result<String>)? = null,
+    private val accountService: AccountService? = null,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -118,6 +120,100 @@ class HomeViewModel(
 
     fun clearEkycMessages() {
         _uiState.update { it.copy(ekycNotice = null, ekycError = null) }
+    }
+
+    fun clearAccountOpenMessages() {
+        _uiState.update { it.copy(accountOpenNotice = null, accountOpenError = null) }
+    }
+
+    fun openSavingAccount(
+        initialDeposit: Long,
+        interestRate: Double,
+        termMonths: Int,
+    ) {
+        val session = sessionManager?.currentSession ?: run {
+            _uiState.update { it.copy(accountOpenError = "Phiên đăng nhập đã hết hạn") }
+            return
+        }
+        val service = accountService ?: run {
+            _uiState.update { it.copy(accountOpenError = "Dịch vụ mở tài khoản chưa sẵn sàng") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isOpeningAccount = true, accountOpenError = null, accountOpenNotice = null) }
+            val res = service.openCustomerSavingAccount(
+                initialDeposit = initialDeposit,
+                interestRate = interestRate,
+                termMonths = termMonths,
+                session = session,
+            )
+            res.fold(
+                onSuccess = { acc ->
+                    _uiState.update {
+                        it.copy(
+                            isOpeningAccount = false,
+                            accountOpenNotice = "Mở thành công TK Tiết kiệm ${acc.accountNumber}",
+                            accountOpenError = null,
+                        )
+                    }
+                    refresh()
+                },
+                onFailure = { err ->
+                    _uiState.update {
+                        it.copy(
+                            isOpeningAccount = false,
+                            accountOpenError = err.toDomainError().message ?: "Không thể mở tài khoản tiết kiệm",
+                        )
+                    }
+                },
+            )
+        }
+    }
+
+    fun openMortgageAccount(
+        loanAmount: Long,
+        interestRate: Double,
+        termMonths: Int,
+        payCycle: String,
+    ) {
+        val session = sessionManager?.currentSession ?: run {
+            _uiState.update { it.copy(accountOpenError = "Phiên đăng nhập đã hết hạn") }
+            return
+        }
+        val service = accountService ?: run {
+            _uiState.update { it.copy(accountOpenError = "Dịch vụ mở tài khoản vay chưa sẵn sàng") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isOpeningAccount = true, accountOpenError = null, accountOpenNotice = null) }
+            val res = service.openCustomerMortgageAccount(
+                loanAmount = loanAmount,
+                interestRate = interestRate,
+                termMonths = termMonths,
+                payCycle = payCycle,
+                session = session,
+            )
+            res.fold(
+                onSuccess = { acc ->
+                    _uiState.update {
+                        it.copy(
+                            isOpeningAccount = false,
+                            accountOpenNotice = "Mở thành công TK Thế chấp ${acc.accountNumber}",
+                            accountOpenError = null,
+                        )
+                    }
+                    refresh()
+                },
+                onFailure = { err ->
+                    _uiState.update {
+                        it.copy(
+                            isOpeningAccount = false,
+                            accountOpenError = err.toDomainError().message ?: "Không thể mở tài khoản thế chấp",
+                        )
+                    }
+                },
+            )
+        }
     }
 
     /**

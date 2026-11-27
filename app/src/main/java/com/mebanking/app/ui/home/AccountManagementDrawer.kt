@@ -34,23 +34,26 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SupervisorAccount
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,10 +75,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import com.mebanking.app.MEbankingApplication
+import com.mebanking.app.domain.model.FaceRecognitionResult
 import com.mebanking.app.domain.model.User
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.auth.DeviceAuthenticationResult
 import com.mebanking.app.ui.auth.DeviceAuthenticator
+import com.mebanking.app.ui.components.M3EMotion
+import com.mebanking.app.ui.components.TonalFeedbackBanner
+import com.mebanking.app.ui.components.tonalTextFieldColors
 import com.mebanking.app.ui.ekyc.FaceCaptureDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -88,6 +95,20 @@ private enum class EkycEditStep {
     OTP,
     SYSTEM_UNAVAILABLE_CONFIRM,
     CAMERA,
+}
+
+private enum class AccountOpenTarget {
+    NONE,
+    SAVING,
+    MORTGAGE,
+}
+
+private enum class AccountOpenStep {
+    NONE,
+    FORM,
+    OTP,
+    SYSTEM_UNAVAILABLE_CONFIRM,
+    FACE_VERIFY,
 }
 
 @Composable
@@ -120,6 +141,9 @@ internal fun AccountManagementDrawerContent(
     onNavigateToOfficerDashboard: () -> Unit,
     onUpdateEkyc: (fullName: String, nationalId: String?, frameBytes: ByteArray) -> Unit,
     onClearEkycMessages: () -> Unit,
+    onOpenSavingAccount: (initialDeposit: Long, interestRate: Double, termMonths: Int) -> Unit = { _, _, _ -> },
+    onOpenMortgageAccount: (loanAmount: Long, interestRate: Double, termMonths: Int, payCycle: String) -> Unit = { _, _, _, _ -> },
+    onClearAccountOpenMessages: () -> Unit = {},
     onLogout: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -146,9 +170,112 @@ internal fun AccountManagementDrawerContent(
     var otpInput by remember { mutableStateOf("") }
     var otpError by remember { mutableStateOf<String?>(null) }
 
+    // Self-service Saving / Mortgage opening state (requires customer authentication)
+    var openTarget by remember { mutableStateOf(AccountOpenTarget.NONE) }
+    var openStep by remember { mutableStateOf(AccountOpenStep.NONE) }
+    var savingDepositInput by remember { mutableStateOf("5000000") }
+    var savingRateInput by remember { mutableStateOf("5.8") }
+    var savingTermInput by remember { mutableStateOf("12") }
+    var mortgageLoanInput by remember { mutableStateOf("100000000") }
+    var mortgageRateInput by remember { mutableStateOf("8.5") }
+    var mortgageTermInput by remember { mutableStateOf("60") }
+    var mortgageCycle by remember { mutableStateOf("MONTHLY") }
+    var openFormError by remember { mutableStateOf<String?>(null) }
+    var openOtpChallengeId by remember { mutableStateOf<String?>(null) }
+    var openOtpDisplayCode by remember { mutableStateOf("") }
+    var openOtpInput by remember { mutableStateOf("") }
+    var openOtpError by remember { mutableStateOf<String?>(null) }
+    var isFaceVerifyingOpen by remember { mutableStateOf(false) }
+    var openFaceError by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(uiState.ekycNotice) {
         if (uiState.ekycNotice != null && editStep == EkycEditStep.CAMERA) {
             editStep = EkycEditStep.NONE
+        }
+    }
+
+    val submitOpenedAccount: () -> Unit = {
+        when (openTarget) {
+            AccountOpenTarget.SAVING -> {
+                onOpenSavingAccount(
+                    savingDepositInput.toLongOrNull() ?: 0L,
+                    savingRateInput.toDoubleOrNull() ?: 5.8,
+                    savingTermInput.toIntOrNull() ?: 12,
+                )
+            }
+            AccountOpenTarget.MORTGAGE -> {
+                onOpenMortgageAccount(
+                    mortgageLoanInput.toLongOrNull() ?: 0L,
+                    mortgageRateInput.toDoubleOrNull() ?: 8.5,
+                    mortgageTermInput.toIntOrNull() ?: 60,
+                    mortgageCycle,
+                )
+            }
+            AccountOpenTarget.NONE -> Unit
+        }
+        openStep = AccountOpenStep.NONE
+        openTarget = AccountOpenTarget.NONE
+    }
+
+    val proceedAfterSystemAuthOpenAccount: () -> Unit = {
+        val userId = currentUser?.id ?: appContainer?.sessionManager?.currentSession?.userId ?: 1L
+        val faceService = appContainer?.faceRecognitionService
+        scope.launch {
+            val hasFace = faceService != null && runCatching { faceService.hasEnrolledFace(userId) }.getOrDefault(false)
+            if (hasFace) {
+                openFaceError = null
+                openStep = AccountOpenStep.FACE_VERIFY
+            } else {
+                submitOpenedAccount()
+            }
+        }
+    }
+
+    val startOpenOtpChallenge: () -> Unit = {
+        val otpService = appContainer?.otpService
+        val userId = currentUser?.id ?: appContainer?.sessionManager?.currentSession?.userId ?: 1L
+        if (otpService != null) {
+            val challenge = otpService.createChallenge(userId)
+            openOtpChallengeId = challenge.id
+            openOtpDisplayCode = challenge.code
+        } else {
+            openOtpChallengeId = null
+            openOtpDisplayCode = "123456"
+        }
+        openOtpInput = ""
+        openOtpError = null
+        openStep = AccountOpenStep.OTP
+    }
+
+    val launchOpenSystemAuth: () -> Unit = {
+        if (activity == null) {
+            openStep = AccountOpenStep.SYSTEM_UNAVAILABLE_CONFIRM
+        } else {
+            scope.launch {
+                when (val result = DeviceAuthenticator(activity).authenticate()) {
+                    DeviceAuthenticationResult.Authenticated -> {
+                        proceedAfterSystemAuthOpenAccount()
+                    }
+                    DeviceAuthenticationResult.Cancelled -> {
+                        openStep = AccountOpenStep.NONE
+                        openTarget = AccountOpenTarget.NONE
+                        Toast.makeText(context, "Đã hủy xác thực khách hàng", Toast.LENGTH_SHORT).show()
+                    }
+                    DeviceAuthenticationResult.TemporarilyLocked -> {
+                        openStep = AccountOpenStep.NONE
+                        openTarget = AccountOpenTarget.NONE
+                        Toast.makeText(context, "Xác thực thiết bị đang bị tạm khóa", Toast.LENGTH_LONG).show()
+                    }
+                    is DeviceAuthenticationResult.Unavailable -> {
+                        openStep = AccountOpenStep.SYSTEM_UNAVAILABLE_CONFIRM
+                    }
+                    is DeviceAuthenticationResult.Failed -> {
+                        openStep = AccountOpenStep.NONE
+                        openTarget = AccountOpenTarget.NONE
+                        Toast.makeText(context, "Xác thực thất bại: ${result.reason}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
     }
 
@@ -297,18 +424,27 @@ internal fun AccountManagementDrawerContent(
             }
 
             uiState.ekycError?.let { err ->
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        text = err,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(10.dp),
-                    )
-                }
+                TonalFeedbackBanner(
+                    message = err,
+                    isError = true,
+                    onDismiss = onClearEkycMessages,
+                )
+            }
+
+            uiState.accountOpenNotice?.let { notice ->
+                TonalFeedbackBanner(
+                    message = notice,
+                    isError = false,
+                    onDismiss = onClearAccountOpenMessages,
+                )
+            }
+
+            uiState.accountOpenError?.let { err ->
+                TonalFeedbackBanner(
+                    message = err,
+                    isError = true,
+                    onDismiss = onClearAccountOpenMessages,
+                )
             }
 
             // 1. Account & eKYC Profile Card
@@ -383,7 +519,7 @@ internal fun AccountManagementDrawerContent(
                                 formError = null
                                 editStep = EkycEditStep.FORM
                             },
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Icon(
@@ -393,6 +529,48 @@ internal fun AccountManagementDrawerContent(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text("Chỉnh sửa eKYC", fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FilledTonalButton(
+                                onClick = {
+                                    onClearAccountOpenMessages()
+                                    openTarget = AccountOpenTarget.SAVING
+                                    openFormError = null
+                                    openStep = AccountOpenStep.FORM
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.TrendingUp,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("Mở Tiết kiệm", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            FilledTonalButton(
+                                onClick = {
+                                    onClearAccountOpenMessages()
+                                    openTarget = AccountOpenTarget.MORTGAGE
+                                    openFormError = null
+                                    openStep = AccountOpenStep.FORM
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.AccountBalance,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("Mở Thế chấp", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     } else {
                         OutlinedButton(
@@ -550,7 +728,7 @@ internal fun AccountManagementDrawerContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    OutlinedTextField(
+                    TextField(
                         value = editFullName,
                         onValueChange = {
                             editFullName = it.take(120)
@@ -558,9 +736,11 @@ internal fun AccountManagementDrawerContent(
                         },
                         label = { Text("Họ và tên theo CCCD") },
                         singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = tonalTextFieldColors(),
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
+                    TextField(
                         value = editNationalId,
                         onValueChange = {
                             editNationalId = it.filter(Char::isDigit).take(12)
@@ -568,6 +748,8 @@ internal fun AccountManagementDrawerContent(
                         },
                         label = { Text("Số CCCD (12 chữ số, để trống nếu giữ nguyên)") },
                         singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = tonalTextFieldColors(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -621,7 +803,7 @@ internal fun AccountManagementDrawerContent(
                             modifier = Modifier.padding(10.dp),
                         )
                     }
-                    OutlinedTextField(
+                    TextField(
                         value = otpInput,
                         onValueChange = {
                             otpInput = it.filter(Char::isDigit).take(6)
@@ -629,6 +811,8 @@ internal fun AccountManagementDrawerContent(
                         },
                         label = { Text("Nhập mã OTP 6 chữ số") },
                         singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = tonalTextFieldColors(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -713,6 +897,326 @@ internal fun AccountManagementDrawerContent(
                 )
             },
             onDismiss = { editStep = EkycEditStep.NONE },
+        )
+    }
+
+    // Customer Self-Service Saving / Mortgage Opening Flow (with mandatory customer authentication)
+    if (openStep == AccountOpenStep.FORM && openTarget != AccountOpenTarget.NONE) {
+        val isSaving = openTarget == AccountOpenTarget.SAVING
+        AlertDialog(
+            onDismissRequest = {
+                openStep = AccountOpenStep.NONE
+                openTarget = AccountOpenTarget.NONE
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Text(
+                    text = if (isSaving) "Mở tài khoản Tiết kiệm" else "Đăng ký tài khoản Thế chấp",
+                    fontWeight = FontWeight.Bold,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Yêu cầu xác thực khách hàng (Smart OTP + Xác thực thiết bị/Khuôn mặt) trước khi khởi tạo.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (isSaving) {
+                        TextField(
+                            value = savingDepositInput,
+                            onValueChange = {
+                                savingDepositInput = it.filter(Char::isDigit).take(12)
+                                openFormError = null
+                            },
+                            label = { Text("Tiền gửi ban đầu (VND)") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextField(
+                                value = savingRateInput,
+                                onValueChange = {
+                                    savingRateInput = it.filter { ch -> ch.isDigit() || ch == '.' }.take(5)
+                                    openFormError = null
+                                },
+                                label = { Text("Lãi suất (%/năm)") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = tonalTextFieldColors(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextField(
+                                value = savingTermInput,
+                                onValueChange = {
+                                    savingTermInput = it.filter(Char::isDigit).take(3)
+                                    openFormError = null
+                                },
+                                label = { Text("Kỳ hạn (tháng)") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = tonalTextFieldColors(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("6" to "6 tháng", "12" to "12 tháng", "24" to "24 tháng").forEach { (months, label) ->
+                                FilterChip(
+                                    selected = savingTermInput == months,
+                                    onClick = { savingTermInput = months },
+                                    label = { Text(label) },
+                                )
+                            }
+                        }
+                    } else {
+                        TextField(
+                            value = mortgageLoanInput,
+                            onValueChange = {
+                                mortgageLoanInput = it.filter(Char::isDigit).take(13)
+                                openFormError = null
+                            },
+                            label = { Text("Số tiền vay (VND)") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = tonalTextFieldColors(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextField(
+                                value = mortgageRateInput,
+                                onValueChange = {
+                                    mortgageRateInput = it.filter { ch -> ch.isDigit() || ch == '.' }.take(5)
+                                    openFormError = null
+                                },
+                                label = { Text("Lãi suất (%/năm)") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = tonalTextFieldColors(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextField(
+                                value = mortgageTermInput,
+                                onValueChange = {
+                                    mortgageTermInput = it.filter(Char::isDigit).take(3)
+                                    openFormError = null
+                                },
+                                label = { Text("Thời hạn (tháng)") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = tonalTextFieldColors(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = mortgageCycle == "MONTHLY",
+                                onClick = { mortgageCycle = "MONTHLY" },
+                                label = { Text("Trả hàng tháng") },
+                            )
+                            FilterChip(
+                                selected = mortgageCycle == "BIWEEKLY",
+                                onClick = { mortgageCycle = "BIWEEKLY" },
+                                label = { Text("Mỗi 2 tuần") },
+                            )
+                        }
+                    }
+                    openFormError?.let { err ->
+                        Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (isSaving) {
+                            val dep = savingDepositInput.toLongOrNull()
+                            val rate = savingRateInput.toDoubleOrNull()
+                            val term = savingTermInput.toIntOrNull()
+                            when {
+                                dep == null || dep < 0L -> openFormError = "Tiền gửi không hợp lệ"
+                                rate == null || rate < 0.0 || rate > 15.0 -> openFormError = "Lãi suất từ 0.0% đến 15.0%"
+                                term == null || term !in 1..120 -> openFormError = "Kỳ hạn từ 1 đến 120 tháng"
+                                else -> startOpenOtpChallenge()
+                            }
+                        } else {
+                            val loan = mortgageLoanInput.toLongOrNull()
+                            val rate = mortgageRateInput.toDoubleOrNull()
+                            val term = mortgageTermInput.toIntOrNull()
+                            when {
+                                loan == null || loan <= 0L -> openFormError = "Số tiền vay phải lớn hơn 0"
+                                rate == null || rate < 0.0 || rate > 25.0 -> openFormError = "Lãi suất từ 0.0% đến 25.0%"
+                                term == null || term !in 1..360 -> openFormError = "Thời hạn từ 1 đến 360 tháng"
+                                else -> startOpenOtpChallenge()
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text("Xác thực mở TK")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        openStep = AccountOpenStep.NONE
+                        openTarget = AccountOpenTarget.NONE
+                    },
+                ) { Text("Hủy") }
+            },
+        )
+    }
+
+    if (openStep == AccountOpenStep.OTP) {
+        AlertDialog(
+            onDismissRequest = {
+                openOtpChallengeId?.let { appContainer?.otpService?.cancel(it) }
+                openStep = AccountOpenStep.NONE
+                openTarget = AccountOpenTarget.NONE
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(24.dp),
+            title = { Text("Xác thực OTP mở tài khoản", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = "Mã Smart OTP: $openOtpDisplayCode",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
+                    TextField(
+                        value = openOtpInput,
+                        onValueChange = {
+                            openOtpInput = it.filter(Char::isDigit).take(6)
+                            openOtpError = null
+                        },
+                        label = { Text("Nhập mã OTP 6 chữ số") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = tonalTextFieldColors(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    openOtpError?.let { err ->
+                        Text(err, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val otpService = appContainer?.otpService
+                        val userId = currentUser?.id ?: appContainer?.sessionManager?.currentSession?.userId ?: 1L
+                        val cId = openOtpChallengeId
+                        val valid = if (otpService != null && cId != null) {
+                            otpService.verify(cId, userId, openOtpInput)
+                        } else {
+                            openOtpInput == openOtpDisplayCode
+                        }
+                        if (valid) {
+                            cId?.let { otpService?.cancel(it) }
+                            launchOpenSystemAuth()
+                        } else {
+                            openOtpError = "Mã OTP không đúng hoặc đã hết hạn"
+                        }
+                    },
+                    enabled = openOtpInput.length == 6,
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text("Tiếp tục")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        openOtpChallengeId?.let { appContainer?.otpService?.cancel(it) }
+                        openStep = AccountOpenStep.NONE
+                        openTarget = AccountOpenTarget.NONE
+                    },
+                ) { Text("Hủy") }
+            },
+        )
+    }
+
+    if (openStep == AccountOpenStep.SYSTEM_UNAVAILABLE_CONFIRM) {
+        AlertDialog(
+            onDismissRequest = {
+                openStep = AccountOpenStep.NONE
+                openTarget = AccountOpenTarget.NONE
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(24.dp),
+            title = { Text("Xác nhận chủ tài khoản", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    text = "Thiết bị chưa thiết lập khóa màn hình. Xác nhận tiếp tục bước hoàn tất mở tài khoản?",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { proceedAfterSystemAuthOpenAccount() },
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text("Xác nhận")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        openStep = AccountOpenStep.NONE
+                        openTarget = AccountOpenTarget.NONE
+                    },
+                ) { Text("Hủy") }
+            },
+        )
+    }
+
+    if (openStep == AccountOpenStep.FACE_VERIFY) {
+        FaceCaptureDialog(
+            title = "Xác thực khuôn mặt khách hàng",
+            subtitle = "Quét khuôn mặt eKYC để xác nhận yêu cầu mở tài khoản mới.",
+            isProcessing = isFaceVerifyingOpen,
+            errorMessage = openFaceError,
+            onFrameCaptured = { frame ->
+                val userId = currentUser?.id ?: appContainer?.sessionManager?.currentSession?.userId ?: 1L
+                val faceService = appContainer?.faceRecognitionService
+                if (faceService == null) {
+                    submitOpenedAccount()
+                } else {
+                    isFaceVerifyingOpen = true
+                    openFaceError = null
+                    scope.launch {
+                        val res = runCatching { faceService.verifyFace(userId, frame) }.getOrNull()
+                        isFaceVerifyingOpen = false
+                        when (res) {
+                            is FaceRecognitionResult.Match -> submitOpenedAccount()
+                            is FaceRecognitionResult.Mismatch -> openFaceError = "Khuôn mặt không khớp hồ sơ eKYC"
+                            is FaceRecognitionResult.Error, null -> openFaceError = "Không thể nhận diện khuôn mặt, vui lòng thử lại"
+                        }
+                    }
+                }
+            },
+            onDismiss = {
+                openStep = AccountOpenStep.NONE
+                openTarget = AccountOpenTarget.NONE
+            },
         )
     }
 }

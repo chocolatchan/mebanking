@@ -68,6 +68,27 @@ interface AccountService {
      * Overload for retrieving mortgage details when session is implicit.
      */
     suspend fun getMortgageDetails(accountId: Long): Result<MortgageAccountDetails>
+
+    /**
+     * Allows an authenticated customer to open a new saving account after verifying identity.
+     */
+    suspend fun openCustomerSavingAccount(
+        initialDeposit: Long,
+        interestRate: Double,
+        termMonths: Int,
+        session: UserSession,
+    ): Result<Account> = Result.failure(DomainError.InvalidData("Chức năng mở tài khoản chưa sẵn sàng"))
+
+    /**
+     * Allows an authenticated customer to open a new mortgage account after verifying identity.
+     */
+    suspend fun openCustomerMortgageAccount(
+        loanAmount: Long,
+        interestRate: Double,
+        termMonths: Int,
+        payCycle: String,
+        session: UserSession,
+    ): Result<Account> = Result.failure(DomainError.InvalidData("Chức năng mở tài khoản vay chưa sẵn sàng"))
 }
 
 /**
@@ -203,5 +224,105 @@ class DefaultAccountService(
                 currency = account.currency,
             )
         )
+    }
+
+    override suspend fun openCustomerSavingAccount(
+        initialDeposit: Long,
+        interestRate: Double,
+        termMonths: Int,
+        session: UserSession,
+    ): Result<Account> {
+        if (session.role != Role.CUSTOMER) {
+            return Result.failure(DomainError.Forbidden("Chỉ khách hàng mới có thể tự mở tài khoản tại mục này"))
+        }
+        if (initialDeposit < 0L) {
+            return Result.failure(DomainError.InvalidData("Tiền gửi ban đầu không được âm"))
+        }
+        if (interestRate < 0.0 || interestRate > 15.0) {
+            return Result.failure(DomainError.InvalidData("Lãi suất tiết kiệm phải từ 0.0% đến 15.0%"))
+        }
+        if (termMonths !in 1..120) {
+            return Result.failure(DomainError.InvalidData("Kỳ hạn gửi phải từ 1 đến 120 tháng"))
+        }
+
+        val accountNumber = nextUniqueAccountNumber(session.userId, AccountType.SAVING)
+        val account = Account(
+            userId = session.userId,
+            accountNumber = accountNumber,
+            accountType = AccountType.SAVING,
+            balance = initialDeposit,
+            currency = "VND",
+            interestRate = interestRate,
+            status = "ACTIVE",
+            payCycle = "$termMonths tháng",
+        )
+        val newId = accountRepository.createAccount(account)
+        return Result.success(account.copy(id = newId))
+    }
+
+    override suspend fun openCustomerMortgageAccount(
+        loanAmount: Long,
+        interestRate: Double,
+        termMonths: Int,
+        payCycle: String,
+        session: UserSession,
+    ): Result<Account> {
+        if (session.role != Role.CUSTOMER) {
+            return Result.failure(DomainError.Forbidden("Chỉ khách hàng mới có thể tự mở tài khoản vay tại mục này"))
+        }
+        if (loanAmount <= 0L) {
+            return Result.failure(DomainError.InvalidData("Số tiền vay phải lớn hơn 0"))
+        }
+        if (interestRate < 0.0 || interestRate > 25.0) {
+            return Result.failure(DomainError.InvalidData("Lãi suất vay phải từ 0.0% đến 25.0%"))
+        }
+        if (termMonths !in 1..360) {
+            return Result.failure(DomainError.InvalidData("Thời hạn vay phải từ 1 đến 360 tháng"))
+        }
+        val normalizedCycle = payCycle.trim().uppercase()
+        if (normalizedCycle != "MONTHLY" && normalizedCycle != "BIWEEKLY") {
+            return Result.failure(DomainError.InvalidData("Chu kỳ trả chỉ hỗ trợ MONTHLY hoặc BIWEEKLY"))
+        }
+
+        val totalPeriods = if (normalizedCycle == "BIWEEKLY") termMonths * 2 else termMonths
+        val periodicPrincipal = kotlin.math.ceil(loanAmount.toDouble() / totalPeriods.toDouble())
+            .toLong()
+            .coerceAtLeast(1L)
+
+        val accountNumber = nextUniqueAccountNumber(session.userId, AccountType.MORTGAGE)
+        val account = Account(
+            userId = session.userId,
+            accountNumber = accountNumber,
+            accountType = AccountType.MORTGAGE,
+            balance = loanAmount,
+            currency = "VND",
+            interestRate = interestRate,
+            status = "ACTIVE",
+            loanAmount = loanAmount,
+            monthlyPayment = periodicPrincipal,
+            payCycle = normalizedCycle,
+        )
+        val newId = accountRepository.createAccount(account)
+        return Result.success(account.copy(id = newId))
+    }
+
+    private suspend fun nextUniqueAccountNumber(userId: Long, type: AccountType): String {
+        val prefix = when (type) {
+            AccountType.CHECKING -> "100"
+            AccountType.SAVING -> "200"
+            AccountType.MORTGAGE -> "300"
+        }
+        val existing = accountRepository.getAccountsByUserIdSync(userId)
+        var seq = existing.size + 1
+        while (seq < 999) {
+            val candidate = prefix + String.format("%05d%02d", userId, seq)
+            if (existing.none { it.accountNumber == candidate } &&
+                accountRepository.getAccountByNumber(candidate) == null
+            ) {
+                return candidate
+            }
+            seq++
+        }
+        return prefix + (System.currentTimeMillis() % 10_000_000L).toString().padStart(7, '0')
     }
 }

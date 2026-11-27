@@ -90,4 +90,45 @@ class TransactionHistoryViewModelTest {
         assertNull(state.transaction)
         assertTrue(state.errorMessage?.contains("quyền") == true)
     }
+
+    @Test fun fuzzySearchMatchesAcrossAllTransactionFieldsIncludingTyposAndAccents() = runTest {
+        val transferId = db.transactionDao().insert(TransactionEntity(
+            fromAccountId = 1L,
+            toAccountId = 2L,
+            toAccountNo = "999888777",
+            amount = 750_000L,
+            type = TransactionType.INTERBANK_TRANSFER,
+            status = TransactionStatus.SUCCESS,
+            timestamp = 1_795_000_000_000L,
+            note = "Thanh toán tiền điện tháng 11 VNPay",
+        ))
+        val withdrawId = db.transactionDao().insert(TransactionEntity(
+            fromAccountId = 1L,
+            toAccountId = null,
+            amount = 200_000L,
+            type = TransactionType.WITHDRAWAL,
+            status = TransactionStatus.SUCCESS,
+            timestamp = 1_795_100_000_000L,
+            note = "Rút tiền mặt tại ATM Quận 1",
+        ))
+
+        val viewModel = TransactionHistoryViewModel(repository, sessions)
+        viewModel.uiState.first { !it.isLoading }
+
+        // Accent-insensitive + typo-tolerant note match
+        viewModel.setSearchQuery("dien vnpai")
+        assertEquals(listOf(transferId), viewModel.uiState.value.filteredTransactions.map { it.id })
+
+        // Match by destination account number
+        viewModel.setSearchQuery("999888")
+        assertEquals(listOf(transferId), viewModel.uiState.value.filteredTransactions.map { it.id })
+
+        // Match by Vietnamese type + amount
+        viewModel.setSearchQuery("rut tien 200000")
+        assertEquals(listOf(withdrawId), viewModel.uiState.value.filteredTransactions.map { it.id })
+
+        // Match by transaction ID
+        viewModel.setSearchQuery("#$transferId")
+        assertEquals(listOf(transferId), viewModel.uiState.value.filteredTransactions.map { it.id })
+    }
 }

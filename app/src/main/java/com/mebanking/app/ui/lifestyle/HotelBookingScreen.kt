@@ -50,6 +50,7 @@ import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.data.local.entity.lifestyle.HotelBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.HotelEntity
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.AccountSelectionCarousel
 import com.mebanking.app.ui.components.PrimaryActionButton
 import com.mebanking.app.ui.components.TonalFeedbackBanner
 import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
@@ -140,6 +141,7 @@ fun HotelBookingScreen(
             if (uiState.selectedTab == 0) {
                 HotelSearchAndBookContent(
                     uiState = uiState,
+                    onAccountSelected = viewModel::onAccountSelected,
                     onCitySelected = viewModel::onCitySelected,
                     onHotelSelected = viewModel::onHotelSelected,
                     onGuestNameChanged = viewModel::onGuestNameChanged,
@@ -159,6 +161,7 @@ fun HotelBookingScreen(
 @Composable
 private fun HotelSearchAndBookContent(
     uiState: HotelBookingUiState,
+    onAccountSelected: (Long) -> Unit,
     onCitySelected: (String) -> Unit,
     onHotelSelected: (HotelEntity) -> Unit,
     onGuestNameChanged: (String) -> Unit,
@@ -360,6 +363,14 @@ private fun HotelSearchAndBookContent(
                                     Text("+1", fontWeight = FontWeight.Bold)
                                 }
                             }
+                        }
+
+                        if (uiState.accounts.isNotEmpty()) {
+                            AccountSelectionCarousel(
+                                accounts = uiState.accounts,
+                                selectedAccountId = uiState.selectedAccountId,
+                                onAccountSelected = onAccountSelected,
+                            )
                         }
 
                         Row(

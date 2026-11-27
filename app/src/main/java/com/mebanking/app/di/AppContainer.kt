@@ -69,6 +69,7 @@ interface AppContainer {
     val chatbotService: ChatbotService
     val authenticationPolicy: TransactionAuthenticationPolicy
     val rememberedCustomerStore: com.mebanking.app.domain.service.RememberedCustomerStore
+    val savedContactStore: com.mebanking.app.domain.service.SavedContactStore
     val otpService: OtpService
     val nationalIdProtector: com.mebanking.app.data.local.security.NationalIdProtector
     val saveFaceImage: suspend (userId: Long, frameBytes: ByteArray, previousPath: String?) -> Result<String>

@@ -3,6 +3,7 @@ package com.mebanking.app.ui.services
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,8 +46,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,13 +56,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mebanking.app.ui.components.TopSearchAppBar
+import com.mebanking.app.ui.components.m3eBouncyPress
 import com.mebanking.app.ui.components.segmentedListItemShape
-import com.mebanking.app.ui.components.tonalTextFieldColors
 import com.mebanking.app.ui.theme.PastelPurplePrimary
 import com.mebanking.app.ui.theme.SynchronizedStatusBar
 import com.mebanking.app.ui.theme.TcbRedPrimary
@@ -227,27 +226,15 @@ fun ServicesScreen(
         }
     }
 
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
     Scaffold(
-        modifier = modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(
-                        text = "Dịch vụ & Tiện ích",
-                        fontWeight = FontWeight.Bold,
-                    )
-                },
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-                scrollBehavior = scrollBehavior,
+            TopSearchAppBar(
+                title = "Dịch vụ & Tiện ích",
+                query = searchQuery,
+                onQueryChange = { searchQuery = it },
+                placeholder = "Tìm kiếm dịch vụ (điện, vé bay, ATM...)",
             )
         },
     ) { innerPadding ->
@@ -259,49 +246,20 @@ fun ServicesScreen(
             contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 104.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Search & Filter Pills (Tonal, borderless)
+            // Filter Pills (Tonal, borderless)
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = { Text("Tìm kiếm dịch vụ (điện, vé bay, ATM...)") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Search,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        },
-                        trailingIcon = {
-                            if (searchQuery.isNotBlank()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = "Xóa tìm kiếm",
-                                    )
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(18.dp),
-                        colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        ServiceCategory.entries.forEach { cat ->
-                            FilterChip(
-                                selected = selectedCategory == cat,
-                                onClick = { selectedCategory = cat },
-                                label = { Text(cat.label, fontSize = 12.sp) },
-                            )
-                        }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    ServiceCategory.entries.forEach { cat ->
+                        FilterChip(
+                            selected = selectedCategory == cat,
+                            onClick = { selectedCategory = cat },
+                            label = { Text(cat.label, fontSize = 12.sp) },
+                        )
                     }
                 }
             }
@@ -430,12 +388,14 @@ private fun FeaturedServiceCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     Card(
         onClick = onClick,
+        interactionSource = interactionSource,
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = modifier,
+        modifier = modifier.m3eBouncyPress(interactionSource),
     ) {
         Row(
             modifier = Modifier
@@ -484,12 +444,16 @@ private fun SegmentedServiceRow(
     item: ServiceMenuItem,
     shape: RoundedCornerShape,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     Card(
         onClick = item.onClick,
+        interactionSource = interactionSource,
         shape = shape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .m3eBouncyPress(interactionSource, pressedScale = 0.98f),
     ) {
         Row(
             modifier = Modifier

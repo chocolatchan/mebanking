@@ -26,6 +26,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -63,6 +64,7 @@ import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contactless
+import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Flight
@@ -157,6 +159,8 @@ import com.mebanking.app.ui.theme.BankGoldDark
 import com.mebanking.app.ui.theme.BankGoldPrimary
 import com.mebanking.app.ui.theme.MEbankingTheme
 import com.mebanking.app.ui.theme.TcbRedPrimary
+import com.mebanking.app.ui.components.M3EMotion
+import com.mebanking.app.ui.components.m3eBouncyPress
 import com.mebanking.app.ui.theme.VcbGreenDark
 import com.mebanking.app.ui.theme.VcbGreenLight
 import com.mebanking.app.ui.theme.VcbGreenPrimary
@@ -182,6 +186,7 @@ fun HomeScreen(
     onNavigateToCinema: () -> Unit = {},
     onNavigateToShop: () -> Unit = {},
     onNavigateToTopup: () -> Unit = {},
+    onNavigateToContacts: () -> Unit = {},
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
     openQrTrigger: Int = 0,
@@ -208,6 +213,7 @@ fun HomeScreen(
         onNavigateToCinema = onNavigateToCinema,
         onNavigateToShop = onNavigateToShop,
         onNavigateToTopup = onNavigateToTopup,
+        onNavigateToContacts = onNavigateToContacts,
         onLogout = onLogout,
         isCustomer = isCustomer,
         openQrTrigger = openQrTrigger,
@@ -238,6 +244,7 @@ fun HomeScreen(
     onNavigateToCinema: () -> Unit = {},
     onNavigateToShop: () -> Unit = {},
     onNavigateToTopup: () -> Unit = {},
+    onNavigateToContacts: () -> Unit = {},
     onLogout: () -> Unit = {},
     isCustomer: Boolean = true,
     openQrTrigger: Int = 0,
@@ -324,6 +331,7 @@ fun HomeScreen(
 
     val toolbarBottomOffset by animateDpAsState(
         targetValue = if (isBottomBarVisible) 96.dp else 16.dp,
+        animationSpec = M3EMotion.spatialSpring(),
         label = "customerToolsToolbarBottomOffset",
     )
 
@@ -366,6 +374,7 @@ fun HomeScreen(
                     onNavigateToCinema = onNavigateToCinema,
                     onNavigateToShop = onNavigateToShop,
                     onNavigateToTopup = onNavigateToTopup,
+                    onNavigateToContacts = onNavigateToContacts,
                     isCustomer = isCustomer,
                 )
             }
@@ -417,6 +426,7 @@ private fun ModernAccountsContent(
     onNavigateToCinema: () -> Unit,
     onNavigateToShop: () -> Unit,
     onNavigateToTopup: () -> Unit,
+    onNavigateToContacts: () -> Unit,
     isCustomer: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -482,6 +492,7 @@ private fun ModernAccountsContent(
                 Spacer(Modifier.height(16.dp))
                 RecentRecipientsSection(
                     onRecipientClick = { account, name -> onNavigateToTransfer(account, name, null, null) },
+                    onViewContacts = onNavigateToContacts,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
@@ -898,6 +909,7 @@ private fun VipBankMasterCard(
 @Composable
 private fun RecentRecipientsSection(
     onRecipientClick: (String?, String?) -> Unit,
+    onViewContacts: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -913,7 +925,10 @@ private fun RecentRecipientsSection(
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { onRecipientClick(null, null) },
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onViewContacts() }
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
             ) {
                 Text(
                     text = "Xem danh bạ",
@@ -1365,6 +1380,7 @@ internal fun ModernBankingBottomBar(
                 BankingNavTab(0, "Trang chủ", Icons.Filled.Home),
                 BankingNavTab(1, "Lịch sử", Icons.Filled.History),
                 BankingNavTab(3, "Dịch vụ", Icons.Filled.Receipt),
+                BankingNavTab(6, "Liên hệ", Icons.Filled.Contacts),
             )
         } else {
             listOf(
@@ -1455,13 +1471,19 @@ internal fun BankingToolsFloatingToolbar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 tools.forEach { tool ->
+                    val toolInteraction = remember { MutableInteractionSource() }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                         modifier = Modifier
                             .size(width = 80.dp, height = 46.dp)
+                            .m3eBouncyPress(toolInteraction, pressedScale = 0.92f)
                             .clip(CircleShape)
-                            .clickable(onClick = tool.onClick),
+                            .clickable(
+                                interactionSource = toolInteraction,
+                                indication = null,
+                                onClick = tool.onClick,
+                            ),
                     ) {
                         Icon(
                             imageVector = tool.icon,
@@ -1483,13 +1505,17 @@ internal fun BankingToolsFloatingToolbar(
             }
         }
 
+        val fabInteraction = remember { MutableInteractionSource() }
         FloatingActionButton(
             onClick = if (isCustomer) onOpenQr else onOfficerDashboard,
+            interactionSource = fabInteraction,
             shape = RoundedCornerShape(18.dp),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp),
-            modifier = Modifier.size(56.dp),
+            modifier = Modifier
+                .size(56.dp)
+                .m3eBouncyPress(fabInteraction, pressedScale = 0.90f),
         ) {
             Icon(
                 imageVector = if (isCustomer) Icons.Filled.QrCodeScanner else Icons.Filled.SupervisorAccount,

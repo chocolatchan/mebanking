@@ -37,11 +37,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
@@ -63,6 +63,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mebanking.app.MEbankingApplication
+import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.tonalTextFieldColors
 import com.mebanking.app.ui.ekyc.FaceCaptureDialog
 
 @Composable
@@ -176,12 +178,13 @@ private fun OfficerDashboardContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                OutlinedTextField(
+                TextField(
                     value = state.query,
                     onValueChange = onQueryChanged,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Tìm theo CCCD hoặc họ tên") },
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = tonalTextFieldColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                     singleLine = true,
                 )
             }
@@ -417,11 +420,13 @@ private fun OfficerDashboardContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    OutlinedTextField(
+                    TextField(
                         value = editingRateInput,
                         onValueChange = { editingRateInput = it },
                         label = { Text("Lãi suất mới (%/năm, tối đa 15.0%)") },
                         singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = tonalTextFieldColors(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -571,47 +576,59 @@ private fun CustomerProfileDialogCard(
                     }
                 }
                 if (state.isCreating) {
-                    OutlinedTextField(
+                    TextField(
                         value = state.username,
                         onValueChange = onUsername,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Tên đăng nhập") },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = tonalTextFieldColors(),
                         singleLine = true,
                     )
-                    OutlinedTextField(
+                    TextField(
                         value = state.password,
                         onValueChange = onPassword,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Mật khẩu tạm (tối thiểu 8 ký tự)") },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = tonalTextFieldColors(),
                         singleLine = true,
                     )
                 }
-                OutlinedTextField(
+                TextField(
                     value = state.fullName,
                     onValueChange = onName,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Họ và tên") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     singleLine = true,
                 )
-                OutlinedTextField(
+                TextField(
                     value = state.nationalId,
                     onValueChange = onNationalId,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("CCCD (12 số)") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     singleLine = true,
                 )
-                OutlinedTextField(
+                TextField(
                     value = state.email,
                     onValueChange = onEmail,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Email") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     singleLine = true,
                 )
-                OutlinedTextField(
+                TextField(
                     value = state.phone,
                     onValueChange = onPhone,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Số điện thoại (định danh đăng nhập)") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     singleLine = true,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -799,41 +816,59 @@ private fun CreateSavingAccountDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tạo tài khoản Tiết kiệm") },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(24.dp),
+        title = { Text("Tạo tài khoản Tiết kiệm", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextField(
                     value = depositInput,
                     onValueChange = { depositInput = it.filter(Char::isDigit) },
                     label = { Text("Tiền gửi ban đầu (VND)") },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                TextField(
                     value = rateInput,
                     onValueChange = { rateInput = it },
                     label = { Text("Lãi suất năm (%/năm, 0.0 - 15.0)") },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                TextField(
                     value = termInput,
                     onValueChange = { termInput = it.filter(Char::isDigit) },
                     label = { Text("Kỳ hạn (tháng, 1 - 120)") },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("6" to "6 tháng", "12" to "12 tháng", "24" to "24 tháng").forEach { (m, lbl) ->
+                        FilterChip(
+                            selected = termInput == m,
+                            onClick = { termInput = m },
+                            label = { Text(lbl) },
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = { onConfirm(depositInput, rateInput, termInput) },
                 enabled = !isLoading,
+                shape = RoundedCornerShape(14.dp),
             ) {
-                Text("Tạo TK Tiết kiệm")
+                Text("Tạo TK Tiết kiệm", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -855,30 +890,38 @@ private fun CreateMortgageAccountDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tạo tài khoản Vay (Mortgage)") },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(24.dp),
+        title = { Text("Tạo tài khoản Vay (Mortgage)", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextField(
                     value = loanInput,
                     onValueChange = { loanInput = it.filter(Char::isDigit) },
                     label = { Text("Số tiền vay (VND)") },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                TextField(
                     value = rateInput,
                     onValueChange = { rateInput = it },
                     label = { Text("Lãi suất năm (%/năm)") },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                TextField(
                     value = termInput,
                     onValueChange = { termInput = it.filter(Char::isDigit) },
                     label = { Text("Thời hạn vay (tháng)") },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -904,8 +947,9 @@ private fun CreateMortgageAccountDialog(
             Button(
                 onClick = { onConfirm(loanInput, rateInput, termInput, selectedCycle) },
                 enabled = !isLoading,
+                shape = RoundedCornerShape(14.dp),
             ) {
-                Text("Tạo khoản vay")
+                Text("Tạo khoản vay", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -926,23 +970,27 @@ private fun MortgagePaymentDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Thanh toán dư nợ Mortgage") },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(24.dp),
+        title = { Text("Thanh toán dư nợ Mortgage", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Dư nợ còn lại: ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(account.balance)}",
+                    text = "Dư nợ còn lại: ${CurrencyFormatter.formatVnd(account.balance)}",
                     style = MaterialTheme.typography.bodySmall,
                 )
-                OutlinedTextField(
+                TextField(
                     value = amountInput,
                     onValueChange = { amountInput = it.filter(Char::isDigit) },
                     label = { Text("Số tiền thanh toán (VND)") },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = tonalTextFieldColors(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 TextButton(onClick = { amountInput = account.balance.toString() }) {
-                    Text("Điền toàn bộ dư nợ (${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(account.balance)})")
+                    Text("Điền toàn bộ dư nợ (${CurrencyFormatter.formatVnd(account.balance)})")
                 }
             }
         },
@@ -950,8 +998,9 @@ private fun MortgagePaymentDialog(
             Button(
                 onClick = { onConfirm(amountInput) },
                 enabled = !isLoading,
+                shape = RoundedCornerShape(14.dp),
             ) {
-                Text("Xác nhận thanh toán")
+                Text("Xác nhận thanh toán", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

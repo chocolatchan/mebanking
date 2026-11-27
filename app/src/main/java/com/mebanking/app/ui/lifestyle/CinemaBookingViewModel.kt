@@ -7,6 +7,7 @@ import com.mebanking.app.data.local.entity.lifestyle.CinemaShowtimeEntity
 import com.mebanking.app.data.local.entity.lifestyle.MovieEntity
 import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.lifestyle.CinemaRepository
+import com.mebanking.app.domain.model.Account
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +19,8 @@ import kotlinx.coroutines.launch
 
 data class CinemaBookingUiState(
     val selectedTab: Int = 0,
+    val accounts: List<Account> = emptyList(),
+    val selectedAccountId: Long? = null,
     val movies: List<MovieEntity> = emptyList(),
     val selectedMovie: MovieEntity? = null,
     val showtimes: List<CinemaShowtimeEntity> = emptyList(),
@@ -49,6 +52,24 @@ class CinemaBookingViewModel(
     init {
         loadMovies()
         observeUserBookings()
+        observeAccounts()
+    }
+
+    private fun observeAccounts() {
+        viewModelScope.launch {
+            observeActivePaymentAccounts(sessionManager, accountRepository).collectLatest { accounts ->
+                _uiState.update { current ->
+                    current.copy(
+                        accounts = accounts,
+                        selectedAccountId = resolvePaymentAccountId(accounts, current.selectedAccountId),
+                    )
+                }
+            }
+        }
+    }
+
+    fun onAccountSelected(accountId: Long) {
+        _uiState.update { it.copy(selectedAccountId = accountId, errorMessage = null) }
     }
 
     fun onTabSelected(index: Int) {
@@ -171,6 +192,7 @@ class CinemaBookingViewModel(
                 transactionService = transactionService,
                 amountVnd = currentState.totalPriceVnd,
                 note = "Vé xem phim $movieTitle (Ghế $seatsLabel)",
+                selectedAccountId = currentState.selectedAccountId,
             )
             if (debitResult.isFailure) {
                 _uiState.update {

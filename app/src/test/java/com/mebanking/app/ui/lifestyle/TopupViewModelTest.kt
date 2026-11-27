@@ -122,4 +122,13 @@ class TopupViewModelTest {
         assertNotNull(state.errorMessage)
         assertTrue(state.errorMessage!!.contains("Không tìm thấy hóa đơn"))
     }
+
+    @Test
+    fun onAccountSelected_updatesSelectedAccountId() {
+        val viewModel = TopupViewModel(fakeSessionManager)
+        assertNull(viewModel.uiState.value.selectedAccountId)
+
+        viewModel.onAccountSelected(42L)
+        assertEquals(42L, viewModel.uiState.value.selectedAccountId)
+    }
 }

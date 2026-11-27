@@ -6,6 +6,7 @@ import com.mebanking.app.data.local.entity.lifestyle.FlightBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.FlightEntity
 import com.mebanking.app.data.repository.AccountRepository
 import com.mebanking.app.data.repository.lifestyle.FlightRepository
+import com.mebanking.app.domain.model.Account
 import com.mebanking.app.domain.service.SessionManager
 import com.mebanking.app.domain.service.TransactionService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,8 @@ import kotlinx.coroutines.launch
 
 data class FlightBookingUiState(
     val selectedTab: Int = 0, // 0 = Search & Book, 1 = My Bookings
+    val accounts: List<Account> = emptyList(),
+    val selectedAccountId: Long? = null,
     val departureAirport: String = "",
     val arrivalAirport: String = "",
     val flights: List<FlightEntity> = emptyList(),
@@ -51,6 +54,24 @@ class FlightBookingViewModel(
     init {
         loadFlights()
         observeBookings()
+        observeAccounts()
+    }
+
+    private fun observeAccounts() {
+        viewModelScope.launch {
+            observeActivePaymentAccounts(sessionManager, accountRepository).collectLatest { accounts ->
+                _uiState.update { current ->
+                    current.copy(
+                        accounts = accounts,
+                        selectedAccountId = resolvePaymentAccountId(accounts, current.selectedAccountId),
+                    )
+                }
+            }
+        }
+    }
+
+    fun onAccountSelected(accountId: Long) {
+        _uiState.update { it.copy(selectedAccountId = accountId, errorMessage = null) }
     }
 
     fun onTabSelected(index: Int) {
@@ -133,6 +154,7 @@ class FlightBookingViewModel(
                 transactionService = transactionService,
                 amountVnd = currentState.calculatedPriceVnd,
                 note = "Đặt vé máy bay ${flight.flightNumber} (${flight.departureAirport}-${flight.arrivalAirport})",
+                selectedAccountId = currentState.selectedAccountId,
             )
             if (debitResult.isFailure) {
                 _uiState.update {

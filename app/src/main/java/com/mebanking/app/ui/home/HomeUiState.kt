@@ -12,6 +12,9 @@ data class HomeUiState(
     val isUpdatingEkyc: Boolean = false,
     val ekycNotice: String? = null,
     val ekycError: String? = null,
+    val isOpeningAccount: Boolean = false,
+    val accountOpenNotice: String? = null,
+    val accountOpenError: String? = null,
     val errorMessage: String? = null,
 ) {
     val totalBalance: Long

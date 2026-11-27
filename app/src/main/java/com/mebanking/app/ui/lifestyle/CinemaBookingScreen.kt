@@ -55,6 +55,7 @@ import com.mebanking.app.data.local.entity.lifestyle.CinemaBookingEntity
 import com.mebanking.app.data.local.entity.lifestyle.CinemaShowtimeEntity
 import com.mebanking.app.data.local.entity.lifestyle.MovieEntity
 import com.mebanking.app.domain.util.CurrencyFormatter
+import com.mebanking.app.ui.components.AccountSelectionCarousel
 import com.mebanking.app.ui.components.PrimaryActionButton
 import com.mebanking.app.ui.components.TonalFeedbackBanner
 import com.mebanking.app.ui.components.rememberServicePaymentAuthGate
@@ -144,6 +145,7 @@ fun CinemaBookingScreen(
             if (uiState.selectedTab == 0) {
                 CinemaSeatSelectionContent(
                     uiState = uiState,
+                    onAccountSelected = viewModel::onAccountSelected,
                     onMovieSelected = viewModel::onMovieSelected,
                     onShowtimeSelected = viewModel::onShowtimeSelected,
                     onToggleSeat = viewModel::toggleSeat,
@@ -162,6 +164,7 @@ fun CinemaBookingScreen(
 @Composable
 private fun CinemaSeatSelectionContent(
     uiState: CinemaBookingUiState,
+    onAccountSelected: (Long) -> Unit,
     onMovieSelected: (MovieEntity) -> Unit,
     onShowtimeSelected: (CinemaShowtimeEntity) -> Unit,
     onToggleSeat: (String) -> Unit,
@@ -378,6 +381,14 @@ private fun CinemaSeatSelectionContent(
                                 if (uiState.selectedSeats.isEmpty()) "Chưa chọn ghế"
                                 else uiState.selectedSeats.sorted().joinToString(", "),
                                 fontWeight = FontWeight.Bold,
+                            )
+                        }
+
+                        if (uiState.accounts.isNotEmpty()) {
+                            AccountSelectionCarousel(
+                                accounts = uiState.accounts,
+                                selectedAccountId = uiState.selectedAccountId,
+                                onAccountSelected = onAccountSelected,
                             )
                         }
 
