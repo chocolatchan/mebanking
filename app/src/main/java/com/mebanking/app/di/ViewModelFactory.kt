@@ -80,6 +80,7 @@ class ViewModelFactory(
                     customerService = container.officerCustomerService,
                     sessionManager = container.sessionManager,
                     faceRecognitionService = container.faceRecognitionService,
+                    accountService = container.accountService,
                 ) as T
             }
             modelClass.isAssignableFrom(BillPaymentViewModel::class.java) -> {

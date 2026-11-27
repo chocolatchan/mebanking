@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalance
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,14 +48,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +82,7 @@ import com.mebanking.app.MEbankingApplication
 import com.mebanking.app.domain.model.Account
 import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.model.MortgageAccountDetails
+import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.util.CurrencyFormatter
 import com.mebanking.app.ui.common.label
 import com.mebanking.app.ui.theme.MEbankingTheme
@@ -98,6 +108,7 @@ fun AccountDetailScreen(
         onBack = onBack,
         onToggleOtt = viewModel::toggleOtt,
         onToggleBiometric = viewModel::toggleBiometric,
+        onUpdateInterestRate = viewModel::updateInterestRate,
         modifier = modifier,
     )
 }
@@ -109,6 +120,7 @@ fun AccountDetailContent(
     onBack: () -> Unit,
     onToggleOtt: () -> Unit = {},
     onToggleBiometric: () -> Unit = {},
+    onUpdateInterestRate: (Long, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val isDark = isSystemInDarkTheme()
@@ -228,6 +240,11 @@ fun AccountDetailContent(
                             account = uiState.account,
                             profit = uiState.savingProfit,
                             formulaNotice = uiState.formulaNotice,
+                            canEditInterestRate = uiState.userSession?.role == Role.OFFICER,
+                            rateNotice = uiState.rateNotice,
+                            onUpdateInterestRate = { newRate ->
+                                onUpdateInterestRate(uiState.account.id, newRate)
+                            },
                         )
                     }
                 }
@@ -731,7 +748,13 @@ private fun SavingCard(
     account: Account,
     profit: Long?,
     formulaNotice: String?,
+    canEditInterestRate: Boolean = false,
+    rateNotice: String? = null,
+    onUpdateInterestRate: (String) -> Unit = {},
 ) {
+    var showEditRateDialog by remember { mutableStateOf(false) }
+    var rateInput by remember(account.interestRate) { mutableStateOf(account.interestRate.toString()) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -739,10 +762,35 @@ private fun SavingCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("Thông tin tiết kiệm", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Thông tin tiết kiệm", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                if (canEditInterestRate) {
+                    OutlinedButton(
+                        onClick = {
+                            rateInput = account.interestRate.toString()
+                            showEditRateDialog = true
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Text("Sửa lãi suất", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
             Spacer(Modifier.height(8.dp))
             DetailRow("Lãi suất năm", "${account.interestRate}%")
             DetailRow("Trạng thái", account.status)
+            rateNotice?.let { notice ->
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = notice,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
             Spacer(Modifier.height(12.dp))
             if (profit != null) {
                 DetailRow("Lợi nhuận tháng", CurrencyFormatter.formatVnd(profit))
@@ -771,6 +819,38 @@ private fun SavingCard(
                 }
             }
         }
+    }
+
+    if (showEditRateDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditRateDialog = false },
+            title = { Text("Điều chỉnh lãi suất tiết kiệm") },
+            text = {
+                OutlinedTextField(
+                    value = rateInput,
+                    onValueChange = { rateInput = it },
+                    label = { Text("Lãi suất mới (%/năm, tối đa 15.0%)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateInterestRate(rateInput)
+                        showEditRateDialog = false
+                    },
+                ) {
+                    Text("Lưu lãi suất")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditRateDialog = false }) {
+                    Text("Hủy")
+                }
+            },
+        )
     }
 }
 

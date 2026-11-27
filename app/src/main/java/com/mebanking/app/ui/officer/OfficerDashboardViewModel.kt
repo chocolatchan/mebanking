@@ -6,6 +6,8 @@ import com.mebanking.app.domain.model.Account
 import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.User
+import com.mebanking.app.domain.service.AccountService
+import com.mebanking.app.domain.service.FaceRecognitionService
 import com.mebanking.app.domain.service.OfficerCustomerService
 import com.mebanking.app.domain.service.SessionManager
 import kotlinx.coroutines.CancellationException
@@ -15,8 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-import com.mebanking.app.domain.service.FaceRecognitionService
 
 data class OfficerDashboardUiState(
     val isLoading: Boolean = false,
@@ -41,6 +41,7 @@ class OfficerDashboardViewModel(
     private val customerService: OfficerCustomerService,
     private val sessionManager: SessionManager,
     private val faceRecognitionService: FaceRecognitionService? = null,
+    private val accountService: AccountService? = null,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(OfficerDashboardUiState())
     val uiState: StateFlow<OfficerDashboardUiState> = _uiState.asStateFlow()
@@ -178,6 +179,50 @@ class OfficerDashboardViewModel(
                 )
             } catch (error: CancellationException) { throw error }
             catch (_: Exception) { _uiState.update { it.copy(isLoading = false, errorMessage = "Không thể lưu hồ sơ khách hàng") } }
+        }
+    }
+
+    fun updateInterestRate(accountId: Long, rawRate: String) {
+        val session = sessionManager.currentSession
+        if (session?.role != Role.OFFICER) {
+            _uiState.update { it.copy(errorMessage = "Chỉ cán bộ ngân hàng mới có quyền điều chỉnh lãi suất") }
+            return
+        }
+        val service = accountService ?: run {
+            _uiState.update { it.copy(errorMessage = "Dịch vụ tài khoản không khả dụng") }
+            return
+        }
+        val parsedRate = rawRate.trim().replace(',', '.').toDoubleOrNull()
+        if (parsedRate == null || parsedRate.isNaN() || parsedRate.isInfinite()) {
+            _uiState.update { it.copy(errorMessage = "Lãi suất không hợp lệ (ví dụ: 5.8)") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+            service.modifySavingInterestRate(accountId, parsedRate, session).fold(
+                onSuccess = { updated ->
+                    _uiState.update { state ->
+                        val updatedList = state.selectedCustomerAccounts.map { acc ->
+                            if (acc.id == updated.id) updated else acc
+                        }
+                        state.copy(
+                            isLoading = false,
+                            selectedCustomerAccounts = updatedList,
+                            successMessage = "Đã cập nhật lãi suất TK ${updated.accountNumber} thành ${updated.interestRate}%/năm",
+                            errorMessage = null,
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = error.message ?: "Không thể cập nhật lãi suất",
+                        )
+                    }
+                },
+            )
         }
     }
 

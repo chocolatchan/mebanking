@@ -6,6 +6,7 @@ import com.mebanking.app.domain.model.Account
 import com.mebanking.app.domain.model.AccountType
 import com.mebanking.app.domain.model.DomainError
 import com.mebanking.app.domain.model.MortgageAccountDetails
+import com.mebanking.app.domain.model.Role
 import com.mebanking.app.domain.model.UserSession
 import com.mebanking.app.domain.model.toDomainError
 import com.mebanking.app.domain.service.AccountService
@@ -25,6 +26,7 @@ data class AccountDetailUiState(
     val savingProfit: Long? = null,
     val formulaNotice: String? = null,
     val errorMessage: String? = null,
+    val rateNotice: String? = null,
     val dailyLimit: Long = 500_000_000L,
     val singleLimit: Long = 100_000_000L,
     val atmLimit: Long = 50_000_000L,
@@ -156,5 +158,34 @@ class AccountDetailViewModel(
 
     fun toggleBiometric() {
         _uiState.update { it.copy(isBiometricEnabled = !it.isBiometricEnabled) }
+    }
+
+    fun updateInterestRate(accountId: Long, rawRate: String) {
+        val session = sessionManager.currentSession
+        if (session?.role != Role.OFFICER) {
+            _uiState.update { it.copy(rateNotice = "Chỉ cán bộ ngân hàng mới có quyền điều chỉnh lãi suất") }
+            return
+        }
+        val parsedRate = rawRate.trim().replace(',', '.').toDoubleOrNull()
+        if (parsedRate == null || parsedRate.isNaN() || parsedRate.isInfinite()) {
+            _uiState.update { it.copy(rateNotice = "Lãi suất không hợp lệ (ví dụ: 5.8)") }
+            return
+        }
+        viewModelScope.launch {
+            accountService.modifySavingInterestRate(accountId, parsedRate, session)
+                .onSuccess { updated ->
+                    _uiState.update {
+                        it.copy(
+                            account = updated,
+                            rateNotice = "Đã cập nhật lãi suất thành ${updated.interestRate}%/năm",
+                        )
+                    }
+                }
+                .onFailure { throwable ->
+                    _uiState.update {
+                        it.copy(rateNotice = throwable.toDomainError().message ?: "Không thể điều chỉnh lãi suất")
+                    }
+                }
+        }
     }
 }

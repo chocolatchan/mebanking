@@ -17,9 +17,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,6 +45,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +78,7 @@ fun OfficerDashboardScreen(onBack: () -> Unit) {
         onSave = viewModel::save,
         onEnrollFace = { customerId, frame -> viewModel.enrollFaceBiometrics(customerId, frame) },
         onOpenAccount = viewModel::openAccountForSelectedCustomer,
+        onUpdateInterestRate = viewModel::updateInterestRate,
     )
 }
 
@@ -96,8 +100,11 @@ private fun OfficerDashboardContent(
     onSave: () -> Unit,
     onEnrollFace: (Long, ByteArray) -> Unit = { _, _ -> },
     onOpenAccount: (com.mebanking.app.domain.model.AccountType) -> Unit = {},
+    onUpdateInterestRate: (Long, String) -> Unit = { _, _ -> },
 ) {
     var enrollingCustomerId by remember { mutableStateOf<Long?>(null) }
+    var editingRateAccount by remember { mutableStateOf<com.mebanking.app.domain.model.Account?>(null) }
+    var editingRateInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val isDark = isSystemInDarkTheme()
@@ -247,10 +254,36 @@ private fun OfficerDashboardContent(
                                 )
                             } else {
                                 state.selectedCustomerAccounts.forEach { acc ->
-                                    Text(
-                                        text = "• ${acc.accountNumber} (${acc.accountType.name}) — ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(acc.balance)} [${acc.status}]",
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "• ${acc.accountNumber} (${acc.accountType.name}) — ${com.mebanking.app.domain.util.CurrencyFormatter.formatVnd(acc.balance)} [${acc.status}]",
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                            if (acc.accountType != com.mebanking.app.domain.model.AccountType.MORTGAGE) {
+                                                Text(
+                                                    text = "  Lãi suất: ${acc.interestRate}%/năm",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                )
+                                            }
+                                        }
+                                        if (acc.accountType != com.mebanking.app.domain.model.AccountType.MORTGAGE) {
+                                            TextButton(
+                                                onClick = {
+                                                    editingRateAccount = acc
+                                                    editingRateInput = acc.interestRate.toString()
+                                                },
+                                                enabled = !state.isLoading,
+                                            ) {
+                                                Text("Sửa lãi suất")
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             Row(
@@ -312,6 +345,46 @@ private fun OfficerDashboardContent(
             },
             onDismiss = {
                 enrollingCustomerId = null
+            },
+        )
+    }
+
+    editingRateAccount?.let { targetAcc ->
+        AlertDialog(
+            onDismissRequest = { editingRateAccount = null },
+            title = { Text("Điều chỉnh lãi suất") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Tài khoản ${targetAcc.accountNumber} (${targetAcc.accountType.name})",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = editingRateInput,
+                        onValueChange = { editingRateInput = it },
+                        label = { Text("Lãi suất mới (%/năm, tối đa 15.0%)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateInterestRate(targetAcc.id, editingRateInput)
+                        editingRateAccount = null
+                    },
+                    enabled = !state.isLoading,
+                ) {
+                    Text("Lưu lãi suất")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingRateAccount = null }) {
+                    Text("Hủy")
+                }
             },
         )
     }
